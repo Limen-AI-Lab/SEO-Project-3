@@ -1,12 +1,101 @@
 
 import React, { useState, useEffect } from 'react';
-import { Article, ProjectStatus, Campaign, ARTICLE_STATUS } from '../types';
+import { Article, ProjectStatus, Campaign, ARTICLE_STATUS, Comment, ContentBlock } from '../types';
 import supabase from '../services/supabaseClient.js';
 import { ArrowLeft, Check, Lock, PlayCircle, ChevronRight, Home } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import StageTitles from './StageTitles';
 import StageOutline from './StageOutline';
 import StageDraft from './StageDraft';
+
+/**
+ * Parse client_comments from database (object format from Client Portal)
+ * to Comment[] array format expected by Agency Portal components
+ * 
+ * @param rawComments - Raw client_comments from database
+ * @param draftBlocks - Structured draft blocks for looking up referenced content
+ */
+function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Comment[] {
+  if (!rawComments) return [];
+  
+  // Already in array format (backward compatible)
+  if (Array.isArray(rawComments)) {
+    return rawComments.map((c: any) => ({
+      ...c,
+      timestamp: c.timestamp instanceof Date ? c.timestamp : new Date(c.timestamp)
+    }));
+  }
+  
+  // Convert object format (from Client Portal) to array format
+  const comments: Comment[] = [];
+  const reviewer = rawComments.reviewer || 'Client';
+  const timestamp = rawComments.timestamp ? new Date(rawComments.timestamp) : new Date();
+  
+  // Add general comments first (most important)
+  if (rawComments.generalComments && rawComments.generalComments.trim()) {
+    comments.push({
+      id: `general-${Date.now()}`,
+      author: reviewer,
+      text: rawComments.generalComments,
+      timestamp
+    });
+  }
+  
+  // Add section comments (from outline review)
+  if (rawComments.sectionComments && Array.isArray(rawComments.sectionComments)) {
+    rawComments.sectionComments.forEach((sc: any, index: number) => {
+      if (sc.text && sc.text.trim()) {
+        comments.push({
+          id: `section-${index}-${Date.now()}`,
+          author: reviewer,
+          text: sc.targetId ? `[段落 ${sc.targetId}] ${sc.text}` : sc.text,
+          timestamp
+        });
+      }
+    });
+  }
+  
+  // Add content comments (from draft review) - with block content lookup
+  if (rawComments.contentComments && Array.isArray(rawComments.contentComments)) {
+    rawComments.contentComments.forEach((cc: any, index: number) => {
+      if (cc.text && cc.text.trim()) {
+        // Try to find the referenced block's content
+        let preview = cc.targetId || '';
+        if (draftBlocks && cc.targetId) {
+          const referencedBlock = draftBlocks.find(block => block.id === cc.targetId);
+          if (referencedBlock && referencedBlock.content) {
+            // Show first 30 characters of the referenced content
+            const contentPreview = referencedBlock.content.substring(0, 30);
+            preview = contentPreview + (referencedBlock.content.length > 30 ? '...' : '');
+          }
+        }
+        
+        comments.push({
+          id: `content-${index}-${Date.now()}`,
+          author: reviewer,
+          text: preview ? `[${preview}] ${cc.text}` : cc.text,
+          timestamp
+        });
+      }
+    });
+  }
+  
+  // Add title notes (from title review)
+  if (rawComments.titleNotes && typeof rawComments.titleNotes === 'object') {
+    Object.entries(rawComments.titleNotes).forEach(([titleId, note]: [string, any]) => {
+      if (note && String(note).trim()) {
+        comments.push({
+          id: `title-${titleId}-${Date.now()}`,
+          author: reviewer,
+          text: `[标题备注] ${note}`,
+          timestamp
+        });
+      }
+    });
+  }
+  
+  return comments;
+}
 
 interface Props {
   articleId: string;
@@ -45,6 +134,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       }
 
       // Map database fields to Article interface
+      const draftBlocks = articleData.draft_blocks || undefined;
       const mappedArticle: Article = {
         id: articleData.id,
         campaignId: articleData.campaign_id,
@@ -55,14 +145,15 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         selectedTitle: articleData.selected_title || undefined,
         outlineContent: articleData.outline_content || undefined,
         draftContent: articleData.draft_content || undefined,
-        clientComments: articleData.client_comments ? (Array.isArray(articleData.client_comments) ? articleData.client_comments : []) : []
+        draftBlocks: draftBlocks,
+        clientComments: parseClientComments(articleData.client_comments, draftBlocks)
       };
       setArticle(mappedArticle);
 
-      // Fetch campaign from Supabase
+      // Fetch campaign from Supabase (without client relationship)
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
-        .select('*, clients(name)')
+        .select('*')
         .eq('id', mappedArticle.campaignId)
         .single();
 
@@ -79,14 +170,25 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         return;
       }
 
+      // Fetch associated clients through campaign_clients junction table
+      const { data: clientAssociations } = await supabase
+        .from('campaign_clients')
+        .select('clients(name)')
+        .eq('campaign_id', campaignData.id);
+
+      const clientNames = (clientAssociations || [])
+        .filter((assoc: any) => assoc.clients)
+        .map((assoc: any) => assoc.clients.name)
+        .join(', ');
+
       // Map database fields to Campaign interface
       const mappedCampaign: Campaign = {
         id: campaignData.id,
         name: campaignData.name,
-        clientName: campaignData.clients?.name || '',
+        clientName: clientNames || 'Unknown Client',
         strategyGoals: campaignData.strategy_goals || '',
-        targetAudience: '', // Not in DB schema yet
-        keywords: [], // Not in DB schema yet
+        targetAudience: '',
+        keywords: [],
         createdAt: new Date(campaignData.created_at),
         status: 'ACTIVE' as const
       };
@@ -161,8 +263,14 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       if (updates.outlineContent !== undefined) {
         dbUpdates.outline_content = updates.outlineContent || null;
       }
+      if (updates.outlineSections !== undefined) {
+        dbUpdates.outline_sections = updates.outlineSections || null;
+      }
       if (updates.draftContent !== undefined) {
         dbUpdates.draft_content = updates.draftContent || null;
+      }
+      if (updates.draftBlocks !== undefined) {
+        dbUpdates.draft_blocks = updates.draftBlocks || null;
       }
       if (updates.clientComments !== undefined) {
         dbUpdates.client_comments = updates.clientComments;
@@ -232,13 +340,14 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
   const renderStage = () => {
     const statusStr = typeof article.status === 'string' ? article.status : article.status;
     
-    // Stage 1: Titles
+    // Stage 1: Titles (including title revision)
     if (
-      statusStr === ProjectStatus.NEEDS_TITLES || 
       statusStr === ARTICLE_STATUS.NEEDS_TITLES ||
-      statusStr === ProjectStatus.AWAITING_TITLE_APPROVAL ||
       statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES ||
-      statusStr === ARTICLE_STATUS.NEEDS_REVISION // If revision needed during title stage
+      statusStr === ARTICLE_STATUS.NEEDS_TITLES_REVISION ||
+      statusStr === 'NEEDS_TITLES' ||
+      statusStr === 'AWAITING_REVIEW_TITLES' ||
+      statusStr === 'NEEDS_TITLES_REVISION'
     ) {
       return (
         <div className="h-full overflow-y-auto p-8">
@@ -251,15 +360,16 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       );
     }
 
-    // Stage 2: Outline
+    // Stage 2: Outline (after titles approved, including outline revision)
     if (
-      statusStr === ProjectStatus.TITLES_APPROVED || 
       statusStr === ARTICLE_STATUS.TITLES_APPROVED ||
-      statusStr === ProjectStatus.NEEDS_OUTLINE ||
-      statusStr === ProjectStatus.OUTLINE_APPROVED ||
-      statusStr === ARTICLE_STATUS.OUTLINE_APPROVED ||
-      statusStr === ProjectStatus.AWAITING_OUTLINE_APPROVAL ||
-      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE
+      statusStr === ARTICLE_STATUS.NEEDS_OUTLINE ||
+      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE ||
+      statusStr === ARTICLE_STATUS.NEEDS_OUTLINE_REVISION ||
+      statusStr === 'TITLES_APPROVED' ||
+      statusStr === 'NEEDS_OUTLINE' ||
+      statusStr === 'AWAITING_REVIEW_OUTLINE' ||
+      statusStr === 'NEEDS_OUTLINE_REVISION'
     ) {
       return (
         <div className="h-full overflow-y-auto p-8">
@@ -271,12 +381,39 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       );
     }
 
-    // Stage 3: Draft (Fallthrough for NEEDS_DRAFT and beyond)
-    // Use full width fluid layout
+    // Stage 3: Draft (after outline approved, including draft revision)
+    // Note: NEEDS_REVISION (deprecated) is kept for backward compatibility and treated as draft revision
+    if (
+      statusStr === ARTICLE_STATUS.OUTLINE_APPROVED ||
+      statusStr === ARTICLE_STATUS.NEEDS_DRAFT ||
+      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_DRAFT ||
+      statusStr === ARTICLE_STATUS.DRAFT_APPROVED ||
+      statusStr === ARTICLE_STATUS.NEEDS_DRAFT_REVISION ||
+      statusStr === ARTICLE_STATUS.NEEDS_REVISION || // Deprecated, kept for backward compatibility
+      statusStr === 'OUTLINE_APPROVED' ||
+      statusStr === 'NEEDS_DRAFT' ||
+      statusStr === 'AWAITING_REVIEW_DRAFT' ||
+      statusStr === 'DRAFT_APPROVED' ||
+      statusStr === 'NEEDS_DRAFT_REVISION' ||
+      statusStr === 'NEEDS_REVISION' || // Deprecated
+      statusStr === 'PUBLISHED'
+    ) {
+      return (
+        <div className="h-full w-full overflow-hidden p-4 bg-slate-100">
+          <StageDraft 
+            project={article} 
+            onUpdate={handleUpdate} 
+          />
+        </div>
+      );
+    }
+
+    // Fallback: Default to titles stage
     return (
-      <div className="h-full w-full overflow-hidden p-4 bg-slate-100">
-        <StageDraft 
+      <div className="h-full overflow-y-auto p-8">
+        <StageTitles 
           project={article} 
+          campaign={campaign}
           onUpdate={handleUpdate} 
         />
       </div>
@@ -308,7 +445,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
               <ArrowLeft size={20} />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-slate-900 leading-tight">{article.title}</h1>
+              <h1 className="text-lg font-bold text-slate-900 leading-tight">{article.selectedTitle || article.title}</h1>
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <span>{campaign.clientName}</span>
                 <span>•</span>

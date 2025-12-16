@@ -3,11 +3,15 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Comment } from "../types";
 
 // Initialize the client
-// NOTE: In a real production app, ensure process.env.API_KEY is set.
-// For this demo, we assume the environment is set up correctly.
+// NOTE: In Vite, use import.meta.env instead of process.env
+// API Key should be in .env file as VITE_GEMINI_API_KEY
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY || ''; 
-  // Fallback for demo if env not present (will fail gracefully in UI)
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ''; 
+  
+  if (!apiKey) {
+    console.warn('VITE_GEMINI_API_KEY is not set. AI features will not work.');
+  }
+  
   return new GoogleGenAI({ apiKey });
 };
 
@@ -107,19 +111,83 @@ export const suggestBlogKeywords = async (topic: string, audience: string, clien
   }
 };
 
-export const generateBlogOutline = async (title: string, clientName: string): Promise<string> => {
+interface OutlineGenerationParams {
+  selectedTitle: string;
+  campaignGoals?: string;
+  keywords?: string[];
+  targetAudience?: string;
+  clientComments?: Array<{ author: string; text: string; timestamp: Date }>;
+}
+
+export const generateBlogOutline = async (params: OutlineGenerationParams): Promise<string> => {
   try {
     const ai = getAiClient();
-    const prompt = `Create a detailed, structured blog post outline for a firm named "${clientName}". 
-    The approved title is: "${title}".
     
-    Requirements:
-    - Use Markdown headers (#, ##).
-    - Include bullet points for key concepts under each section.
-    - Professional and informative tone.
-    - Structure it logically (Intro, Key Points, Conclusion).
+    // Build comprehensive context from all available information
+    let contextParts: string[] = [];
     
-    Return ONLY the markdown string.`;
+    // 1. Primary directive and title (most important)
+    contextParts.push(`您正在为以下标题创建详细的博客文章大纲：\n"${params.selectedTitle}"`);
+    
+    // 2. Campaign strategy and goals
+    if (params.campaignGoals && params.campaignGoals.trim()) {
+      contextParts.push(`\n营销策略目标：\n${params.campaignGoals}`);
+    }
+    
+    // 3. Keywords for SEO
+    if (params.keywords && params.keywords.length > 0) {
+      contextParts.push(`\n关键词（请自然融入大纲）：\n${params.keywords.join(', ')}`);
+    }
+    
+    // 4. Target audience
+    if (params.targetAudience && params.targetAudience.trim()) {
+      contextParts.push(`\n目标受众：\n${params.targetAudience}`);
+    }
+    
+    // 5. Client feedback and requirements
+    if (params.clientComments && params.clientComments.length > 0) {
+      const commentsText = params.clientComments
+        .map(c => `- ${c.text}`)
+        .join('\n');
+      contextParts.push(`\n客户反馈和要求（必须充分考虑）：\n${commentsText}`);
+    }
+    
+    const context = contextParts.join('\n');
+    
+    const prompt = `${context}
+
+请创建一个结构清晰、逻辑严谨的博客文章大纲。
+
+**严格格式要求**：
+1. 只使用 Markdown 标题格式：# 表示 H1，## 表示 H2，### 表示 H3
+2. 在标题下方用普通文本（不加任何符号）写简短的描述或说明
+3. 绝对不要使用单独的星号 (*) 或其他符号作为标题或列表项
+4. 确保层级清晰：H1 是主标题，H2 是主要章节，H3 是子章节
+5. 每个章节下的描述文字要简洁明了，说明该部分的核心内容方向
+
+**内容要求**：
+- 大纲内容必须与标题高度相关
+- 充分结合上述所有信息（营销目标、关键词、目标受众、客户反馈）
+- 结构合理，逻辑流畅（引言、核心观点、深入分析、总结等）
+- 专业且信息丰富的语气
+
+**示例格式**：
+# 主标题
+简要介绍本文的核心主题和价值
+
+## 第一章节：核心概念
+说明本章节将阐述的主要内容
+
+### 子主题1.1
+具体细节或案例说明
+
+### 子主题1.2
+另一个角度的分析
+
+## 第二章节：深入探讨
+说明如何深化主题
+
+请只返回 Markdown 格式的大纲文本，不要添加任何解释性文字。`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

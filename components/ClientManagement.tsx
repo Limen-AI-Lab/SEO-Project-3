@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Client, ClientFeedbackHistory } from '../types';
+import { Client, ClientFeedbackHistory, Contact } from '../types';
 import { getClientFeedbackHistory } from '../services/store';
+import { getAllClientsWithContacts, createContact, deleteContact as deleteContactService, updateContact } from '../services/clientService';
 import supabase from '../services/supabaseClient.js';
-import { Search, Plus, Trash2, Edit2, User, Building, Mail, Phone, Globe, Mic, AlertCircle, X, Save, Sparkles, History, ChevronDown, ChevronUp, Quote, MessageCircle } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, User, Building, Mail, Phone, Globe, Mic, AlertCircle, X, Save, Sparkles, History, ChevronDown, ChevronUp, Quote, MessageCircle, Users } from 'lucide-react';
 
 const ClientManagement: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -17,29 +18,19 @@ const ClientManagement: React.FC = () => {
 
   // Form State
   const [formData, setFormData] = useState<Partial<Client>>({});
+  
+  // Contact Person State
+  const [contactsExpanded, setContactsExpanded] = useState(true);
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactEmail, setNewContactEmail] = useState('');
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
 
-  // Helper function to refetch clients from Supabase
+  // Helper function to refetch clients with contacts from Supabase
   const refetchClients = async () => {
     try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching clients:', error);
-        return;
-      }
-
-      if (data) {
-        const mappedClients: Client[] = data.map((client: any) => ({
-          id: client.id,
-          name: client.name,
-          defaultTone: client.tone_of_voice || undefined,
-          defaultRules: client.strict_rules || undefined
-        }));
-        setClients(mappedClients);
-      }
+      const clientsWithContacts = await getAllClientsWithContacts();
+      setClients(clientsWithContacts);
     } catch (err) {
       console.error('Unexpected error fetching clients:', err);
     }
@@ -48,32 +39,11 @@ const ClientManagement: React.FC = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching clients:', error);
-          alert('获取客户列表失败。请刷新页面重试。');
-          return;
-        }
-
-        if (data) {
-          // Map database fields to Client interface
-          const mappedClients: Client[] = data.map((client: any) => ({
-            id: client.id,
-            name: client.name,
-            defaultTone: client.tone_of_voice || undefined,
-            defaultRules: client.strict_rules || undefined,
-            // Note: industry, website, contactPerson, email, phone are not in DB schema
-            // They will be undefined for clients from database
-          }));
-          setClients(mappedClients);
-        }
+        const clientsWithContacts = await getAllClientsWithContacts();
+        setClients(clientsWithContacts);
       } catch (err) {
         console.error('Unexpected error fetching clients:', err);
-        alert('发生意外错误。请刷新页面重试。');
+        alert('获取客户列表失败。请刷新页面重试。');
       }
     };
 
@@ -89,8 +59,71 @@ const ClientManagement: React.FC = () => {
     }
   }, [editingClient]);
 
+  // Handle adding a new contact
+  const handleAddContact = async () => {
+    if (!editingClient || !newContactName.trim() || !newContactEmail.trim()) return;
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newContactEmail)) {
+      setContactError('Please enter a valid email address.');
+      return;
+    }
+    
+    setIsAddingContact(true);
+    setContactError(null);
+    
+    try {
+      const newContact = await createContact(editingClient.id, newContactName, newContactEmail);
+      if (newContact) {
+        // Update the editing client's contacts locally
+        const updatedContacts = [...(editingClient.contacts || []), newContact];
+        setEditingClient({ ...editingClient, contacts: updatedContacts });
+        
+        // Update the clients list
+        setClients(clients.map(c => 
+          c.id === editingClient.id ? { ...c, contacts: updatedContacts } : c
+        ));
+        
+        // Clear form
+        setNewContactName('');
+        setNewContactEmail('');
+      }
+    } catch (err: any) {
+      setContactError(err.message || 'Failed to add contact.');
+    } finally {
+      setIsAddingContact(false);
+    }
+  };
+
+  // Handle deleting a contact
+  const handleDeleteContact = async (contactId: string) => {
+    if (!editingClient) return;
+    if (!confirm('Are you sure you want to delete this contact? They will no longer be able to access the Client Portal.')) return;
+    
+    try {
+      await deleteContactService(contactId);
+      
+      // Update the editing client's contacts locally
+      const updatedContacts = (editingClient.contacts || []).filter(c => c.id !== contactId);
+      setEditingClient({ ...editingClient, contacts: updatedContacts });
+      
+      // Update the clients list
+      setClients(clients.map(c => 
+        c.id === editingClient.id ? { ...c, contacts: updatedContacts } : c
+      ));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete contact.');
+    }
+  };
+
   const openModal = (client?: Client) => {
     setHistoryExpanded(false); // Reset collapse state
+    setContactsExpanded(true); // Expand contacts section by default
+    setNewContactName('');
+    setNewContactEmail('');
+    setContactError(null);
+    
     if (client) {
       setEditingClient(client);
       setFormData({ ...client });
@@ -141,7 +174,7 @@ const ClientManagement: React.FC = () => {
     }
 
     try {
-      if (editingClient) {
+    if (editingClient) {
         // Update existing client
         const { data, error } = await supabase
           .from('clients')
@@ -163,7 +196,7 @@ const ClientManagement: React.FC = () => {
         if (data) {
           await refetchClients();
         }
-      } else {
+    } else {
         // Create new client
         const { data, error } = await supabase
           .from('clients')
@@ -186,7 +219,7 @@ const ClientManagement: React.FC = () => {
         }
       }
 
-      setIsModalOpen(false);
+    setIsModalOpen(false);
     } catch (err) {
       console.error('Unexpected error saving client:', err);
       alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -259,8 +292,20 @@ const ClientManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
-                      {client.contactPerson && <div className="flex items-center gap-1.5"><User size={12} className="text-slate-400"/> {client.contactPerson}</div>}
-                      {client.email && <div className="flex items-center gap-1.5"><Mail size={12} className="text-slate-400"/> {client.email}</div>}
+                      {(client.contacts?.length ?? 0) > 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          <Users size={12} className="text-indigo-500"/>
+                          <span className="text-sm font-medium text-indigo-600">{client.contacts?.length} Contact{(client.contacts?.length ?? 0) > 1 ? 's' : ''}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-sm italic">No contacts</span>
+                      )}
+                      {(client.contacts?.length ?? 0) > 0 && (
+                        <div className="text-xs text-slate-500">
+                          {client.contacts?.slice(0, 2).map(c => c.email).join(', ')}
+                          {(client.contacts?.length ?? 0) > 2 && '...'}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -347,49 +392,130 @@ const ClientManagement: React.FC = () => {
                     </div>
                  </section>
 
-                 {/* Section 2: Contact Person */}
-                 <section>
-                    <h4 className="flex items-center gap-2 font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">
-                       <User size={18} className="text-indigo-600"/> Contact Person
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                 {/* Section 2: Contact Persons (Multiple) */}
+                 <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <button 
+                       onClick={() => setContactsExpanded(!contactsExpanded)} 
+                       className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 transition focus:outline-none"
+                    >
+                       <div className="flex items-center gap-2 font-bold text-slate-700">
+                          <Users size={18} className="text-indigo-600" />
+                          Contact Persons (Portal Access)
+                          {editingClient?.contacts && editingClient.contacts.length > 0 && (
+                            <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full ml-2">
+                               {editingClient.contacts.length} Contact{editingClient.contacts.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                       </div>
+                       {contactsExpanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                    </button>
+                    
+                    {contactsExpanded && (
+                       <div className="p-4 bg-slate-50/50 border-t border-slate-200 space-y-4">
+                          <p className="text-xs text-slate-500 mb-3">
+                             Add contact persons who will have access to the Client Portal. Each contact can log in using their email address to review and approve content.
+                          </p>
+                          
+                          {/* Existing Contacts List */}
+                          {editingClient?.contacts && editingClient.contacts.length > 0 ? (
+                            <div className="space-y-2 mb-4">
+                               {editingClient.contacts.map(contact => (
+                                  <div key={contact.id} className="bg-white p-3 rounded-lg border border-slate-200 flex items-center justify-between group hover:border-indigo-200 transition">
+                                     <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold">
+                                           {contact.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                           <div className="text-sm font-medium text-slate-800">{contact.name}</div>
+                                           <div className="text-xs text-slate-500 flex items-center gap-1">
+                                              <Mail size={10} />
+                                              {contact.email}
+                                           </div>
+                                        </div>
+                                     </div>
+                                     <button 
+                                        onClick={() => handleDeleteContact(contact.id)}
+                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition opacity-0 group-hover:opacity-100"
+                                        title="Remove contact"
+                                     >
+                                        <Trash2 size={14} />
+                                     </button>
+                                  </div>
+                               ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 text-slate-400 text-sm italic border border-dashed border-slate-200 rounded-lg mb-4">
+                               No contacts added yet. Add a contact below.
+                            </div>
+                          )}
+                          
+                          {/* Add New Contact Form */}
+                          {editingClient && (
+                            <div className="bg-white p-4 rounded-lg border border-slate-200">
+                               <h5 className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                  <Plus size={14} /> Add New Contact
+                               </h5>
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                                     <label className="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
                           <input 
                             type="text" 
-                            value={formData.contactPerson || ''}
-                            onChange={e => setFormData({...formData, contactPerson: e.target.value})}
-                            className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                       value={newContactName}
+                                       onChange={e => setNewContactName(e.target.value)}
+                                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                             placeholder="Jane Doe"
                           />
                        </div>
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                                     <label className="block text-xs font-medium text-slate-600 mb-1">Email Address</label>
                           <div className="relative">
-                             <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                              <input 
                                type="email" 
-                               value={formData.email || ''}
-                               onChange={e => setFormData({...formData, email: e.target.value})}
-                               className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                          value={newContactEmail}
+                                          onChange={e => { setNewContactEmail(e.target.value); setContactError(null); }}
+                                          className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                                placeholder="jane@company.com"
                              />
                           </div>
                        </div>
-                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                          <div className="relative">
-                             <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                             <input 
-                               type="text" 
-                               value={formData.phone || ''}
-                               onChange={e => setFormData({...formData, phone: e.target.value})}
-                               className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                               placeholder="+1 555..."
-                             />
+                               </div>
+                               
+                               {contactError && (
+                                  <div className="flex items-center gap-2 text-red-600 text-xs mb-3">
+                                     <AlertCircle size={12} />
+                                     {contactError}
+                                  </div>
+                               )}
+                               
+                               <button 
+                                  onClick={handleAddContact}
+                                  disabled={!newContactName.trim() || !newContactEmail.trim() || isAddingContact}
+                                  className="w-full py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                               >
+                                  {isAddingContact ? (
+                                     <>
+                                        <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
+                                        Adding...
+                                     </>
+                                  ) : (
+                                     <>
+                                        <Plus size={16} />
+                                        Add Contact Person
+                                     </>
+                                  )}
+                               </button>
+                            </div>
+                          )}
+                          
+                          {!editingClient && (
+                            <div className="text-center py-4 text-amber-600 text-sm bg-amber-50 rounded-lg border border-amber-200">
+                               <AlertCircle size={16} className="inline mr-2" />
+                               Save the client first, then you can add contact persons.
                           </div>
+                          )}
                        </div>
-                    </div>
+                    )}
                  </section>
 
                  {/* Section 3: AI Preferences */}

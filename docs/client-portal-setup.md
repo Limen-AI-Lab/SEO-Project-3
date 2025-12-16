@@ -16,18 +16,29 @@
  */
 
 export const ARTICLE_STATUS = {
-  // Agency working states
+  // Title Phase
   NEEDS_TITLES: 'NEEDS_TITLES',
-  TITLES_APPROVED: 'TITLES_APPROVED',
-  OUTLINE_APPROVED: 'OUTLINE_APPROVED',
-  DRAFT_APPROVED: 'DRAFT_APPROVED',
-  
-  // Client review states
   AWAITING_REVIEW_TITLES: 'AWAITING_REVIEW_TITLES',
-  AWAITING_REVIEW_OUTLINE: 'AWAITING_REVIEW_OUTLINE',
-  AWAITING_REVIEW_DRAFT: 'AWAITING_REVIEW_DRAFT',
+  TITLES_APPROVED: 'TITLES_APPROVED',
+  NEEDS_TITLES_REVISION: 'NEEDS_TITLES_REVISION',
   
-  // Revision state
+  // Outline Phase
+  NEEDS_OUTLINE: 'NEEDS_OUTLINE',
+  AWAITING_REVIEW_OUTLINE: 'AWAITING_REVIEW_OUTLINE',
+  OUTLINE_APPROVED: 'OUTLINE_APPROVED',
+  NEEDS_OUTLINE_REVISION: 'NEEDS_OUTLINE_REVISION',
+  
+  // Draft Phase
+  NEEDS_DRAFT: 'NEEDS_DRAFT',
+  AWAITING_REVIEW_DRAFT: 'AWAITING_REVIEW_DRAFT',
+  DRAFT_APPROVED: 'DRAFT_APPROVED',
+  NEEDS_DRAFT_REVISION: 'NEEDS_DRAFT_REVISION',
+  
+  // Published state
+  PUBLISHED: 'PUBLISHED',
+  
+  // Deprecated: Use specific revision states instead
+  // Kept for backward compatibility with existing data
   NEEDS_REVISION: 'NEEDS_REVISION',
 } as const;
 
@@ -108,14 +119,28 @@ http://your-client-portal-domain/review?articleId=<article-id>
 
 ### 验证状态值
 确保所有状态值完全匹配：
+
+**标题阶段:**
 - `NEEDS_TITLES`
 - `AWAITING_REVIEW_TITLES`
 - `TITLES_APPROVED`
+- `NEEDS_TITLES_REVISION`
+
+**大纲阶段:**
+- `NEEDS_OUTLINE`
 - `AWAITING_REVIEW_OUTLINE`
 - `OUTLINE_APPROVED`
+- `NEEDS_OUTLINE_REVISION`
+
+**草稿阶段:**
+- `NEEDS_DRAFT`
 - `AWAITING_REVIEW_DRAFT`
 - `DRAFT_APPROVED`
-- `NEEDS_REVISION`
+- `NEEDS_DRAFT_REVISION`
+
+**其他:**
+- `PUBLISHED`
+- `NEEDS_REVISION` (已弃用，保留用于向后兼容)
 
 ### 验证 JSONB 结构
 确保 `client_comments` 字段的结构正确：
@@ -154,4 +179,5 @@ https://your-client-portal-domain/review?articleId=<article-id>
 3. **权限管理**：实现基于角色的访问控制（RLS）
 4. **审计日志**：记录所有状态变更历史
 5. **批量操作**：支持批量审查多个文章
+
 

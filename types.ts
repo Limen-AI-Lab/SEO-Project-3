@@ -5,21 +5,30 @@ import { ARTICLE_STATUS, ArticleStatus } from './constants/status';
 // Keep ProjectStatus enum for backward compatibility, but use ARTICLE_STATUS values
 // This allows gradual migration
 export enum ProjectStatus {
+  // Title Phase
   NEEDS_TITLES = ARTICLE_STATUS.NEEDS_TITLES,
-  AWAITING_TITLE_APPROVAL = ARTICLE_STATUS.AWAITING_REVIEW_TITLES, // Mapped to new constant
+  AWAITING_TITLE_APPROVAL = ARTICLE_STATUS.AWAITING_REVIEW_TITLES,
   TITLES_APPROVED = ARTICLE_STATUS.TITLES_APPROVED,
+  NEEDS_TITLES_REVISION = ARTICLE_STATUS.NEEDS_TITLES_REVISION,
   
-  NEEDS_OUTLINE = ARTICLE_STATUS.OUTLINE_APPROVED, // Mapped: after outline approval, ready for draft
+  // Outline Phase
+  NEEDS_OUTLINE = ARTICLE_STATUS.NEEDS_OUTLINE,
   AWAITING_OUTLINE_APPROVAL = ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE,
   OUTLINE_APPROVED = ARTICLE_STATUS.OUTLINE_APPROVED,
+  NEEDS_OUTLINE_REVISION = ARTICLE_STATUS.NEEDS_OUTLINE_REVISION,
   
-  NEEDS_DRAFT = ARTICLE_STATUS.OUTLINE_APPROVED, // Mapped: after outline approval, ready for draft
+  // Draft Phase
+  NEEDS_DRAFT = ARTICLE_STATUS.NEEDS_DRAFT,
   AWAITING_DRAFT_APPROVAL = ARTICLE_STATUS.AWAITING_REVIEW_DRAFT,
   DRAFT_APPROVED = ARTICLE_STATUS.DRAFT_APPROVED,
+  NEEDS_DRAFT_REVISION = ARTICLE_STATUS.NEEDS_DRAFT_REVISION,
   
+  // Published state
+  PUBLISHED = ARTICLE_STATUS.PUBLISHED,
+  
+  // Deprecated: Use specific revision states instead
+  // Kept for backward compatibility with existing data
   NEEDS_REVISION = ARTICLE_STATUS.NEEDS_REVISION,
-  
-  PUBLISHED = 'PUBLISHED' // Legacy status, can be mapped to DRAFT_APPROVED
 }
 
 // Export the new status type for use in components
@@ -33,6 +42,15 @@ export interface Comment {
   timestamp: Date;
 }
 
+// Contact person interface for client authentication
+export interface Contact {
+  id: string;
+  client_id: string;
+  name: string;
+  email: string;
+  created_at?: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -41,7 +59,10 @@ export interface Client {
   industry?: string;
   website?: string;
   
-  // Contact Info
+  // Contact persons (multiple)
+  contacts?: Contact[];
+  
+  // Legacy single contact fields (deprecated, use contacts[] instead)
   contactPerson?: string;
   email?: string;
   phone?: string;
@@ -65,12 +86,32 @@ export interface ClientFeedbackHistory {
 export interface Campaign {
   id: string;
   name: string; // e.g. "Tax Season 2024"
-  clientName: string;
+  clientName?: string; // Deprecated: use clients[] instead
+  clients?: Client[]; // Associated clients (many-to-many)
   strategyGoals: string;
   targetAudience: string;
   keywords: string[];
   createdAt: Date;
   status: 'ACTIVE' | 'ARCHIVED';
+}
+
+// OutlineSection interface for structured outline data
+export interface OutlineSection {
+  id: string;
+  level: 'H1' | 'H2' | 'H3';
+  title: string;
+  description?: string;
+  wordCountEstimate?: number;
+}
+
+// ContentBlock interface for structured draft content
+// Used by both Agency Portal and Client Portal for unified content display
+export interface ContentBlock {
+  id: string;
+  type: 'header' | 'paragraph' | 'quote' | 'image';
+  content: string;
+  src?: string;      // For images: URL or data URL
+  caption?: string;  // For images: caption text
 }
 
 export interface Article {
@@ -84,7 +125,9 @@ export interface Article {
   proposedTitles: string[];
   selectedTitle?: string;
   outlineContent?: string;
-  draftContent?: string;
+  outlineSections?: OutlineSection[]; // Structured outline for Client Portal
+  draftContent?: string;              // Markdown format (backward compatible)
+  draftBlocks?: ContentBlock[];       // Structured format for unified display
   
   // CMS Metadata
   slug?: string;

@@ -3,10 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Campaign, Article, Client } from '../types';
 import { getCampaigns, createCampaign, getArticlesByCampaign, getClients, addClient, deleteClient } from '../services/store';
 import { generateCampaignKeywords } from '../services/geminiService';
+import { generateCampaignReviewLink, copyToClipboard } from '../services/linkService';
+import { createCampaignWithClients, getAllCampaignsWithClients } from '../services/campaignService';
+import { getAllClientsWithContacts } from '../services/clientService';
 import supabase from '../services/supabaseClient.js';
 import CircularProgress from './CircularProgress';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ArrowRight, Plus, Search, X, Briefcase, Target, Users, Sparkles, Tag, ChevronDown, Check, Trash2 } from 'lucide-react';
+import { ArrowRight, Plus, Search, X, Briefcase, Target, Users, Sparkles, Tag, ChevronDown, Check, Trash2, Link2, CheckCircle } from 'lucide-react';
 
 interface Props {
   onSelectCampaign: (id: string) => void;
@@ -15,6 +18,9 @@ interface Props {
 const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Toast state for link copy feedback
+  const [copyToast, setCopyToast] = useState<{ show: boolean; campaignId: string | null }>({ show: false, campaignId: null });
   
   // New Campaign Form State
   const [campName, setCampName] = useState('');
@@ -37,61 +43,25 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch campaigns
+      // Fetch campaigns with multi-client support
       try {
-        const { data, error } = await supabase
-          .from('campaigns')
-          .select('*, clients(name)')
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching campaigns:', error);
-        } else if (data) {
-          // Map database fields to Campaign interface
-          const mappedCampaigns: Campaign[] = data.map((camp: any) => ({
-            id: camp.id,
-            name: camp.name,
-            clientName: camp.clients?.name || '',
-            strategyGoals: camp.strategy_goals || '',
-            targetAudience: '', // Not in DB schema yet
-            keywords: [], // Not in DB schema yet
-            createdAt: new Date(camp.created_at),
-            status: 'ACTIVE' as const // Default status
-          }));
-          setCampaigns(mappedCampaigns);
-        }
+        const campaignsWithClients = await getAllCampaignsWithClients();
+        setCampaigns(campaignsWithClients);
       } catch (err) {
-        console.error('Unexpected error fetching campaigns:', err);
+        console.error('Error fetching campaigns:', err);
+        // If new method fails, just show empty campaigns
+        // This likely means migration hasn't been run yet
+        setCampaigns([]);
       }
 
-      // Fetch clients from Supabase
+      // Fetch clients with contacts
       try {
-        const { data: clientsData, error: clientsError } = await supabase
-          .from('clients')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (clientsError) {
-          console.error('Error fetching clients:', clientsError);
-          // Fallback to local clients if Supabase fails
-          setAvailableClients(getClients());
-        } else if (clientsData) {
-          // Map database fields to Client interface
-          const mappedClients: Client[] = clientsData.map((client: any) => ({
-            id: client.id,
-            name: client.name,
-            defaultTone: client.tone_of_voice || undefined,
-            defaultRules: client.strict_rules || undefined
-          }));
-          setAvailableClients(mappedClients);
-        } else {
-          // No clients in database, use empty array
-          setAvailableClients([]);
-        }
+        const clientsWithContacts = await getAllClientsWithContacts();
+        setAvailableClients(clientsWithContacts);
       } catch (err) {
-        console.error('Unexpected error fetching clients:', err);
-        // Fallback to local clients on error
-        setAvailableClients(getClients());
+        console.error('Error fetching clients:', err);
+        // Fallback to local clients if Supabase fails
+    setAvailableClients(getClients());
       }
     };
 
@@ -113,84 +83,54 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
     if (!campName || selectedClients.length === 0) return;
     
     try {
-      // Use the first selected client's ID for the database (schema uses single client_id FK)
-      const clientId = selectedClients[0].id;
-      
-      // Validate client_id is a valid UUID format
+      // Validate all selected client IDs are valid UUIDs
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(clientId)) {
-        alert(`错误：选中的客户 ID 格式无效。请确保客户数据已同步到数据库。\n\n当前 ID: ${clientId}\n\n请先在"Clients"页面创建客户。`);
-        console.error('Invalid client_id format:', clientId);
-        return;
-      }
-
-      // Verify client exists in database
-      const { data: clientCheck, error: clientCheckError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('id', clientId)
-        .single();
-
-      if (clientCheckError || !clientCheck) {
-        alert(`错误：选中的客户在数据库中不存在。\n\n请先在"Clients"页面创建客户，然后重试。\n\n错误详情: ${clientCheckError?.message || 'Client not found'}`);
-        console.error('Client not found in database:', clientId, clientCheckError);
-        return;
-      }
+      const invalidClients = selectedClients.filter(c => !uuidRegex.test(c.id));
       
-      const { data, error } = await supabase
-        .from('campaigns')
-        .insert({
-          client_id: clientId,
-          name: campName,
-          strategy_goals: strategy || null
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating campaign:', error);
-        
-        // Provide more specific error messages
-        let errorMessage = '创建 Campaign 失败。';
-        if (error.code === '23503') {
-          errorMessage = '错误：外键约束失败。选中的客户可能不存在于数据库中。\n\n请先在"Clients"页面创建客户。';
-        } else if (error.code === '23505') {
-          errorMessage = '错误：Campaign 名称已存在。请使用不同的名称。';
-        } else if (error.message) {
-          errorMessage = `错误：${error.message}`;
-        }
-        
-        alert(errorMessage);
+      if (invalidClients.length > 0) {
+        alert(`错误：部分选中的客户 ID 格式无效。\n\n请确保客户数据已同步到数据库。\n\n请先在"Clients"页面创建客户。`);
         return;
       }
 
-      if (data) {
-        // Refetch campaigns from Supabase
-        const { data: campaignsData, error: fetchError } = await supabase
-          .from('campaigns')
-          .select('*, clients(name)')
-          .order('created_at', { ascending: false });
+      const clientIds = selectedClients.map(c => c.id);
+      
+      // Try to use the new multi-client creation method
+      try {
+        const newCampaign = await createCampaignWithClients(
+          {
+            name: campName,
+            strategyGoals: strategy,
+            targetAudience: audience,
+            keywords
+          },
+          clientIds
+        );
 
-        if (fetchError) {
-          console.error('Error fetching campaigns after create:', fetchError);
-        } else if (campaignsData) {
-          const mappedCampaigns: Campaign[] = campaignsData.map((camp: any) => ({
-            id: camp.id,
-            name: camp.name,
-            clientName: camp.clients?.name || '',
-            strategyGoals: camp.strategy_goals || '',
-            targetAudience: '',
-            keywords: [],
-            createdAt: new Date(camp.created_at),
-            status: 'ACTIVE' as const
-          }));
-          setCampaigns(mappedCampaigns);
+        if (newCampaign) {
+          // Refetch all campaigns
+          const campaignsWithClients = await getAllCampaignsWithClients();
+          setCampaigns(campaignsWithClients);
+          
+    setIsModalOpen(false);
+    resetForm();
+          onSelectCampaign(newCampaign.id);
+          return;
         }
-
-        setIsModalOpen(false);
-        resetForm();
-        onSelectCampaign(data.id);
+      } catch (newMethodErr: any) {
+        console.error('New multi-client method failed, falling back to old method:', newMethodErr);
+        
+        // If it's a table not found error, fall back to old method
+        if (!newMethodErr.message?.includes('campaign_clients')) {
+          throw newMethodErr;
+        }
       }
+
+      // If new method failed, it means migration hasn't been run
+      // Show error message to user
+      alert('错误：数据库迁移未完成。\n\n请在 Supabase SQL Editor 中运行迁移脚本。\n\n详情请查看控制台。');
+      console.error('Campaign creation failed: campaign_clients table not found or client_id column still exists.');
+      console.log('Please run the database migration script in Supabase.');
+      return;
     } catch (err) {
       console.error('Unexpected error creating campaign:', err);
       alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}\n\n请检查控制台获取更多信息。`);
@@ -205,6 +145,17 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
     setAudience('');
     setKeywords([]);
     setKeywordInput('');
+  };
+
+  // Handle copy campaign review link
+  const handleCopyCampaignLink = async (e: React.MouseEvent, campaignId: string) => {
+    e.stopPropagation(); // Prevent triggering onSelectCampaign
+    const link = generateCampaignReviewLink(campaignId);
+    const success = await copyToClipboard(link);
+    if (success) {
+      setCopyToast({ show: true, campaignId });
+      setTimeout(() => setCopyToast({ show: false, campaignId: null }), 2000);
+    }
   };
 
   // Keyword Logic
@@ -380,11 +331,30 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-8">
+                <div className="flex items-center gap-4">
                    <div className="text-right">
                       <p className="text-xs text-slate-400 font-medium uppercase">Production</p>
                       <p className="text-lg font-semibold text-slate-700">{activeCount} Articles</p>
                    </div>
+                   
+                   {/* Campaign Review Link Button */}
+                   <button
+                     onClick={(e) => handleCopyCampaignLink(e, camp.id)}
+                     className="relative p-2 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-all"
+                     title="Copy client review link"
+                   >
+                     {copyToast.show && copyToast.campaignId === camp.id ? (
+                       <CheckCircle size={18} className="text-green-500" />
+                     ) : (
+                       <Link2 size={18} />
+                     )}
+                     {copyToast.show && copyToast.campaignId === camp.id && (
+                       <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                         Link copied!
+                       </span>
+                     )}
+                   </button>
+                   
                    <ArrowRight className="text-slate-300 group-hover:text-indigo-600 transition" size={20} />
                 </div>
               </div>

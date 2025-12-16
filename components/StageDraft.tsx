@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Article, ProjectStatus, ARTICLE_STATUS } from '../types';
+import { Article, ProjectStatus, ARTICLE_STATUS, ContentBlock } from '../types';
 import { generateBlogDraft, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement } from '../services/geminiService';
 import { 
   Send, CheckCircle, Wand2, Sparkles, Globe, FileText, MessageSquare, 
   RefreshCw, LayoutTemplate, PenTool, PanelLeftClose, PanelLeftOpen, 
   PanelRightClose, PanelRightOpen, Maximize2, Minimize2, Eye, GitGraph, Code, ArrowRight, X,
-  Paperclip, Image as ImageIcon, Trash2, ArrowUp, ArrowDown, MoveVertical
+  Paperclip, Image as ImageIcon, Trash2, ArrowUp, ArrowDown, MoveVertical, Copy, Check
 } from 'lucide-react';
+import { generateClientReviewLink, copyToClipboard } from '../services/linkService';
 
 interface Props {
   project: Article;
@@ -45,6 +46,8 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
   const [attachedFile, setAttachedFile] = useState<{ name: string, data: string, type: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiSuggestion, setAiSuggestion] = useState<{ anchor: string, reason: string } | null>(null);
+  const [reviewLink, setReviewLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'outline' | 'feedback'>('outline');
 
@@ -461,10 +464,72 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
     setIsMetaGenerating(false);
   };
 
+  // Convert EditorBlock[] to ContentBlock[] for unified storage
+  const convertEditorBlocksToContentBlocks = (editorBlocks: EditorBlock[]): ContentBlock[] => {
+    const result: ContentBlock[] = [];
+    let blockIndex = 0;
+    
+    editorBlocks.forEach((block) => {
+      if (block.type === 'text') {
+        // Split text by paragraphs and headers
+        const lines = block.content.split('\n').filter(line => line.trim());
+        lines.forEach((line) => {
+          blockIndex++;
+          const blockId = `block-${blockIndex}`;
+          
+          if (line.startsWith('# ')) {
+            result.push({
+              id: blockId,
+              type: 'header',
+              content: line.replace(/^# /, '')
+            });
+          } else if (line.startsWith('## ')) {
+            result.push({
+              id: blockId,
+              type: 'header',
+              content: line.replace(/^## /, '')
+            });
+          } else if (line.startsWith('### ')) {
+            result.push({
+              id: blockId,
+              type: 'header',
+              content: line.replace(/^### /, '')
+            });
+          } else if (line.startsWith('> ')) {
+            result.push({
+              id: blockId,
+              type: 'quote',
+              content: line.replace(/^> /, '')
+            });
+          } else {
+            result.push({
+              id: blockId,
+              type: 'paragraph',
+              content: line
+            });
+          }
+        });
+      } else if (block.type === 'image') {
+        blockIndex++;
+        result.push({
+          id: `block-${blockIndex}`,
+          type: 'image',
+          content: block.caption || 'Image',
+          src: block.src,
+          caption: block.caption
+        });
+      }
+    });
+    
+    return result;
+  };
+
   const handleSaveDraft = () => {
     const md = serializeBlocksToMarkdown(blocks);
+    const contentBlocks = convertEditorBlocksToContentBlocks(blocks);
     onUpdate({ 
       draftContent: md,
+      draftBlocks: contentBlocks,
       slug,
       category,
       seoSummary: summary,
@@ -478,6 +543,22 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
     if (md.trim().length < 100) return alert("Draft is too short.");
     handleSaveDraft();
     onUpdate({ status: ARTICLE_STATUS.AWAITING_REVIEW_DRAFT }); // Use new status constant
+    
+    // Generate review link
+    const link = generateClientReviewLink(project.id);
+    setReviewLink(link);
+    setLinkCopied(false);
+  };
+
+  const handleCopyLink = async () => {
+    if (!reviewLink) return;
+    const success = await copyToClipboard(reviewLink);
+    if (success) {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } else {
+      alert('Failed to copy link. Please copy manually.');
+    }
   };
 
   const handlePublishToCMS = () => {
@@ -792,9 +873,37 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                  </div>
               </div>
             ) : viewMode === 'preview' ? (
+              /* Client-style preview - matches Client Portal's ContentReview display */
               <div className="flex-1 w-full p-8 md:p-12 overflow-y-auto bg-white mx-auto max-w-5xl shadow-sm my-4 rounded-lg border border-slate-100">
-                <div className="prose prose-lg prose-indigo max-w-none">
-                   {renderPreview(serializeBlocksToMarkdown(blocks))}
+                <div className="space-y-6 font-serif text-lg leading-relaxed text-slate-800">
+                  {convertEditorBlocksToContentBlocks(blocks).map((block) => (
+                    <div key={block.id} className="p-4 -mx-4 rounded-lg border border-transparent">
+                      {/* Header rendering */}
+                      {block.type === 'header' && (
+                        <h2 className="text-2xl md:text-3xl font-bold font-sans text-slate-900 mb-2 mt-4">{block.content}</h2>
+                      )}
+                      {/* Paragraph rendering */}
+                      {block.type === 'paragraph' && (
+                        <p>{block.content}</p>
+                      )}
+                      {/* Quote rendering */}
+                      {block.type === 'quote' && (
+                        <blockquote className="border-l-4 border-indigo-500 pl-4 italic text-slate-600 my-4 bg-slate-50/50 py-2 rounded-r">
+                          "{block.content}"
+                        </blockquote>
+                      )}
+                      {/* Image rendering */}
+                      {block.type === 'image' && (
+                        <div className="my-4 bg-slate-100 h-48 flex items-center justify-center rounded-lg text-slate-400 text-sm border border-slate-200 border-dashed">
+                          {block.src ? (
+                            <img src={block.src} alt={block.caption || 'Image'} className="max-h-full max-w-full object-contain rounded-lg" />
+                          ) : (
+                            `[Image: ${block.caption || block.content}]`
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
@@ -982,6 +1091,33 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                           >
                             Save Progress
                           </button>
+                          {/* Review Link Display */}
+                          {reviewLink && (
+                            <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-indigo-900 mb-1">Client Review Link:</p>
+                                  <p className="text-[10px] text-indigo-700 break-all">{reviewLink}</p>
+                                </div>
+                                <button
+                                  onClick={handleCopyLink}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex-shrink-0 text-xs"
+                                >
+                                  {linkCopied ? (
+                                    <>
+                                      <Check size={12} />
+                                      <span>Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy size={12} />
+                                      <span>Copy</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           <button 
                             onClick={handleSubmitToClient}
                             className="w-full py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition flex items-center justify-center gap-2 shadow-lg shadow-slate-900/10 text-sm group"

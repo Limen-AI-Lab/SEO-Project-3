@@ -11,8 +11,11 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // Legacy support for old code
+        'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY),
+        // Expose Client Portal URL for link generation
+        'import.meta.env.VITE_CLIENT_PORTAL_URL': JSON.stringify(env.VITE_CLIENT_PORTAL_URL)
       },
       resolve: {
         alias: {

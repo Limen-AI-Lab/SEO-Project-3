@@ -8,7 +8,15 @@
 -- 1. Add missing fields to articles table
 ALTER TABLE articles 
 ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-ADD COLUMN IF NOT EXISTS selected_title TEXT;
+ADD COLUMN IF NOT EXISTS selected_title TEXT,
+ADD COLUMN IF NOT EXISTS outline_sections JSONB,
+ADD COLUMN IF NOT EXISTS draft_blocks JSONB;
+
+-- 1b. Add comment for outline_sections
+COMMENT ON COLUMN articles.outline_sections IS 'Structured outline data as JSONB array. Structure: [{"id": "uuid", "level": "H1|H2|H3", "title": "string", "description": "string", "wordCountEstimate": number}]';
+
+-- 1c. Add comment for draft_blocks
+COMMENT ON COLUMN articles.draft_blocks IS 'Structured draft content as ContentBlock[] array. Structure: [{"id": "string", "type": "header|paragraph|quote|image", "content": "string", "src?": "string", "caption?": "string"}]';
 
 -- 2. Create status enum type (PostgreSQL native enum)
 -- Note: If enum already exists, this will fail gracefully
@@ -17,11 +25,17 @@ DO $$ BEGIN
         'NEEDS_TITLES',
         'AWAITING_REVIEW_TITLES',
         'TITLES_APPROVED',
+        'NEEDS_TITLES_REVISION',
+        'NEEDS_OUTLINE',
         'AWAITING_REVIEW_OUTLINE',
         'OUTLINE_APPROVED',
+        'NEEDS_OUTLINE_REVISION',
+        'NEEDS_DRAFT',
         'AWAITING_REVIEW_DRAFT',
         'DRAFT_APPROVED',
-        'NEEDS_REVISION'
+        'NEEDS_DRAFT_REVISION',
+        'NEEDS_REVISION',  -- Deprecated: kept for backward compatibility
+        'PUBLISHED'
     );
 EXCEPTION
     WHEN duplicate_object THEN null;
@@ -39,11 +53,17 @@ CHECK (status IN (
     'NEEDS_TITLES',
     'AWAITING_REVIEW_TITLES',
     'TITLES_APPROVED',
+    'NEEDS_TITLES_REVISION',
+    'NEEDS_OUTLINE',
     'AWAITING_REVIEW_OUTLINE',
     'OUTLINE_APPROVED',
+    'NEEDS_OUTLINE_REVISION',
+    'NEEDS_DRAFT',
     'AWAITING_REVIEW_DRAFT',
     'DRAFT_APPROVED',
-    'NEEDS_REVISION'
+    'NEEDS_DRAFT_REVISION',
+    'NEEDS_REVISION',  -- Deprecated: kept for backward compatibility
+    'PUBLISHED'
 ));
 
 -- 4. Add indexes for performance optimization
@@ -70,7 +90,7 @@ CREATE TRIGGER trigger_update_articles_last_updated
     EXECUTE FUNCTION update_articles_last_updated();
 
 -- 7. Add comment to status column for documentation
-COMMENT ON COLUMN articles.status IS 'Article workflow status. Valid values: NEEDS_TITLES, AWAITING_REVIEW_TITLES, TITLES_APPROVED, AWAITING_REVIEW_OUTLINE, OUTLINE_APPROVED, AWAITING_REVIEW_DRAFT, DRAFT_APPROVED, NEEDS_REVISION';
+COMMENT ON COLUMN articles.status IS 'Article workflow status. Valid values: NEEDS_TITLES, AWAITING_REVIEW_TITLES, TITLES_APPROVED, NEEDS_TITLES_REVISION, NEEDS_OUTLINE, AWAITING_REVIEW_OUTLINE, OUTLINE_APPROVED, NEEDS_OUTLINE_REVISION, NEEDS_DRAFT, AWAITING_REVIEW_DRAFT, DRAFT_APPROVED, NEEDS_DRAFT_REVISION, NEEDS_REVISION (deprecated), PUBLISHED';
 
 COMMENT ON COLUMN articles.client_comments IS 'JSONB array of client feedback comments. Structure: [{"id": "uuid", "author": "Client", "text": "comment text", "timestamp": "ISO date string"}]';
 
@@ -110,4 +130,5 @@ ORDER BY a.last_updated DESC;
 
 -- 11. Grant permissions on view
 GRANT SELECT ON articles_awaiting_review TO public;
+
 

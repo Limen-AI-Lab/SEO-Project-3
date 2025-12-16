@@ -15,14 +15,28 @@
 ## 状态机定义
 
 ### 完整状态列表
+
+#### 标题阶段 (Title Phase)
 1. `NEEDS_TITLES` - 机构需要生成标题
 2. `AWAITING_REVIEW_TITLES` - 等待客户端审查标题
 3. `TITLES_APPROVED` - 标题已批准，机构可以继续
-4. `AWAITING_REVIEW_OUTLINE` - 等待客户端审查大纲
-5. `OUTLINE_APPROVED` - 大纲已批准
-6. `AWAITING_REVIEW_DRAFT` - 等待客户端审查草稿
-7. `DRAFT_APPROVED` - 草稿已批准（完成）
-8. `NEEDS_REVISION` - 需要修改（客户端拒绝）
+4. `NEEDS_TITLES_REVISION` - 标题需要修改（客户端拒绝）
+
+#### 大纲阶段 (Outline Phase)
+5. `NEEDS_OUTLINE` - 机构需要创建大纲
+6. `AWAITING_REVIEW_OUTLINE` - 等待客户端审查大纲
+7. `OUTLINE_APPROVED` - 大纲已批准
+8. `NEEDS_OUTLINE_REVISION` - 大纲需要修改（客户端拒绝）
+
+#### 草稿阶段 (Draft Phase)
+9. `NEEDS_DRAFT` - 机构需要创建草稿
+10. `AWAITING_REVIEW_DRAFT` - 等待客户端审查草稿
+11. `DRAFT_APPROVED` - 草稿已批准（完成）
+12. `NEEDS_DRAFT_REVISION` - 草稿需要修改（客户端拒绝）
+
+#### 其他状态
+13. `PUBLISHED` - 已发布
+14. `NEEDS_REVISION` - (已弃用) 保留用于向后兼容
 
 ## 状态流转图
 
@@ -33,60 +47,73 @@
          │ [机构生成标题并提交]
          ↓
 ┌─────────────────────────┐
-│ AWAITING_REVIEW_TITLES   │ (客户端审查)
-└────────┬─────────────────┘
+│ AWAITING_REVIEW_TITLES  │ (客户端审查)
+└────────┬────────────────┘
          │ [客户端选择标题]
-         ↓
-┌─────────────────┐
-│ TITLES_APPROVED │ (机构工作)
-└────────┬────────┘
-         │ [机构创建大纲并提交]
-         ↓
-┌──────────────────────────┐
-│ AWAITING_REVIEW_OUTLINE   │ (客户端审查)
-└────────┬──────────────────┘
-         │ [客户端批准/拒绝]
-         ↓
     ┌────┴────┐
     │         │
     ↓         ↓
-┌─────────┐ ┌──────────────┐
-│OUTLINE_ │ │NEEDS_REVISION│
-│APPROVED│ │              │
-└────┬────┘ └──────┬───────┘
-     │             │
-     │             │ [机构修改后重新提交]
-     │             │
-     ↓             ↓
+┌─────────┐ ┌───────────────────────┐
+│TITLES_  │ │NEEDS_TITLES_REVISION  │
+│APPROVED │ │                       │
+└────┬────┘ └───────────┬───────────┘
+     │                  │ [机构修改后重新提交]
+     │                  ↓
+     │          ┌─────────────────────────┐
+     │          │ AWAITING_REVIEW_TITLES  │
+     │          └─────────────────────────┘
+     │
+     │ [机构创建大纲并提交]
+     ↓
 ┌─────────────────┐
-│ AWAITING_REVIEW │
-│     OUTLINE     │
+│  NEEDS_OUTLINE  │ (机构工作)
 └────────┬────────┘
-         │ [客户端批准]
+         │ [机构提交大纲]
          ↓
+┌──────────────────────────┐
+│ AWAITING_REVIEW_OUTLINE  │ (客户端审查)
+└────────┬─────────────────┘
+         │ [客户端批准/拒绝]
+    ┌────┴────┐
+    │         │
+    ↓         ↓
+┌─────────┐ ┌────────────────────────┐
+│OUTLINE_ │ │NEEDS_OUTLINE_REVISION  │
+│APPROVED │ │                        │
+└────┬────┘ └───────────┬────────────┘
+     │                  │ [机构修改后重新提交]
+     │                  ↓
+     │          ┌──────────────────────────┐
+     │          │ AWAITING_REVIEW_OUTLINE  │
+     │          └──────────────────────────┘
+     │
+     │ [机构创建草稿并提交]
+     ↓
 ┌─────────────────┐
-│ OUTLINE_APPROVED│ (机构工作)
+│   NEEDS_DRAFT   │ (机构工作)
 └────────┬────────┘
-         │ [机构创建草稿并提交]
+         │ [机构提交草稿]
          ↓
 ┌─────────────────────────┐
 │ AWAITING_REVIEW_DRAFT   │ (客户端审查)
-└────────┬─────────────────┘
+└────────┬────────────────┘
          │ [客户端批准/拒绝]
-         ↓
     ┌────┴────┐
     │         │
     ↓         ↓
-┌─────────┐ ┌──────────────┐
-│ DRAFT_  │ │NEEDS_REVISION│
-│APPROVED │ │              │
-└─────────┘ └──────┬───────┘
-                   │ [机构修改后重新提交]
-                   ↓
-         ┌─────────────────┐
-         │ AWAITING_REVIEW │
-         │     DRAFT       │
-         └─────────────────┘
+┌─────────┐ ┌──────────────────────┐
+│ DRAFT_  │ │NEEDS_DRAFT_REVISION  │
+│APPROVED │ │                      │
+└────┬────┘ └───────────┬──────────┘
+     │                  │ [机构修改后重新提交]
+     │                  ↓
+     │          ┌─────────────────────────┐
+     │          │ AWAITING_REVIEW_DRAFT   │
+     │          └─────────────────────────┘
+     ↓
+┌─────────────────┐
+│   PUBLISHED     │
+└─────────────────┘
 ```
 
 ## 数据交互方式
@@ -135,6 +162,9 @@
 4. 点击"批准"，更新：
    - `status` = `TITLES_APPROVED`
    - `title` = 选中的标题
+5. 或点击"请求修改"，更新：
+   - `status` = `NEEDS_TITLES_REVISION`
+   - 添加评论到 `client_comments`
 
 ### 2. 大纲审查流程
 **Agency Portal:**
@@ -147,7 +177,7 @@
 2. 可以添加评论（可选）
 3. 选择操作：
    - **批准**：`status` = `OUTLINE_APPROVED`
-   - **拒绝**：`status` = `NEEDS_REVISION`，添加评论到 `client_comments`
+   - **拒绝**：`status` = `NEEDS_OUTLINE_REVISION`，添加评论到 `client_comments`
 
 ### 3. 草稿审查流程
 **Agency Portal:**
@@ -160,14 +190,18 @@
 2. 可以添加评论（可选）
 3. 选择操作：
    - **批准**：`status` = `DRAFT_APPROVED`（完成）
-   - **拒绝**：`status` = `NEEDS_REVISION`，添加评论到 `client_comments`
+   - **拒绝**：`status` = `NEEDS_DRAFT_REVISION`，添加评论到 `client_comments`
 
 ### 4. 修改流程
 **Agency Portal:**
-1. 检测到 `NEEDS_REVISION` 状态
-2. 读取 `client_comments` 获取反馈
-3. 修改内容后重新提交
-4. 设置状态回到对应的 `AWAITING_REVIEW_*` 状态
+1. 检测到对应的 `NEEDS_*_REVISION` 状态
+2. 显示对应阶段的编辑界面：
+   - `NEEDS_TITLES_REVISION` → 显示标题编辑界面
+   - `NEEDS_OUTLINE_REVISION` → 显示大纲编辑界面
+   - `NEEDS_DRAFT_REVISION` → 显示草稿编辑界面
+3. 读取 `client_comments` 获取反馈
+4. 修改内容后重新提交
+5. 设置状态回到对应的 `AWAITING_REVIEW_*` 状态
 
 ## 数据同步机制
 
@@ -223,9 +257,20 @@
 6. 机构创建草稿 → `AWAITING_REVIEW_DRAFT`
 7. 客户端批准草稿 → `DRAFT_APPROVED`
 
-### 拒绝流程测试
-1. 客户端拒绝大纲 → `NEEDS_REVISION`
+### 拒绝流程测试（标题）
+1. 客户端拒绝标题 → `NEEDS_TITLES_REVISION`
+2. 机构查看评论并修改
+3. 机构重新提交 → `AWAITING_REVIEW_TITLES`
+4. 客户端再次审查
+
+### 拒绝流程测试（大纲）
+1. 客户端拒绝大纲 → `NEEDS_OUTLINE_REVISION`
 2. 机构查看评论并修改
 3. 机构重新提交 → `AWAITING_REVIEW_OUTLINE`
 4. 客户端再次审查
 
+### 拒绝流程测试（草稿）
+1. 客户端拒绝草稿 → `NEEDS_DRAFT_REVISION`
+2. 机构查看评论并修改
+3. 机构重新提交 → `AWAITING_REVIEW_DRAFT`
+4. 客户端再次审查

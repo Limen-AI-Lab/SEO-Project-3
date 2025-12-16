@@ -58,10 +58,9 @@
    → status: AWAITING_REVIEW_TITLES
    → proposed_titles: ["Title 1", "Title 2", ...]
 
-3. Client 选择标题
-   → status: TITLES_APPROVED
-   → title: "Selected Title"
-   → selected_title: "Selected Title"
+3. Client 审查标题
+   → 批准: status: TITLES_APPROVED, title: "Selected Title"
+   → 拒绝: status: NEEDS_TITLES_REVISION + 添加评论
 
 4. Agency 创建大纲并提交
    → status: AWAITING_REVIEW_OUTLINE
@@ -69,7 +68,7 @@
 
 5. Client 审查大纲
    → 批准: status: OUTLINE_APPROVED
-   → 拒绝: status: NEEDS_REVISION + 添加评论
+   → 拒绝: status: NEEDS_OUTLINE_REVISION + 添加评论
 
 6. Agency 创建草稿并提交
    → status: AWAITING_REVIEW_DRAFT
@@ -77,8 +76,14 @@
 
 7. Client 审查草稿
    → 批准: status: DRAFT_APPROVED (完成)
-   → 拒绝: status: NEEDS_REVISION + 添加评论
+   → 拒绝: status: NEEDS_DRAFT_REVISION + 添加评论
 ```
+
+### 修订流程
+当客户端拒绝内容时，系统会设置对应阶段的修订状态：
+- 标题拒绝: `NEEDS_TITLES_REVISION` → 修改后 → `AWAITING_REVIEW_TITLES`
+- 大纲拒绝: `NEEDS_OUTLINE_REVISION` → 修改后 → `AWAITING_REVIEW_OUTLINE`
+- 草稿拒绝: `NEEDS_DRAFT_REVISION` → 修改后 → `AWAITING_REVIEW_DRAFT`
 
 ## 数据字段映射
 
@@ -119,13 +124,28 @@
 
 ```typescript
 export const ARTICLE_STATUS = {
+  // Title Phase
   NEEDS_TITLES: 'NEEDS_TITLES',
   AWAITING_REVIEW_TITLES: 'AWAITING_REVIEW_TITLES',
   TITLES_APPROVED: 'TITLES_APPROVED',
+  NEEDS_TITLES_REVISION: 'NEEDS_TITLES_REVISION',
+  
+  // Outline Phase
+  NEEDS_OUTLINE: 'NEEDS_OUTLINE',
   AWAITING_REVIEW_OUTLINE: 'AWAITING_REVIEW_OUTLINE',
   OUTLINE_APPROVED: 'OUTLINE_APPROVED',
+  NEEDS_OUTLINE_REVISION: 'NEEDS_OUTLINE_REVISION',
+  
+  // Draft Phase
+  NEEDS_DRAFT: 'NEEDS_DRAFT',
   AWAITING_REVIEW_DRAFT: 'AWAITING_REVIEW_DRAFT',
   DRAFT_APPROVED: 'DRAFT_APPROVED',
+  NEEDS_DRAFT_REVISION: 'NEEDS_DRAFT_REVISION',
+  
+  // Published
+  PUBLISHED: 'PUBLISHED',
+  
+  // Deprecated (kept for backward compatibility)
   NEEDS_REVISION: 'NEEDS_REVISION',
 } as const;
 ```
@@ -185,10 +205,22 @@ export const ARTICLE_STATUS = {
 - [ ] Agency 创建草稿并提交
 - [ ] Client 批准草稿
 
-### 拒绝流程测试
-- [ ] Client 拒绝大纲
+### 拒绝流程测试（标题）
+- [ ] Client 拒绝标题 → status: NEEDS_TITLES_REVISION
 - [ ] Agency 查看评论并修改
-- [ ] Agency 重新提交
+- [ ] Agency 重新提交 → status: AWAITING_REVIEW_TITLES
+- [ ] Client 再次审查
+
+### 拒绝流程测试（大纲）
+- [ ] Client 拒绝大纲 → status: NEEDS_OUTLINE_REVISION
+- [ ] Agency 查看评论并修改
+- [ ] Agency 重新提交 → status: AWAITING_REVIEW_OUTLINE
+- [ ] Client 再次审查
+
+### 拒绝流程测试（草稿）
+- [ ] Client 拒绝草稿 → status: NEEDS_DRAFT_REVISION
+- [ ] Agency 查看评论并修改
+- [ ] Agency 重新提交 → status: AWAITING_REVIEW_DRAFT
 - [ ] Client 再次审查
 
 ## 安全建议
@@ -218,4 +250,5 @@ export const ARTICLE_STATUS = {
 **解决方案**：
 1. 验证 `client_comments` JSONB 结构
 2. 检查数据序列化/反序列化逻辑
+
 

@@ -6,6 +6,7 @@ import { Check, X, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
 interface Article {
   id: string;
   title: string;
+  campaign_id: string;  // Added for multi-title approval
   proposed_titles: string[];
   outline_content: string | null;
   draft_content: string | null;
@@ -17,7 +18,7 @@ const ClientReviewPage: React.FC = () => {
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTitle, setSelectedTitle] = useState<string>('');
+  const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
   const [commentText, setCommentText] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -62,10 +63,8 @@ const ClientReviewPage: React.FC = () => {
 
       setArticle(data);
       
-      // If status is AWAITING_REVIEW_TITLES and there are proposed titles, select the first one by default
-      if (data.status === ARTICLE_STATUS.AWAITING_REVIEW_TITLES && data.proposed_titles && data.proposed_titles.length > 0) {
-        setSelectedTitle(data.proposed_titles[0]);
-      }
+      // Reset selected titles when loading a new article
+      setSelectedTitles([]);
     } catch (err) {
       console.error('Unexpected error loading article:', err);
       setError(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -108,23 +107,17 @@ const ClientReviewPage: React.FC = () => {
     }
   };
 
-  const handleApprove = async (newStatus: string, selectedTitleText?: string) => {
+  // Handle approval for outline and draft (single article update)
+  const handleApprove = async (newStatus: string) => {
     if (!article) return;
 
     setIsSubmitting(true);
     setSuccessMessage(null);
 
     try {
-      const updates: any = { status: newStatus };
-      
-      // If approving titles, also update the title field
-      if (newStatus === ARTICLE_STATUS.TITLES_APPROVED && selectedTitleText) {
-        updates.title = selectedTitleText;
-      }
-
       const { error: updateError } = await supabase
         .from('articles')
-        .update(updates)
+        .update({ status: newStatus })
         .eq('id', article.id);
 
       if (updateError) {
@@ -143,6 +136,80 @@ const ClientReviewPage: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle multi-title approval - creates new articles for each selected title
+  const handleApproveTitles = async () => {
+    if (!article || selectedTitles.length === 0) {
+      alert('请至少选择一个标题。');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSuccessMessage(null);
+
+    try {
+      // 1. Create new articles for each selected title
+      const newArticles = selectedTitles.map(title => ({
+        campaign_id: article.campaign_id,
+        title: title,
+        selected_title: title,
+        status: ARTICLE_STATUS.NEEDS_OUTLINE, // Go directly to outline creation
+        proposed_titles: article.proposed_titles, // Inherit all proposed titles
+        created_at: new Date().toISOString()
+      }));
+
+      const { error: insertError } = await supabase
+        .from('articles')
+        .insert(newArticles);
+
+      if (insertError) {
+        console.error('Error creating new articles:', insertError);
+        alert(`创建文章失败：${insertError.message}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 2. Delete the original article
+      const { error: deleteError } = await supabase
+        .from('articles')
+        .delete()
+        .eq('id', article.id);
+
+      if (deleteError) {
+        console.error('Error deleting original article:', deleteError);
+        // Don't fail completely - articles were created successfully
+        alert(`注意：新文章已创建，但原文章删除失败：${deleteError.message}`);
+      }
+
+      setSuccessMessage(`已成功批准 ${selectedTitles.length} 个标题！页面将在 3 秒后关闭...`);
+      
+      // Close page or show completion after 3 seconds
+      setTimeout(() => {
+        // Try to close the window, or show a completed state
+        try {
+          window.close();
+        } catch {
+          // If window.close() doesn't work, just show a completion message
+          setSuccessMessage('批准完成！您可以关闭此页面。');
+        }
+      }, 3000);
+
+    } catch (err) {
+      console.error('Unexpected error approving titles:', err);
+      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Toggle title selection (for checkbox multi-select)
+  const handleToggleTitle = (title: string) => {
+    setSelectedTitles(prev => 
+      prev.includes(title) 
+        ? prev.filter(t => t !== title)
+        : [...prev, title]
+    );
   };
 
   const handleReject = async () => {
@@ -165,11 +232,22 @@ const ClientReviewPage: React.FC = () => {
       };
       const updatedComments = [...existingComments, newComment];
 
-      // Update status to NEEDS_REVISION and add comment
+      // Determine the correct revision status based on current review phase
+      let revisionStatus = ARTICLE_STATUS.NEEDS_DRAFT_REVISION; // Default fallback
+      
+      if (article.status === ARTICLE_STATUS.AWAITING_REVIEW_TITLES) {
+        revisionStatus = ARTICLE_STATUS.NEEDS_TITLES_REVISION;
+      } else if (article.status === ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE) {
+        revisionStatus = ARTICLE_STATUS.NEEDS_OUTLINE_REVISION;
+      } else if (article.status === ARTICLE_STATUS.AWAITING_REVIEW_DRAFT) {
+        revisionStatus = ARTICLE_STATUS.NEEDS_DRAFT_REVISION;
+      }
+
+      // Update status to the appropriate revision state and add comment
       const { error: updateError } = await supabase
         .from('articles')
         .update({
-          status: ARTICLE_STATUS.NEEDS_REVISION,
+          status: revisionStatus,
           client_comments: updatedComments
         })
         .eq('id', article.id);
@@ -252,41 +330,58 @@ const ClientReviewPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">请选择一个标题</h2>
-          <p className="text-slate-600 mb-6">请从以下标题中选择一个您最满意的：</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">请选择标题</h2>
+          <p className="text-slate-600 mb-6">
+            请勾选您满意的标题（可多选）。每个被批准的标题将创建一篇独立的文章：
+          </p>
           
           <div className="space-y-3">
             {titles.map((title, index) => (
               <label
                 key={index}
                 className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition ${
-                  selectedTitle === title
+                  selectedTitles.includes(title)
                     ? 'border-indigo-500 bg-indigo-50'
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
                 <input
-                  type="radio"
-                  name="title"
-                  value={title}
-                  checked={selectedTitle === title}
-                  onChange={(e) => setSelectedTitle(e.target.value)}
-                  className="mt-1 mr-3"
+                  type="checkbox"
+                  checked={selectedTitles.includes(title)}
+                  onChange={() => handleToggleTitle(title)}
+                  className="mt-1 mr-3 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className="flex-1 text-slate-900 font-medium">{title}</span>
               </label>
             ))}
           </div>
+
+          {/* Selected count indicator */}
+          {selectedTitles.length > 0 && (
+            <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+              <p className="text-indigo-700 text-sm">
+                已选择 <span className="font-bold">{selectedTitles.length}</span> 个标题，
+                批准后将创建 <span className="font-bold">{selectedTitles.length}</span> 篇独立文章
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-4 pt-4 border-t border-slate-200">
           <button
-            onClick={() => handleApprove(ARTICLE_STATUS.TITLES_APPROVED, selectedTitle)}
-            disabled={!selectedTitle || isSubmitting}
+            onClick={handleApproveTitles}
+            disabled={selectedTitles.length === 0 || isSubmitting}
             className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
           >
-            <Check size={20} />
-            批准所选标题
+            {isSubmitting ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <Check size={20} />
+            )}
+            {isSubmitting 
+              ? '处理中...' 
+              : `批准所选标题 (${selectedTitles.length})`
+            }
           </button>
         </div>
       </div>
@@ -397,6 +492,14 @@ const ClientReviewPage: React.FC = () => {
       ARTICLE_STATUS.NEEDS_TITLES,
       ARTICLE_STATUS.TITLES_APPROVED,
       ARTICLE_STATUS.OUTLINE_APPROVED,
+      ARTICLE_STATUS.NEEDS_OUTLINE,
+      ARTICLE_STATUS.NEEDS_DRAFT,
+    ].includes(article.status as any);
+    const isRevisionInProgress = [
+      ARTICLE_STATUS.NEEDS_TITLES_REVISION,
+      ARTICLE_STATUS.NEEDS_OUTLINE_REVISION,
+      ARTICLE_STATUS.NEEDS_DRAFT_REVISION,
+      ARTICLE_STATUS.NEEDS_REVISION, // Deprecated, kept for backward compatibility
     ].includes(article.status as any);
 
     return (
@@ -413,7 +516,7 @@ const ClientReviewPage: React.FC = () => {
             <h2 className="text-2xl font-bold text-slate-900 mb-2">等待机构处理</h2>
             <p className="text-slate-600">文章正在由机构处理中，请稍候...</p>
           </>
-        ) : article.status === ARTICLE_STATUS.NEEDS_REVISION ? (
+        ) : isRevisionInProgress ? (
           <>
             <MessageSquare className="h-16 w-16 text-amber-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-slate-900 mb-2">需要修改</h2>
@@ -491,4 +594,5 @@ const ClientReviewPage: React.FC = () => {
 };
 
 export default ClientReviewPage;
+
 

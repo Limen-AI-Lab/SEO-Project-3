@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Article, ProjectStatus, ARTICLE_STATUS, ContentBlock } from '../types';
+import { Article, ProjectStatus, ARTICLE_STATUS, ContentBlock, RevisionHistoryEntry, Comment } from '../types';
 import { generateBlogDraft, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement } from '../services/geminiService';
 import { 
   Send, CheckCircle, Wand2, Sparkles, Globe, FileText, MessageSquare, 
   RefreshCw, LayoutTemplate, PenTool, PanelLeftClose, PanelLeftOpen, 
   PanelRightClose, PanelRightOpen, Maximize2, Minimize2, Eye, GitGraph, Code, ArrowRight, X,
-  Paperclip, Image as ImageIcon, Trash2, ArrowUp, ArrowDown, MoveVertical, Copy, Check
+  Paperclip, Image as ImageIcon, Trash2, ArrowUp, ArrowDown, MoveVertical, Copy, Check,
+  History, ChevronDown, ChevronUp, Edit3, Plus, Minus
 } from 'lucide-react';
 import { generateClientReviewLink, copyToClipboard } from '../services/linkService';
 
@@ -50,6 +51,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
   const [linkCopied, setLinkCopied] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'outline' | 'feedback'>('outline');
+  const [showHistory, setShowHistory] = useState(false);
 
   // --- Layout State ---
   const [leftWidth, setLeftWidth] = useState(320);
@@ -86,14 +88,75 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
   const [quickRefineInput, setQuickRefineInput] = useState('');
   const [isQuickRefining, setIsQuickRefining] = useState(false);
 
+  // --- Block Editing State ---
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+
   const sidebarRef = useRef<{ startX: number, startWidth: number } | null>(null);
 
   // --- Initialization & Markdown Parsing ---
   useEffect(() => {
-    if (!isSyncing && project.draftContent) {
+    if (isSyncing) return;
+    
+    // Priority: Use draftBlocks if available (especially after applying client edits)
+    // Otherwise fall back to draftContent (markdown)
+    if (project.draftBlocks && project.draftBlocks.length > 0) {
+      const editorBlocks = convertContentBlocksToEditorBlocks(project.draftBlocks);
+      setBlocks(editorBlocks);
+    } else if (project.draftContent) {
       setBlocks(parseMarkdownToBlocks(project.draftContent));
     }
-  }, [project.draftContent]);
+  }, [project.draftContent, project.draftBlocks, isSyncing]);
+
+  // Auto-resize all textareas when blocks change or component mounts
+  useEffect(() => {
+    // Use setTimeout to ensure DOM is updated after render
+    const timer = setTimeout(() => {
+      const textareas = document.querySelectorAll('textarea[data-block-editor]');
+      textareas.forEach((textarea) => {
+        const el = textarea as HTMLTextAreaElement;
+        el.style.height = 'auto';
+        el.style.height = `${Math.max(el.scrollHeight, 24)}px`;
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [blocks]);
+  
+  // Convert ContentBlock[] to EditorBlock[] for the visual editor
+  const convertContentBlocksToEditorBlocks = (contentBlocks: ContentBlock[]): EditorBlock[] => {
+    const editorBlocks: EditorBlock[] = [];
+    
+    contentBlocks.forEach((block) => {
+      if (block.type === 'image') {
+        editorBlocks.push({
+          id: block.id,
+          type: 'image',
+          content: '',
+          src: block.src,
+          caption: block.caption,
+          size: 'medium'
+        });
+      } else {
+        // For text blocks (header, paragraph, quote), convert to text type
+        let textContent = block.content;
+        
+        // Add markdown formatting based on type
+        if (block.type === 'header') {
+          // Determine header level (simplified - assume H1 for now)
+          textContent = `# ${block.content}`;
+        } else if (block.type === 'quote') {
+          textContent = `> ${block.content}`;
+        }
+        
+        editorBlocks.push({
+          id: block.id,
+          type: 'text',
+          content: textContent
+        });
+      }
+    });
+    
+    return editorBlocks;
+  };
 
   const parseMarkdownToBlocks = (md: string): EditorBlock[] => {
     // Simple parser: Split by image regex ![caption](url)
@@ -732,27 +795,198 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {/* Revision Round Badge */}
+                      {project.revisionRound && project.revisionRound > 0 && (
+                        <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                          <History size={14} className="text-indigo-600" />
+                          <span className="text-xs font-bold text-indigo-700">
+                            第 {project.revisionRound} 轮审核
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Current Round Comments */}
                       {project.clientComments.length === 0 ? (
                           <div className="text-center py-8 text-slate-400">
                             <MessageSquare className="mx-auto mb-2 opacity-50" size={24} />
                             <p className="text-xs italic">No feedback provided yet.</p>
                           </div>
                         ) : (
-                          project.clientComments.map(c => (
-                            <div key={c.id} className="bg-amber-50/50 p-3 rounded-lg border border-amber-100/60 shadow-sm relative group hover:shadow-md transition">
-                              <div className="flex justify-between items-start mb-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="w-5 h-5 rounded-full bg-amber-200 flex items-center justify-center text-[10px] font-bold text-amber-800">
-                                        {c.author.charAt(0)}
+                          project.clientComments.map((c: Comment) => {
+                            // Determine style based on editType
+                            let bgColor = 'bg-amber-50/50';
+                            let borderColor = 'border-amber-100/60';
+                            let avatarBg = 'bg-amber-200';
+                            let avatarText = 'text-amber-800';
+                            let icon = null;
+                            
+                            if (c.editType === 'modify') {
+                              bgColor = 'bg-yellow-50';
+                              borderColor = 'border-yellow-200';
+                              avatarBg = 'bg-yellow-200';
+                              avatarText = 'text-yellow-800';
+                              icon = <Edit3 size={10} />;
+                            } else if (c.editType === 'delete') {
+                              bgColor = 'bg-red-50';
+                              borderColor = 'border-red-200';
+                              avatarBg = 'bg-red-200';
+                              avatarText = 'text-red-800';
+                              icon = <Minus size={10} />;
+                            } else if (c.editType === 'add') {
+                              bgColor = 'bg-green-50';
+                              borderColor = 'border-green-200';
+                              avatarBg = 'bg-green-200';
+                              avatarText = 'text-green-800';
+                              icon = <Plus size={10} />;
+                            }
+                            
+                            return (
+                              <div key={c.id} className={`${bgColor} p-3 rounded-lg border ${borderColor} shadow-sm relative group hover:shadow-md transition`}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className={`w-5 h-5 rounded-full ${avatarBg} flex items-center justify-center text-[10px] font-bold ${avatarText}`}>
+                                          {icon || c.author.charAt(0)}
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-700">{c.author}</span>
+                                      {c.editType && (
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                                          c.editType === 'modify' ? 'bg-yellow-100 text-yellow-700' :
+                                          c.editType === 'delete' ? 'bg-red-100 text-red-700' :
+                                          c.editType === 'add' ? 'bg-green-100 text-green-700' : ''
+                                        }`}>
+                                          {c.editType === 'modify' ? '修改' : c.editType === 'delete' ? '删除' : '新增'}
+                                        </span>
+                                      )}
                                     </div>
-                                    <span className="text-xs font-bold text-slate-700">{c.author}</span>
-                                  </div>
+                                </div>
+                                <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{c.text}</p>
+                                <p className="text-[10px] text-slate-400 mt-2 text-right">{c.timestamp.toLocaleDateString()}</p>
                               </div>
-                              <p className="text-sm text-slate-700 leading-snug">{c.text}</p>
-                              <p className="text-[10px] text-slate-400 mt-2 text-right">{c.timestamp.toLocaleDateString()}</p>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
+                      
+                      {/* Revision History Section */}
+                      {project.revisionHistory && project.revisionHistory.length > 0 && (
+                        <div className="mt-4 border-t border-slate-200 pt-4">
+                          <button
+                            onClick={() => setShowHistory(!showHistory)}
+                            className="w-full flex items-center justify-between p-2 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
+                          >
+                            <div className="flex items-center gap-2">
+                              <History size={14} className="text-slate-500" />
+                              <span className="text-xs font-medium text-slate-600">
+                                历史反馈 ({project.revisionHistory.length} 轮)
+                              </span>
+                            </div>
+                            {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </button>
+                          
+                          {showHistory && (
+                            <div className="mt-3 space-y-4">
+                              {project.revisionHistory.map((historyEntry: RevisionHistoryEntry, historyIndex: number) => (
+                                <div key={historyIndex} className="border border-slate-200 rounded-lg overflow-hidden">
+                                  <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-bold text-slate-600">
+                                        第 {historyEntry.round} 轮
+                                      </span>
+                                      <span className="text-[10px] text-slate-400">
+                                        {historyEntry.timestamp ? new Date(historyEntry.timestamp).toLocaleDateString() : ''}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="p-3 space-y-2 bg-white/50">
+                                    {/* General Comments from history */}
+                                    {historyEntry.generalComments && (
+                                      <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
+                                        <div className="font-semibold text-slate-700 mb-1">整体反馈：</div>
+                                        {historyEntry.generalComments}
+                                      </div>
+                                    )}
+                                    {/* Section/Content Comments from history */}
+                                    {(historyEntry.sectionComments || historyEntry.contentComments || []).length > 0 && (
+                                      <div className="space-y-2">
+                                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                          评论 ({((historyEntry.sectionComments || []).length + (historyEntry.contentComments || []).length)})
+                                        </div>
+                                        {(historyEntry.sectionComments || historyEntry.contentComments || []).map((hc: any, hcIndex: number) => (
+                                          <div key={hcIndex} className="text-xs text-slate-600 bg-amber-50/30 p-2 rounded border border-amber-100/50">
+                                            {hc.targetId && <span className="text-[10px] text-slate-400 font-mono">[{hc.targetId}] </span>}
+                                            {hc.text}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {/* Edits from history - Detailed display */}
+                                    {historyEntry.edits && historyEntry.edits.length > 0 && (
+                                      <div className="space-y-2 mt-3 pt-3 border-t border-slate-200">
+                                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                          编辑建议 ({historyEntry.edits.length})
+                                        </div>
+                                        {parseHistoryEdits(historyEntry).map((editComment: Comment) => {
+                                          // Determine style based on editType
+                                          let bgColor = 'bg-amber-50/50';
+                                          let borderColor = 'border-amber-100/60';
+                                          let avatarBg = 'bg-amber-200';
+                                          let avatarText = 'text-amber-800';
+                                          let icon = null;
+                                          
+                                          if (editComment.editType === 'modify') {
+                                            bgColor = 'bg-yellow-50';
+                                            borderColor = 'border-yellow-200';
+                                            avatarBg = 'bg-yellow-200';
+                                            avatarText = 'text-yellow-800';
+                                            icon = <Edit3 size={10} />;
+                                          } else if (editComment.editType === 'delete') {
+                                            bgColor = 'bg-red-50';
+                                            borderColor = 'border-red-200';
+                                            avatarBg = 'bg-red-200';
+                                            avatarText = 'text-red-800';
+                                            icon = <Minus size={10} />;
+                                          } else if (editComment.editType === 'add') {
+                                            bgColor = 'bg-green-50';
+                                            borderColor = 'border-green-200';
+                                            avatarBg = 'bg-green-200';
+                                            avatarText = 'text-green-800';
+                                            icon = <Plus size={10} />;
+                                          }
+                                          
+                                          return (
+                                            <div key={editComment.id} className={`${bgColor} p-3 rounded-lg border ${borderColor} shadow-sm`}>
+                                              <div className="flex justify-between items-start mb-2">
+                                                <div className="flex items-center gap-1.5">
+                                                  <div className={`w-5 h-5 rounded-full ${avatarBg} flex items-center justify-center text-[10px] font-bold ${avatarText}`}>
+                                                    {icon || editComment.author.charAt(0)}
+                                                  </div>
+                                                  <span className="text-xs font-bold text-slate-700">{editComment.author}</span>
+                                                  {editComment.editType && (
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                                                      editComment.editType === 'modify' ? 'bg-yellow-100 text-yellow-700' :
+                                                      editComment.editType === 'delete' ? 'bg-red-100 text-red-700' :
+                                                      editComment.editType === 'add' ? 'bg-green-100 text-green-700' : ''
+                                                    }`}>
+                                                      {editComment.editType === 'modify' ? '修改' : editComment.editType === 'delete' ? '删除' : '新增'}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{editComment.text}</p>
+                                              <p className="text-[10px] text-slate-400 mt-2 text-right">
+                                                {editComment.timestamp.toLocaleDateString()}
+                                              </p>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                </div>
@@ -824,8 +1058,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                  <div className="mx-auto bg-white shadow-sm min-h-[800px] p-8 md:p-12 rounded-lg border border-slate-100 w-full max-w-none">
                     {blocks.map((block, index) => (
                        <div key={block.id} className="group relative mb-6 hover:ring-2 hover:ring-indigo-50 rounded-lg p-1 -m-1 transition-all">
-                          {/* Block Controls (Hover) */}
-                          <div className="absolute right-0 top-0 -mt-3 -mr-3 hidden group-hover:flex items-center gap-1 bg-white border border-slate-200 rounded-lg shadow-sm p-1 z-10">
+                          {/* Block Controls (Only show when editing this block) */}
+                          {editingBlockId === block.id && (
+                          <div className="absolute right-0 top-0 -mt-3 -mr-3 flex items-center gap-1 bg-white border border-slate-200 rounded-lg shadow-sm p-1 z-10">
                              <button type="button" onClick={(e) => { e.stopPropagation(); moveBlock(index, -1); }} className="p-1 hover:bg-slate-100 rounded" disabled={index === 0}><ArrowUp size={14} /></button>
                              <button type="button" onClick={(e) => { e.stopPropagation(); moveBlock(index, 1); }} className="p-1 hover:bg-slate-100 rounded" disabled={index === blocks.length - 1}><ArrowDown size={14} /></button>
                              {block.type === 'image' && (
@@ -839,17 +1074,31 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                              <div className="w-px h-3 bg-slate-200 mx-1"></div>
                              <button type="button" onClick={(e) => { e.stopPropagation(); deleteBlock(index); }} className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded"><Trash2 size={14} /></button>
                           </div>
+                          )}
 
                           {/* Content Render */}
                           {block.type === 'text' ? (
                              <textarea 
+                               data-block-editor
                                value={block.content}
-                               onChange={(e) => updateBlock(block.id, e.target.value)}
+                               onChange={(e) => {
+                                 updateBlock(block.id, e.target.value);
+                                 // Auto-resize on change
+                                 const target = e.target as HTMLTextAreaElement;
+                                 target.style.height = 'auto';
+                                 target.style.height = `${Math.max(target.scrollHeight, 24)}px`;
+                               }}
+                               onFocus={() => setEditingBlockId(block.id)}
+                               onBlur={() => setEditingBlockId(null)}
                                onMouseUp={(e) => handleTextareaMouseUp(e, block.id)}
-                               className="w-full resize-none outline-none bg-transparent text-base md:text-lg leading-relaxed text-slate-800 font-serif overflow-hidden"
-                               rows={Math.max(1, block.content.split('\n').length)}
+                               className="w-full resize-none outline-none bg-transparent text-base md:text-lg leading-relaxed text-slate-800 font-serif"
                                placeholder="Type / for blocks..."
-                               style={{ minHeight: '1.5em' }}
+                               style={{ 
+                                 minHeight: '1.5em',
+                                 overflow: 'hidden',
+                                 lineHeight: '1.5',
+                                 height: 'auto'
+                               }}
                              />
                           ) : (
                              <div className={`relative ${block.size === 'small' ? 'max-w-xs' : block.size === 'medium' ? 'max-w-2xl' : 'max-w-full'} mx-auto`}>
@@ -858,6 +1107,8 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                                   type="text" 
                                   value={block.caption || ''} 
                                   onChange={(e) => updateCaption(index, e.target.value)}
+                                  onFocus={() => setEditingBlockId(block.id)}
+                                  onBlur={() => setEditingBlockId(null)}
                                   className="w-full text-center text-xs text-slate-400 mt-2 bg-transparent outline-none italic"
                                   placeholder="Add a caption..." 
                                 />

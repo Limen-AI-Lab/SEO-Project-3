@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, ARTICLE_STATUS, Campaign } from '../types';
-import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Copy, Check, Eye, Edit3, AlertTriangle, Download } from 'lucide-react';
+import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Copy, Check, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save } from 'lucide-react';
 import { generateBlogOutline, refineBlogOutline } from '../services/geminiService';
 import { generateClientReviewLink, copyToClipboard } from '../services/linkService';
 import { getCampaignWithClients } from '../services/campaignService';
@@ -31,6 +31,15 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
 
+  // Title editing state
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(project.selectedTitle || '');
+
+  // Feedback ignore/edit state (local, not persisted)
+  const [ignoredFeedbackIds, setIgnoredFeedbackIds] = useState<string[]>([]);
+  const [editingFeedbackId, setEditingFeedbackId] = useState<string | null>(null);
+  const [editedFeedbackText, setEditedFeedbackText] = useState<string>('');
+
   // Real-time parsing and validation
   useEffect(() => {
     if (outline.trim()) {
@@ -46,6 +55,49 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
       setValidationWarnings([]);
     }
   }, [outline]);
+
+  // Title editing handlers
+  const handleTitleSave = () => {
+    if (editedTitle.trim()) {
+      onUpdate({ selectedTitle: editedTitle.trim() });
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleCancel = () => {
+    setEditedTitle(project.selectedTitle || '');
+    setIsEditingTitle(false);
+  };
+
+  // Feedback ignore/edit handlers
+  const handleIgnoreFeedback = (feedbackId: string) => {
+    if (ignoredFeedbackIds.includes(feedbackId)) {
+      setIgnoredFeedbackIds(ignoredFeedbackIds.filter(id => id !== feedbackId));
+    } else {
+      setIgnoredFeedbackIds([...ignoredFeedbackIds, feedbackId]);
+    }
+  };
+
+  const handleStartEditFeedback = (feedbackId: string, currentText: string) => {
+    setEditingFeedbackId(feedbackId);
+    setEditedFeedbackText(currentText);
+  };
+
+  const handleSaveFeedbackEdit = () => {
+    if (editingFeedbackId && editedFeedbackText.trim()) {
+      const updatedComments = project.clientComments.map(c =>
+        c.id === editingFeedbackId ? { ...c, text: editedFeedbackText.trim() } : c
+      );
+      onUpdate({ clientComments: updatedComments });
+    }
+    setEditingFeedbackId(null);
+    setEditedFeedbackText('');
+  };
+
+  const handleCancelFeedbackEdit = () => {
+    setEditingFeedbackId(null);
+    setEditedFeedbackText('');
+  };
 
   const handleSubmit = () => {
     // Validate before submitting
@@ -106,13 +158,19 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
       // Fetch campaign information for context
       const campaign = await getCampaignWithClients(project.campaignId);
       
+      // Filter out ignored feedback before passing to AI
+      const activeComments = project.clientComments.filter(
+        c => !ignoredFeedbackIds.includes(c.id)
+      );
+      
       // Build comprehensive params object with all available context
+      // Use edited title if available, otherwise fall back to project title
       const params = {
-        selectedTitle: project.selectedTitle || project.title,
+        selectedTitle: editedTitle || project.selectedTitle || project.title,
         campaignGoals: campaign?.strategyGoals,
         keywords: campaign?.keywords,
         targetAudience: campaign?.targetAudience,
-        clientComments: project.clientComments
+        clientComments: activeComments
       };
       
       const generated = await generateBlogOutline(params);
@@ -163,9 +221,51 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
            <div className="bg-green-100 p-2 rounded-full text-green-700">
               <AlignLeft size={24} />
            </div>
-           <div>
+           <div className="flex-1">
              <h3 className="text-green-900 font-semibold">Approved Title Selected</h3>
-             <p className="text-green-800 mt-1 text-lg font-bold">"{project.selectedTitle}"</p>
+             {isEditingTitle ? (
+               <div className="mt-2 flex items-center gap-2">
+                 <input
+                   type="text"
+                   value={editedTitle}
+                   onChange={(e) => setEditedTitle(e.target.value)}
+                   className="flex-1 px-3 py-2 text-lg font-bold text-green-800 bg-white border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+                   autoFocus
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') handleTitleSave();
+                     if (e.key === 'Escape') handleTitleCancel();
+                   }}
+                 />
+                 <button
+                   onClick={handleTitleSave}
+                   className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                   title="Save"
+                 >
+                   <Save size={18} />
+                 </button>
+                 <button
+                   onClick={handleTitleCancel}
+                   className="p-2 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition"
+                   title="Cancel"
+                 >
+                   <X size={18} />
+                 </button>
+               </div>
+             ) : (
+               <div className="mt-1 flex items-center gap-2 group">
+                 <p className="text-green-800 text-lg font-bold">"{project.selectedTitle}"</p>
+                 <button
+                   onClick={() => {
+                     setEditedTitle(project.selectedTitle || '');
+                     setIsEditingTitle(true);
+                   }}
+                   className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg transition opacity-0 group-hover:opacity-100"
+                   title="Edit title"
+                 >
+                   <Pencil size={16} />
+                 </button>
+               </div>
+             )}
              <p className="text-green-700 text-sm mt-2">Please build the structure based on this direction.</p>
            </div>
         </div>
@@ -369,9 +469,16 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         <div className="w-full lg:w-80 space-y-6">
            {/* Feedback Card */}
            <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
-              <div className="flex items-center gap-2 text-amber-800 font-bold mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-amber-800 font-bold">
                   <MessageSquare size={18} />
                   <h3>Client Feedback</h3>
+                </div>
+                {ignoredFeedbackIds.length > 0 && (
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                    {ignoredFeedbackIds.length} ignored
+                  </span>
+                )}
               </div>
               
               {project.clientComments.length === 0 ? (
@@ -379,16 +486,88 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                    No specific comments from the client on this project yet. Use the approved title as your main guide.
                  </p>
               ) : (
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-                   {project.clientComments.map((comment) => (
-                      <div key={comment.id} className="bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs font-bold text-slate-700">{comment.author}</span>
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                   {project.clientComments.map((comment) => {
+                      const isIgnored = ignoredFeedbackIds.includes(comment.id);
+                      const isEditing = editingFeedbackId === comment.id;
+                      
+                      return (
+                        <div 
+                          key={comment.id} 
+                          className={`p-3 rounded-lg border shadow-sm transition ${
+                            isIgnored 
+                              ? 'bg-slate-50 border-slate-200 opacity-60' 
+                              : 'bg-white border-amber-100'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-700">{comment.author}</span>
+                              {isIgnored && (
+                                <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                                  Ignored
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-slate-400">{comment.timestamp.toLocaleDateString()}</span>
-                         </div>
-                         <p className="text-sm text-slate-600">{comment.text}</p>
-                      </div>
-                   ))}
+                          </div>
+                          
+                          {isEditing ? (
+                            <div className="mt-2">
+                              <textarea
+                                value={editedFeedbackText}
+                                onChange={(e) => setEditedFeedbackText(e.target.value)}
+                                className="w-full p-2 text-sm border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none resize-none"
+                                rows={3}
+                                autoFocus
+                              />
+                              <div className="flex justify-end gap-2 mt-2">
+                                <button
+                                  onClick={handleCancelFeedbackEdit}
+                                  className="px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded transition"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={handleSaveFeedbackEdit}
+                                  className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 transition"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className={`text-sm ${isIgnored ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
+                                {comment.text}
+                              </p>
+                              
+                              {/* Action buttons */}
+                              <div className="flex justify-end gap-1 mt-2 pt-2 border-t border-slate-100">
+                                <button
+                                  onClick={() => handleStartEditFeedback(comment.id, comment.text)}
+                                  className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition"
+                                  title="Edit feedback"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleIgnoreFeedback(comment.id)}
+                                  className={`p-1.5 rounded transition ${
+                                    isIgnored 
+                                      ? 'text-green-600 hover:bg-green-50' 
+                                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                                  }`}
+                                  title={isIgnored ? 'Include in AI generation' : 'Ignore in AI generation'}
+                                >
+                                  {isIgnored ? <Eye size={14} /> : <EyeOff size={14} />}
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                   })}
                 </div>
               )}
            </div>

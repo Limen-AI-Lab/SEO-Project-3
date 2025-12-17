@@ -40,6 +40,35 @@ export interface Comment {
   author: string;
   text: string;
   timestamp: Date;
+  editType?: 'modify' | 'delete' | 'add'; // For edit suggestions
+}
+
+// Client edit suggestion from Client Portal
+export interface ClientEdit {
+  id: string;
+  article_id: string;
+  contact_email: string;
+  contact_name: string;
+  edit_type: 'outline' | 'content';
+  target_id: string;
+  action_type: 'modify' | 'delete' | 'add';
+  original_content: any;
+  suggested_content: any;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+}
+
+// Single revision history entry
+export interface RevisionHistoryEntry {
+  round: number;
+  action: string;
+  reviewer: string;
+  timestamp: string;
+  archived_at: string;
+  sectionComments?: Array<{ targetId: string; text: string }>;
+  contentComments?: Array<{ targetId: string; text: string }>;
+  generalComments?: string;
+  edits?: ClientEdit[];
 }
 
 // Contact person interface for client authentication
@@ -137,6 +166,10 @@ export interface Article {
   
   // Feedback
   clientComments: Comment[];
+  
+  // Revision tracking
+  revisionRound?: number;                    // Current revision round (1 = first review)
+  revisionHistory?: RevisionHistoryEntry[];  // History of all previous reviews
 }
 
 export enum ViewState {

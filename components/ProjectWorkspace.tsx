@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Article, ProjectStatus, Campaign, ARTICLE_STATUS, Comment, ContentBlock } from '../types';
+import { Article, ProjectStatus, Campaign, ARTICLE_STATUS, Comment, ContentBlock, ClientEdit, RevisionHistoryEntry } from '../types';
 import supabase from '../services/supabaseClient.js';
 import { ArrowLeft, Check, Lock, PlayCircle, ChevronRight, Home } from 'lucide-react';
 import StatusBadge from './StatusBadge';
@@ -94,7 +94,118 @@ function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Co
     });
   }
   
+  // Add edit suggestions (from outline/content review)
+  if (rawComments.edits && Array.isArray(rawComments.edits)) {
+    rawComments.edits.forEach((edit: ClientEdit, index: number) => {
+      let editText = '';
+      const actionType = edit.action_type;
+      const editAuthor = edit.contact_name || reviewer;
+      const editTimestamp = edit.created_at ? new Date(edit.created_at) : timestamp;
+      
+      // Format the edit content for display
+      if (actionType === 'modify') {
+        // Extract content text for display
+        const oldContent = edit.original_content?.content || edit.original_content?.title || JSON.stringify(edit.original_content);
+        const newContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
+        const oldPreview = typeof oldContent === 'string' ? oldContent.substring(0, 50) : String(oldContent).substring(0, 50);
+        const newPreview = typeof newContent === 'string' ? newContent.substring(0, 50) : String(newContent).substring(0, 50);
+        editText = `[${oldPreview}${oldContent.length > 50 ? '...' : ''}] 标题修改`;
+      } else if (actionType === 'delete') {
+        const deletedContent = edit.original_content?.content || edit.original_content?.title || JSON.stringify(edit.original_content);
+        const deletePreview = typeof deletedContent === 'string' ? deletedContent.substring(0, 50) : String(deletedContent).substring(0, 50);
+        editText = `[${deletePreview}${deletedContent.length > 50 ? '...' : ''}] 删除建议`;
+      } else if (actionType === 'add') {
+        const addedContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
+        const addPreview = typeof addedContent === 'string' ? addedContent.substring(0, 50) : String(addedContent).substring(0, 50);
+        editText = `[新增内容] ${addPreview}${addedContent.length > 50 ? '...' : ''}`;
+      }
+      
+      if (editText) {
+        comments.push({
+          id: `edit-${edit.id || index}-${Date.now()}`,
+          author: editAuthor,
+          text: editText,
+          timestamp: editTimestamp,
+          editType: actionType
+        });
+      }
+    });
+  }
+  
   return comments;
+}
+
+/**
+ * Apply client edit suggestions to content blocks
+ * This function modifies the content blocks based on client's edit suggestions
+ * 
+ * @param originalBlocks - Original content blocks from database
+ * @param edits - Array of client edit suggestions
+ * @returns Modified content blocks with edits applied
+ */
+function applyClientEdits(originalBlocks: ContentBlock[] | undefined, edits: ClientEdit[] | undefined): ContentBlock[] {
+  if (!originalBlocks || !Array.isArray(originalBlocks)) {
+    return [];
+  }
+  
+  if (!edits || !Array.isArray(edits) || edits.length === 0) {
+    return originalBlocks;
+  }
+  
+  // Create a copy to avoid mutating the original
+  let modifiedBlocks: ContentBlock[] = [...originalBlocks];
+  
+  // Process edits in order: first deletions, then modifications, then additions
+  const deletions = edits.filter(e => e.action_type === 'delete');
+  const modifications = edits.filter(e => e.action_type === 'modify');
+  const additions = edits.filter(e => e.action_type === 'add');
+  
+  // Step 1: Apply deletions (remove blocks)
+  deletions.forEach(edit => {
+    modifiedBlocks = modifiedBlocks.filter(block => block.id !== edit.target_id);
+  });
+  
+  // Step 2: Apply modifications (replace blocks)
+  modifications.forEach(edit => {
+    const blockIndex = modifiedBlocks.findIndex(block => block.id === edit.target_id);
+    if (blockIndex !== -1 && edit.suggested_content) {
+      // Convert suggested_content to ContentBlock format
+      const suggestedBlock: ContentBlock = {
+        id: edit.target_id,
+        type: edit.suggested_content.type || modifiedBlocks[blockIndex].type,
+        content: edit.suggested_content.content || edit.suggested_content.title || '',
+        src: edit.suggested_content.src,
+        caption: edit.suggested_content.caption
+      };
+      modifiedBlocks[blockIndex] = suggestedBlock;
+    }
+  });
+  
+  // Step 3: Apply additions (insert new blocks)
+  // For additions, we need to determine where to insert
+  // If target_id exists in current blocks, insert after it; otherwise append to end
+  additions.forEach(edit => {
+    if (edit.suggested_content) {
+      const newBlock: ContentBlock = {
+        id: edit.target_id || `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: edit.suggested_content.type || 'paragraph',
+        content: edit.suggested_content.content || edit.suggested_content.title || '',
+        src: edit.suggested_content.src,
+        caption: edit.suggested_content.caption
+      };
+      
+      // Try to find insertion point (after the target_id if it exists)
+      const targetIndex = modifiedBlocks.findIndex(block => block.id === edit.target_id);
+      if (targetIndex !== -1) {
+        modifiedBlocks.splice(targetIndex + 1, 0, newBlock);
+      } else {
+        // If target_id doesn't exist, append to end
+        modifiedBlocks.push(newBlock);
+      }
+    }
+  });
+  
+  return modifiedBlocks;
 }
 
 interface Props {
@@ -134,20 +245,50 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       }
 
       // Map database fields to Article interface
-      const draftBlocks = articleData.draft_blocks || undefined;
+      const originalDraftBlocks = articleData.draft_blocks || undefined;
+      
+      // Extract client edits from client_comments
+      const clientEdits: ClientEdit[] = articleData.client_comments?.edits || [];
+      
+      // Apply client edits to draft blocks
+      const modifiedDraftBlocks = applyClientEdits(originalDraftBlocks, clientEdits);
+      
+      // Use modified blocks if edits were applied, otherwise use original
+      const draftBlocksToUse = clientEdits.length > 0 ? modifiedDraftBlocks : originalDraftBlocks;
+      
+      // If the first block is a header and was modified, update the title
+      let displayTitle = articleData.title;
+      if (draftBlocksToUse && draftBlocksToUse.length > 0) {
+        const firstBlock = draftBlocksToUse[0];
+        if (firstBlock.type === 'header' && firstBlock.content) {
+          displayTitle = firstBlock.content;
+        }
+      }
+      
       const mappedArticle: Article = {
         id: articleData.id,
         campaignId: articleData.campaign_id,
-        title: articleData.title,
-        status: (articleData.status as ProjectStatus) || ARTICLE_STATUS.NEEDS_TITLES,
+        title: displayTitle,
+        // Ensure status is always a ProjectStatus value
+        status: (articleData.status as ProjectStatus) || ProjectStatus.NEEDS_TITLES,
         lastUpdated: articleData.last_updated ? new Date(articleData.last_updated) : new Date(articleData.created_at),
         proposedTitles: articleData.proposed_titles || [],
         selectedTitle: articleData.selected_title || undefined,
         outlineContent: articleData.outline_content || undefined,
         draftContent: articleData.draft_content || undefined,
-        draftBlocks: draftBlocks,
-        clientComments: parseClientComments(articleData.client_comments, draftBlocks)
+        draftBlocks: draftBlocksToUse,
+        clientComments: parseClientComments(articleData.client_comments, draftBlocksToUse),
+        // Revision tracking
+        revisionRound: articleData.revision_round || 1,
+        revisionHistory: articleData.revision_history || []
       };
+      
+      console.log('📝 Applied client edits:', {
+        originalBlocks: originalDraftBlocks?.length || 0,
+        editsCount: clientEdits.length,
+        modifiedBlocks: draftBlocksToUse?.length || 0
+      });
+      
       setArticle(mappedArticle);
 
       // Fetch campaign from Supabase (without client relationship)

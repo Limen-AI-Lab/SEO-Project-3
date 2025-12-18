@@ -1,40 +1,65 @@
 /**
  * CMS Service
- * Handles publishing articles to the CMS database table
+ * Handles publishing articles to the CMS via third-party API
  */
 
 import supabase from './supabaseClient.js';
 import { CMSArticle } from '../types';
 
+const CMS_API_URL = 'https://srv1189438.hstgr.cloud/api/';
+const CMS_API_TOKEN = import.meta.env.VITE_CMS_API_TOKEN || '';
 /**
- * Publish an article to the CMS
+ * Publish an article to the CMS via third-party API
  * @param articleData - The article data to publish
  * @returns The published CMS article or null if failed
  */
 export async function publishToCMS(articleData: Omit<CMSArticle, 'id' | 'created_at' | 'updated_at'>): Promise<CMSArticle | null> {
   try {
-    const { data, error } = await supabase
-      .from('cms_articles')
-      .insert([{
-        article_id: articleData.article_id,
-        title: articleData.title,
-        create_date: articleData.create_date,
-        content: articleData.content,
-        short_text: articleData.short_text,
-        cover_image: articleData.cover_image || null,
-        cms_category: articleData.cms_category || null
-      }])
-      .select()
-      .single();
+    // Convert ISO date to YYYY-MM-DD format
+    const createDate = new Date(articleData.create_date).toISOString().split('T')[0];
 
-    if (error) {
-      console.error('Error publishing to CMS:', error);
-      throw new Error(`发布到CMS失败: ${error.message}`);
+    // Prepare API payload according to the API format
+    const apiPayload = {
+      title: articleData.title,
+      createDate: createDate,
+      content: articleData.content,
+      shortText: articleData.short_text || '',
+      bgUrl: articleData.cover_image || '',
+      publishedAt: null
+    };
+
+    console.log('📤 Publishing to CMS API:', apiPayload);
+
+    // Call third-party API
+    const response = await fetch(`${CMS_API_URL}${articleData.cms_category}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CMS_API_TOKEN}`,
+      },
+      body: JSON.stringify({data: apiPayload})
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error publishing to CMS API:', response.status, errorText);
+      throw new Error(`发布到CMS失败: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    console.log('✅ Successfully published to CMS:', data);
-    return data as CMSArticle;
-  } catch (err) {
+    const responseData = await response.json();
+    console.log('✅ Successfully published to CMS:', responseData);
+
+    // Return a CMSArticle-like object for compatibility
+    return {
+      article_id: articleData.article_id,
+      title: articleData.title,
+      create_date: articleData.create_date,
+      content: articleData.content,
+      short_text: articleData.short_text,
+      cover_image: articleData.cover_image,
+      cms_category: articleData.cms_category
+    } as CMSArticle;
+  } catch (err: any) {
     console.error('Unexpected error in publishToCMS:', err);
     throw err;
   }

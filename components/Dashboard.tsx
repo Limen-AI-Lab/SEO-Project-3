@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Campaign, Article, Client } from '../types';
-import { getCampaigns, createCampaign, getArticlesByCampaign, getClients, addClient, deleteClient } from '../services/store';
+import { Campaign, Client } from '../types';
+import { getCampaigns, createCampaign, getClients, addClient, deleteClient } from '../services/store';
 import { generateCampaignKeywords } from '../services/geminiService';
 import { generateCampaignReviewLink, copyToClipboard } from '../services/linkService';
-import { createCampaignWithClients, getAllCampaignsWithClients } from '../services/campaignService';
+import { createCampaignWithClients, getAllCampaignsWithClients, updateCampaign } from '../services/campaignService';
 import { getAllClientsWithContacts } from '../services/clientService';
 import supabase from '../services/supabaseClient.js';
 import CircularProgress from './CircularProgress';
@@ -18,6 +18,10 @@ interface Props {
 const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Article counts per campaign (fetched from Supabase)
+  const [articleCounts, setArticleCounts] = useState<Record<string, number>>({});
+  const [articleTotals, setArticleTotals] = useState<{ active: number; published: number }>({ active: 0, published: 0 });
   
   // Toast state for link copy feedback
   const [copyToast, setCopyToast] = useState<{ show: boolean; campaignId: string | null }>({ show: false, campaignId: null });
@@ -33,6 +37,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   const [strategy, setStrategy] = useState('');
   const [audience, setAudience] = useState('');
+  const [cmsId, setCmsId] = useState<string>('');
   
   // Keyword Module State
   const [keywords, setKeywords] = useState<string[]>([]);
@@ -47,6 +52,34 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       try {
         const campaignsWithClients = await getAllCampaignsWithClients();
         setCampaigns(campaignsWithClients);
+        
+        // Fetch article counts for each campaign from Supabase
+        if (campaignsWithClients.length > 0) {
+          const campaignIds = campaignsWithClients.map(c => c.id);
+          const { data: articles, error: articlesError } = await supabase
+            .from('articles')
+            .select('campaign_id, status')
+            .in('campaign_id', campaignIds);
+          
+          if (!articlesError && articles) {
+            // Count articles per campaign (excluding PUBLISHED)
+            const counts: Record<string, number> = {};
+            campaignIds.forEach(id => counts[id] = 0);
+            let activeTotal = 0;
+            let publishedTotal = 0;
+            articles.forEach(article => {
+              const isPublished = !!article.status?.includes('PUBLISHED');
+              if (isPublished) {
+                publishedTotal += 1;
+              } else {
+                activeTotal += 1;
+                counts[article.campaign_id] = (counts[article.campaign_id] || 0) + 1;
+              }
+            });
+            setArticleCounts(counts);
+            setArticleTotals({ active: activeTotal, published: publishedTotal });
+          }
+        }
       } catch (err) {
         console.error('Error fetching campaigns:', err);
         // If new method fails, just show empty campaigns
@@ -101,7 +134,8 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
             name: campName,
             strategyGoals: strategy,
             targetAudience: audience,
-            keywords
+            keywords,
+            cmsId: cmsId || undefined
           },
           clientIds
         );
@@ -143,6 +177,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
     setClientSearchTerm('');
     setStrategy('');
     setAudience('');
+    setCmsId('');
     setKeywords([]);
     setKeywordInput('');
   };
@@ -220,10 +255,8 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   // Stats Calculation
   const totalCampaigns = campaigns.length;
-  // This is a bit inefficient for large datasets but fine for mock
-  const allArticles = campaigns.flatMap(c => getArticlesByCampaign(c.id));
-  const activeArticles = allArticles.filter(a => !a.status.includes('PUBLISHED')).length;
-  const publishedArticles = allArticles.filter(a => a.status.includes('PUBLISHED')).length;
+  const activeArticles = articleTotals.active;
+  const publishedArticles = articleTotals.published;
 
   const chartData = [
     { name: 'Active', value: activeArticles },
@@ -304,8 +337,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         </div>
         <div className="divide-y divide-slate-100">
           {campaigns.map((camp) => {
-            const campArticles = getArticlesByCampaign(camp.id);
-            const activeCount = campArticles.filter(a => !a.status.includes('PUBLISHED')).length;
+            const activeCount = articleCounts[camp.id] || 0;
             
             return (
               <div 
@@ -319,6 +351,35 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">
                       {camp.status}
                     </span>
+                    <div onClick={(e) => e.stopPropagation()} className="ml-2">
+                       <select
+                         value={camp.cmsId || ''}
+                         onChange={async (e) => {
+                           const newId = e.target.value || null;
+                           // Optimistic update
+                           const updatedCampaigns = campaigns.map(c => 
+                             c.id === camp.id ? { ...c, cmsId: newId as any } : c
+                           );
+                           setCampaigns(updatedCampaigns);
+                           
+                           // Actual update
+                           try {
+                             await updateCampaign(camp.id, { cmsId: newId as any });
+                           } catch (err) {
+                             console.error('Failed to update CMS ID', err);
+                             // Revert on error (could refetch or just let user know)
+                             alert('Failed to update CMS ID');
+                           }
+                         }}
+                         className="px-2 py-1 rounded border border-slate-300 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50 bg-white shadow-sm"
+                       >
+                         <option value="">No CMS ID</option>
+                         <option value="advisories">advisories</option>
+                         <option value="bam">bam</option>
+                         <option value="fbpsnews">fbpsnews</option>
+                         <option value="solution">solution</option>
+                       </select>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
                     <Briefcase size={14} />
@@ -533,6 +594,23 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   placeholder="e.g. Small Business Owners, CFOs"
                   className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  CMS ID
+                </label>
+                <select
+                  value={cmsId}
+                  onChange={(e) => setCmsId(e.target.value)}
+                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                >
+                  <option value="">Select CMS ID...</option>
+                  <option value="advisories">advisories</option>
+                  <option value="bam">bam</option>
+                  <option value="fbpsnews">fbpsnews</option>
+                  <option value="solution">solution</option>
+                </select>
               </div>
 
               {/* AI-Powered Keyword Module */}

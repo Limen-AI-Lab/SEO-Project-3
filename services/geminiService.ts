@@ -384,16 +384,16 @@ export interface PostMetadata {
 export const generatePostMetadata = async (content: string, title: string): Promise<PostMetadata> => {
   try {
     const ai = getAiClient();
-    const prompt = `Based on the blog post content provided below, generate the following CMS metadata:
-    1. Slug (URL friendly, lowercase, hyphens).
-    2. Category (Best fitting blog category e.g. Tax Tips, Compliance, Business News).
-    3. Summary (Meta Description, max 160 chars).
-    4. Intro (An engaging 2-3 sentence teaser/excerpt).
+    const prompt = `Based on the blog post content provided below, generate a Short Text summary (Meta Description).
     
-    Title: ${title}
+    Requirements:
+    1. Maximum 160 characters.
+    2. Engaging and relevant to the content.
+    3. Use the Title: "${title}" as context.
+    
     Content Snippet: ${content.substring(0, 3000)}...
     
-    Return JSON only.`;
+    Return JSON only with a single field "summary".`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -403,10 +403,7 @@ export const generatePostMetadata = async (content: string, title: string): Prom
         responseSchema: {
             type: Type.OBJECT,
             properties: {
-                slug: { type: Type.STRING },
-                category: { type: Type.STRING },
-                summary: { type: Type.STRING },
-                intro: { type: Type.STRING }
+                summary: { type: Type.STRING }
             }
         }
       }
@@ -414,7 +411,15 @@ export const generatePostMetadata = async (content: string, title: string): Prom
     
     const jsonStr = response.text;
     if (!jsonStr) throw new Error("No response");
-    return JSON.parse(jsonStr) as PostMetadata;
+    const result = JSON.parse(jsonStr) as { summary: string };
+    
+    // Maintain interface compatibility but fill others with empty strings
+    return { 
+        slug: '', 
+        category: '', 
+        summary: result.summary, 
+        intro: '' 
+    };
   } catch (error) {
     console.error("Failed to generate metadata:", error);
     return { slug: '', category: '', summary: '', intro: '' };

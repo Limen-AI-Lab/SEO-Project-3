@@ -280,7 +280,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         clientComments: parseClientComments(articleData.client_comments, draftBlocksToUse),
         // Revision tracking
         revisionRound: articleData.revision_round || 1,
-        revisionHistory: articleData.revision_history || []
+        revisionHistory: articleData.revision_history || [],
+        coverImage: articleData.cover_image || undefined
       };
       
       console.log('📝 Applied client edits:', {
@@ -331,7 +332,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         targetAudience: '',
         keywords: [],
         createdAt: new Date(campaignData.created_at),
-        status: 'ACTIVE' as const
+        status: 'ACTIVE' as const,
+        cmsId: campaignData.cms_id
       };
       setCampaign(mappedCampaign);
     } catch (err) {
@@ -415,6 +417,21 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       }
       if (updates.clientComments !== undefined) {
         dbUpdates.client_comments = updates.clientComments;
+      }
+      if (updates.slug !== undefined) {
+        dbUpdates.slug = updates.slug;
+      }
+      if (updates.category !== undefined) {
+        dbUpdates.category = updates.category;
+      }
+      if (updates.seoSummary !== undefined) {
+        dbUpdates.seo_summary = updates.seoSummary;
+      }
+      if (updates.seoIntro !== undefined) {
+        dbUpdates.seo_intro = updates.seoIntro;
+      }
+      if (updates.coverImage !== undefined) {
+        dbUpdates.cover_image = updates.coverImage;
       }
       
       // last_updated will be automatically updated by trigger
@@ -544,6 +561,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
           <StageDraft 
             project={article} 
             onUpdate={handleUpdate} 
+            cmsId={campaign.cmsId}
           />
         </div>
       );

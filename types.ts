@@ -122,6 +122,7 @@ export interface Campaign {
   keywords: string[];
   createdAt: Date;
   status: 'ACTIVE' | 'ARCHIVED';
+  cmsId?: 'advisories' | 'bam' | 'fbpsnews' | 'solution' | null;
 }
 
 // OutlineSection interface for structured outline data
@@ -163,6 +164,7 @@ export interface Article {
   category?: string;
   seoSummary?: string;
   seoIntro?: string;
+  coverImage?: string; // URL for article cover image
   
   // Feedback
   clientComments: Comment[];
@@ -178,4 +180,18 @@ export enum ViewState {
   ARTICLE_WORKSPACE = 'ARTICLE_WORKSPACE',
   LIBRARY = 'LIBRARY',
   CLIENTS = 'CLIENTS'
+}
+
+// CMS Article interface for published content
+export interface CMSArticle {
+  id?: string;
+  article_id: string;
+  title: string;
+  create_date: string; // ISO date string
+  content: string; // Markdown content
+  short_text: string;
+  cover_image?: string;
+  cms_category?: string;
+  created_at?: string;
+  updated_at?: string;
 }

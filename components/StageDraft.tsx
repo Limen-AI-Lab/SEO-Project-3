@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Article, ProjectStatus, ARTICLE_STATUS, ContentBlock, RevisionHistoryEntry, Comment } from '../types';
+import { Article, ProjectStatus, ARTICLE_STATUS, ContentBlock, RevisionHistoryEntry, Comment, ClientEdit } from '../types';
 import { generateBlogDraft, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement } from '../services/geminiService';
 import { 
   Send, CheckCircle, Wand2, Sparkles, Globe, FileText, MessageSquare, 
@@ -10,10 +10,62 @@ import {
   History, ChevronDown, ChevronUp, Edit3, Plus, Minus
 } from 'lucide-react';
 import { generateClientReviewLink, copyToClipboard } from '../services/linkService';
+import { publishToCMS } from '../services/cmsService';
+import supabase from '../services/supabaseClient.js';
+
+/**
+ * Parse revision history edits to Comment[] format for display
+ * @param historyEntry - A single revision history entry containing edits
+ * @returns Array of Comment objects formatted for display
+ */
+function parseHistoryEdits(historyEntry: RevisionHistoryEntry): Comment[] {
+  const comments: Comment[] = [];
+  const timestamp = historyEntry.timestamp ? new Date(historyEntry.timestamp) : new Date();
+  
+  if (!historyEntry.edits || !Array.isArray(historyEntry.edits)) {
+    return comments;
+  }
+  
+  historyEntry.edits.forEach((edit, index) => {
+    let editText = '';
+    const actionType = edit.action_type;
+    const editAuthor = edit.contact_name || 'Client';
+    const editTimestamp = edit.created_at ? new Date(edit.created_at) : timestamp;
+    
+    // Format the edit content for display
+    if (actionType === 'modify') {
+      const oldContent = edit.original_content?.content || edit.original_content?.title || JSON.stringify(edit.original_content);
+      const newContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
+      const oldPreview = typeof oldContent === 'string' ? oldContent.substring(0, 50) : String(oldContent).substring(0, 50);
+      editText = `[${oldPreview}${oldContent.length > 50 ? '...' : ''}] 修改建议`;
+    } else if (actionType === 'delete') {
+      const deletedContent = edit.original_content?.content || edit.original_content?.title || JSON.stringify(edit.original_content);
+      const deletePreview = typeof deletedContent === 'string' ? deletedContent.substring(0, 50) : String(deletedContent).substring(0, 50);
+      editText = `[${deletePreview}${deletedContent.length > 50 ? '...' : ''}] 删除建议`;
+    } else if (actionType === 'add') {
+      const addedContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
+      const addPreview = typeof addedContent === 'string' ? addedContent.substring(0, 50) : String(addedContent).substring(0, 50);
+      editText = `[新增内容] ${addPreview}${addedContent.length > 50 ? '...' : ''}`;
+    }
+    
+    if (editText) {
+      comments.push({
+        id: `history-edit-${edit.id || index}-${Date.now()}`,
+        author: editAuthor,
+        text: editText,
+        timestamp: editTimestamp,
+        editType: actionType
+      });
+    }
+  });
+  
+  return comments;
+}
 
 interface Props {
   project: Article;
   onUpdate: (updates: Partial<Article>) => void;
+  cmsId?: string;
 }
 
 // Block structure for the Visual Editor
@@ -26,16 +78,19 @@ interface EditorBlock {
   size?: 'small' | 'medium' | 'large';
 }
 
-const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
+const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   // We maintain 'blocks' as internal state, sync to 'content' (markdown) on save
   const [blocks, setBlocks] = useState<EditorBlock[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Metadata State
-  const [slug, setSlug] = useState(project.slug || '');
-  const [category, setCategory] = useState(project.category || '');
+  // slug and intro are removed from UI but kept in state for now to avoid breaking save logic immediately, 
+  // though we will ignore them in UI.
+  // actually, let's remove them from UI logic completely.
   const [summary, setSummary] = useState(project.seoSummary || '');
-  const [intro, setIntro] = useState(project.seoIntro || '');
+  const [coverImage, setCoverImage] = useState(project.coverImage || '');
+  const [isUploading, setIsUploading] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   
   // AI State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -519,12 +574,58 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
     setIsMetaGenerating(true);
     const meta = await generatePostMetadata(md, project.selectedTitle || project.title);
     if (meta) {
-      setSlug(meta.slug);
-      setCategory(meta.category);
       setSummary(meta.summary);
-      setIntro(meta.intro);
     }
     setIsMetaGenerating(false);
+  };
+
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+    // Basic validation
+    if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
+      return alert("Only JPG, PNG, GIF, and WebP formats are supported.");
+    }
+    
+    // File size validation (e.g., 5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      return alert("File size must be less than 5MB.");
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${project.id}-${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      const { error: uploadError } = await supabase.storage
+        .from('cover_photo')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('cover_photo')
+        .getPublicUrl(filePath);
+
+      setCoverImage(data.publicUrl);
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      alert(`Upload failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  };
+
+  const removeCoverImage = () => {
+    if(confirm("Remove cover image?")) {
+      setCoverImage('');
+    }
   };
 
   // Convert EditorBlock[] to ContentBlock[] for unified storage
@@ -593,10 +694,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
     onUpdate({ 
       draftContent: md,
       draftBlocks: contentBlocks,
-      slug,
-      category,
+      category: cmsId || '',
       seoSummary: summary,
-      seoIntro: intro
+      coverImage
     });
     setIsSyncing(false);
   };
@@ -624,14 +724,64 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
     }
   };
 
-  const handlePublishToCMS = () => {
-    if (!slug || !category || !summary || !intro) {
-      alert("Please ensure all CMS metadata (Slug, Category, Summary, Intro) is filled out.");
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublishToCMS = async () => {
+    // Validate required fields
+    if (!summary) {
+      alert("请填写 Short Text 摘要后再发布。");
       return;
     }
-    if(confirm("Are you sure you want to publish this content to the Agency CMS?")) {
-      handleSaveDraft();
-      onUpdate({ status: ProjectStatus.PUBLISHED });
+
+    // Get the markdown content
+    const markdownContent = serializeBlocksToMarkdown(blocks);
+    if (!markdownContent || markdownContent.trim().length < 50) {
+      alert("正文内容太少，请先完成文章内容再发布。");
+      return;
+    }
+
+    // Get the article title
+    const articleTitle = project.selectedTitle || project.title;
+    if (!articleTitle) {
+      alert("文章标题不能为空。");
+      return;
+    }
+
+    if (!confirm("确定要将此内容发布到 CMS 吗？")) {
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      // Prepare CMS data
+      const cmsData = {
+        article_id: project.id,
+        title: articleTitle,
+        create_date: new Date().toISOString(), // 点击发布时的当天日期
+        content: markdownContent, // Markdown 格式的正文
+        short_text: summary, // Metadata 中的 Short Text
+        cover_image: coverImage || undefined,
+        cms_category: cmsId || undefined
+      };
+
+      console.log('📤 Publishing to CMS:', cmsData);
+
+      // Publish to CMS table
+      const publishedArticle = await publishToCMS(cmsData);
+
+      if (publishedArticle) {
+        // Save draft and update status
+        handleSaveDraft();
+        onUpdate({ status: ProjectStatus.PUBLISHED });
+        
+        alert(`✅ 文章已成功发布到 CMS！\n\n标题: ${articleTitle}\n发布时间: ${new Date().toLocaleString()}`);
+      }
+    } catch (error: any) {
+      console.error('❌ Publish to CMS failed:', error);
+      alert(`发布失败: ${error.message || '未知错误'}`);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -1256,8 +1406,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                       <LayoutTemplate size={16} className="text-indigo-600" />
                       Metadata
                     </h3>
-                    <div className="flex items-center gap-2">
-                      {!isApproved && (
+                     <div className="flex items-center gap-2">
                         <button 
                           onClick={handleGenerateMetadata}
                           disabled={isMetaGenerating || !blocks.some(b => b.content)}
@@ -1266,7 +1415,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                         >
                           {isMetaGenerating ? <RefreshCw size={14} className="animate-spin"/> : <Sparkles size={14} />}
                         </button>
-                      )}
                       <button onClick={() => setIsRightCollapsed(true)} className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition">
                         <PanelRightClose size={16} />
                       </button>
@@ -1284,107 +1432,155 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate }) => {
                  <div className="p-5 overflow-y-auto h-full flex flex-col custom-scrollbar">
                    <div className="space-y-5 flex-1">
                      <div className="group">
-                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">URL Slug</label>
+                       <label className="block text-xs font-bold text-slate-500 mb-1.5 transition">Category</label>
                        <input 
                          type="text" 
-                         value={slug}
-                         onChange={(e) => setSlug(e.target.value)}
-                         disabled={isApproved}
-                         placeholder="post-url-slug"
-                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-mono text-slate-600 transition shadow-sm"
+                         value={cmsId || 'No CMS ID Linked'}
+                         readOnly
+                         disabled
+                         className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm outline-none text-slate-500 cursor-not-allowed transition shadow-sm font-medium"
                        />
                      </div>
 
                      <div className="group">
-                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Category</label>
-                       <input 
-                         type="text" 
-                         value={category}
-                         onChange={(e) => setCategory(e.target.value)}
-                         disabled={isApproved}
-                         placeholder="e.g. Tax Compliance"
-                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-600 transition shadow-sm"
-                       />
-                     </div>
-
-                     <div className="group">
-                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Meta Summary</label>
+                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Short Text</label>
                        <textarea 
-                         rows={3}
+                         rows={5}
                          value={summary}
                          onChange={(e) => setSummary(e.target.value)}
-                         disabled={isApproved}
-                         placeholder="Brief description for search engines..."
+                         placeholder="Brief description (max 160 chars)..."
                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition shadow-sm"
                        />
                        <p className={`text-[10px] text-right mt-1 transition ${summary.length > 160 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>{summary.length}/160</p>
                      </div>
 
                      <div className="group">
-                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Intro / Excerpt</label>
-                       <textarea 
-                         rows={5}
-                         value={intro}
-                         onChange={(e) => setIntro(e.target.value)}
-                         disabled={isApproved}
-                         placeholder="Engaging teaser for the blog card..."
-                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition shadow-sm"
-                       />
+                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Photo</label>
+                       
+                       <div className="border-2 border-dashed border-slate-200 rounded-lg p-1 transition hover:border-indigo-300 hover:bg-slate-50">
+                         {coverImage ? (
+                           <div className="relative w-full aspect-video rounded-md overflow-hidden group/image bg-slate-100">
+                             <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
+                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition flex items-center justify-center gap-2">
+                               <button 
+                                 onClick={() => coverInputRef.current?.click()} 
+                                 className="p-1.5 bg-white rounded-full text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 transition shadow-sm"
+                                 title="Replace Image"
+                               >
+                                 <Edit3 size={14} />
+                               </button>
+                               <button 
+                                 onClick={removeCoverImage}
+                                 className="p-1.5 bg-white rounded-full text-slate-700 hover:text-red-600 hover:bg-red-50 transition shadow-sm"
+                                 title="Remove Image"
+                               >
+                                 <Trash2 size={14} />
+                               </button>
+                             </div>
+                           </div>
+                         ) : (
+                           <div 
+                             onClick={() => !isUploading && coverInputRef.current?.click()}
+                             className={`cursor-pointer w-full py-8 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-500 transition ${isUploading ? 'cursor-not-allowed opacity-70' : ''}`}
+                           >
+                             {isUploading ? (
+                               <div className="flex flex-col items-center gap-2">
+                                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-500 border-t-transparent"></div>
+                                 <span className="text-xs">Uploading...</span>
+                               </div>
+                             ) : (
+                               <>
+                                 <ImageIcon size={24} strokeWidth={1.5} />
+                                 <div className="text-center">
+                                   <p className="text-xs font-medium">Upload Cover Image</p>
+                                   <p className="text-[10px] opacity-70 mt-0.5">JPG, PNG, WebP</p>
+                                 </div>
+                               </>
+                             )}
+                           </div>
+                         )}
+                         <input 
+                           type="file" 
+                           ref={coverInputRef} 
+                           onChange={handleCoverImageUpload} 
+                           hidden 
+                           accept="image/jpeg,image/png,image/gif,image/webp"
+                         />
+                       </div>
                      </div>
                    </div>
 
                    <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
-                      {!isApproved ? (
-                        <>
-                          <button 
-                            onClick={handleSaveDraft}
-                            className="w-full py-2.5 text-slate-600 font-medium hover:bg-slate-50 rounded-lg border border-slate-200 transition text-sm hover:text-slate-900"
-                          >
-                            Save Progress
-                          </button>
-                          {/* Review Link Display */}
-                          {reviewLink && (
-                            <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-indigo-900 mb-1">Client Review Link:</p>
-                                  <p className="text-[10px] text-indigo-700 break-all">{reviewLink}</p>
-                                </div>
-                                <button
-                                  onClick={handleCopyLink}
-                                  className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex-shrink-0 text-xs"
-                                >
-                                  {linkCopied ? (
-                                    <>
-                                      <Check size={12} />
-                                      <span>Copied!</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy size={12} />
-                                      <span>Copy</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
+                      <button 
+                        onClick={handleSaveDraft}
+                        className="w-full py-2.5 text-slate-600 font-medium hover:bg-slate-50 rounded-lg border border-slate-200 transition text-sm hover:text-slate-900"
+                      >
+                        {isApproved ? 'Update Metadata' : 'Save Progress'}
+                      </button>
+                      
+                      {reviewLink && (
+                        <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-indigo-900 mb-1">Client Review Link:</p>
+                              <p className="text-[10px] text-indigo-700 break-all">{reviewLink}</p>
                             </div>
-                          )}
-                          <button 
-                            onClick={handleSubmitToClient}
-                            className="w-full py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition flex items-center justify-center gap-2 shadow-lg shadow-slate-900/10 text-sm group"
-                          >
-                            <Send size={16} className="group-hover:translate-x-0.5 transition" />
-                            Submit to Client
-                          </button>
-                        </>
-                      ) : (
+                            <button
+                              onClick={handleCopyLink}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex-shrink-0 text-xs"
+                            >
+                              {linkCopied ? (
+                                <>
+                                  <Check size={12} />
+                                  <span>Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={12} />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {!isApproved ? (
                         <button 
-                          onClick={handlePublishToCMS}
-                          className="w-full py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 group"
+                          onClick={handleSubmitToClient}
+                          className="w-full py-2.5 bg-slate-900 text-white font-medium hover:bg-slate-800 rounded-lg shadow-lg shadow-slate-900/20 transition flex items-center justify-center gap-2 text-sm"
                         >
-                          <Globe size={18} className="group-hover:rotate-12 transition" />
-                          Publish to CMS
+                          <Send size={16} />
+                          Submit for Review
                         </button>
+                      ) : (
+                        <div className="space-y-3">
+                           <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                              <div className="flex items-center justify-center gap-2 text-green-700 font-bold text-sm mb-1">
+                                <CheckCircle size={16} />
+                                Approved & Ready
+                              </div>
+                              <p className="text-xs text-green-600">Client has approved this content.</p>
+                           </div>
+                           
+                           <button 
+                             onClick={handlePublishToCMS}
+                             disabled={isPublishing}
+                             className="w-full py-2.5 bg-green-600 text-white font-medium hover:bg-green-700 rounded-lg shadow-lg shadow-green-600/20 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                           >
+                             {isPublishing ? (
+                               <>
+                                 <RefreshCw size={16} className="animate-spin" />
+                                 Publishing...
+                               </>
+                             ) : (
+                               <>
+                                 <Globe size={16} />
+                                 Publish to CMS
+                               </>
+                             )}
+                           </button>
+                        </div>
                       )}
                    </div>
                  </div>

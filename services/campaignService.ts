@@ -9,7 +9,7 @@ import { Campaign, Client, Contact } from '../types';
  * Create a new campaign with multiple associated clients
  */
 export async function createCampaignWithClients(
-  campaignData: { name: string; strategyGoals?: string; targetAudience?: string; keywords?: string[] },
+  campaignData: { name: string; strategyGoals?: string; targetAudience?: string; keywords?: string[]; cmsId?: string },
   clientIds: string[]
 ): Promise<Campaign | null> {
   try {
@@ -18,7 +18,8 @@ export async function createCampaignWithClients(
       .from('campaigns')
       .insert({
         name: campaignData.name,
-        strategy_goals: campaignData.strategyGoals || null
+        strategy_goals: campaignData.strategyGoals || null,
+        cms_id: campaignData.cmsId || null
       })
       .select()
       .single();
@@ -55,10 +56,48 @@ export async function createCampaignWithClients(
       targetAudience: campaignData.targetAudience || '',
       keywords: campaignData.keywords || [],
       createdAt: new Date(campaign.created_at),
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      cmsId: campaign.cms_id
     };
   } catch (err) {
     console.error('Error in createCampaignWithClients:', err);
+    throw err;
+  }
+}
+
+/**
+ * Update an existing campaign
+ */
+export async function updateCampaign(
+  campaignId: string,
+  updates: Partial<Campaign>
+): Promise<Campaign | null> {
+  try {
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.strategyGoals !== undefined) dbUpdates.strategy_goals = updates.strategyGoals;
+    if (updates.cmsId !== undefined) dbUpdates.cms_id = updates.cmsId;
+    
+    // Only proceed if there are fields to update
+    if (Object.keys(dbUpdates).length === 0) return null;
+
+    const { data: campaign, error } = await supabase
+      .from('campaigns')
+      .update(dbUpdates)
+      .eq('id', campaignId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating campaign:', error);
+      throw new Error(error.message);
+    }
+
+    // We need to return the full campaign object, so we might need to fetch associated data
+    // For now, let's return a basic merged object or fetch fresh
+    return getCampaignWithClients(campaignId);
+  } catch (err) {
+    console.error('Error in updateCampaign:', err);
     throw err;
   }
 }
@@ -113,7 +152,8 @@ export async function getCampaignWithClients(campaignId: string): Promise<Campai
       targetAudience: '',
       keywords: [],
       createdAt: new Date(campaignData.created_at),
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      cmsId: campaignData.cms_id
     };
   } catch (err) {
     console.error('Error in getCampaignWithClients:', err);
@@ -174,7 +214,8 @@ export async function getAllCampaignsWithClients(): Promise<Campaign[]> {
         targetAudience: '',
         keywords: [],
         createdAt: new Date(camp.created_at),
-        status: 'ACTIVE' as const
+        status: 'ACTIVE' as const,
+        cmsId: camp.cms_id
       };
     });
   } catch (err) {

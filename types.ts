@@ -41,6 +41,7 @@ export interface Comment {
   text: string;
   timestamp: Date;
   editType?: 'modify' | 'delete' | 'add'; // For edit suggestions
+  targetBlockId?: string; // Reference to the content block this comment relates to
 }
 
 // Client edit suggestion from Client Portal
@@ -150,6 +151,10 @@ export interface Article {
   title: string; // Working title or topic
   status: ProjectStatus;
   lastUpdated: Date;
+  
+  // Content Settings (from Title Generation stage)
+  language?: string;  // Target language for content (e.g., "English", "Chinese")
+  tone?: string;      // Tone of voice for content
   
   // Data for stages
   proposedTitles: string[];

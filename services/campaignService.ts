@@ -19,6 +19,8 @@ export async function createCampaignWithClients(
       .insert({
         name: campaignData.name,
         strategy_goals: campaignData.strategyGoals || null,
+        target_audience: campaignData.targetAudience || null,
+        keywords: campaignData.keywords || [],
         cms_id: campaignData.cmsId || null
       })
       .select()
@@ -76,6 +78,8 @@ export async function updateCampaign(
     const dbUpdates: any = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.strategyGoals !== undefined) dbUpdates.strategy_goals = updates.strategyGoals;
+    if (updates.targetAudience !== undefined) dbUpdates.target_audience = updates.targetAudience;
+    if (updates.keywords !== undefined) dbUpdates.keywords = updates.keywords;
     if (updates.cmsId !== undefined) dbUpdates.cms_id = updates.cmsId;
     
     // Only proceed if there are fields to update
@@ -98,6 +102,91 @@ export async function updateCampaign(
     return getCampaignWithClients(campaignId);
   } catch (err) {
     console.error('Error in updateCampaign:', err);
+    throw err;
+  }
+}
+
+/**
+ * Delete a campaign and all associated articles
+ */
+export async function deleteCampaign(campaignId: string): Promise<boolean> {
+  try {
+    // First delete all articles associated with this campaign
+    const { error: articlesError } = await supabase
+      .from('articles')
+      .delete()
+      .eq('campaign_id', campaignId);
+
+    if (articlesError) {
+      console.error('Error deleting campaign articles:', articlesError);
+      throw new Error('Failed to delete campaign articles: ' + articlesError.message);
+    }
+
+    // Delete campaign_clients associations
+    const { error: assocError } = await supabase
+      .from('campaign_clients')
+      .delete()
+      .eq('campaign_id', campaignId);
+
+    if (assocError) {
+      console.error('Error deleting campaign-client associations:', assocError);
+      // Continue anyway, the campaign might not have any associations
+    }
+
+    // Finally delete the campaign itself
+    const { error: campaignError } = await supabase
+      .from('campaigns')
+      .delete()
+      .eq('id', campaignId);
+
+    if (campaignError) {
+      console.error('Error deleting campaign:', campaignError);
+      throw new Error('Failed to delete campaign: ' + campaignError.message);
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error in deleteCampaign:', err);
+    throw err;
+  }
+}
+
+/**
+ * Update campaign's associated clients (replaces all existing associations)
+ */
+export async function updateCampaignClients(campaignId: string, clientIds: string[]): Promise<boolean> {
+  try {
+    // First delete all existing associations
+    const { error: deleteError } = await supabase
+      .from('campaign_clients')
+      .delete()
+      .eq('campaign_id', campaignId);
+
+    if (deleteError) {
+      console.error('Error removing old campaign-client associations:', deleteError);
+      throw new Error('Failed to update clients: ' + deleteError.message);
+    }
+
+    // Then create new associations
+    if (clientIds.length > 0) {
+      const associations = clientIds.map(clientId => ({
+        campaign_id: campaignId,
+        client_id: clientId
+      }));
+
+      const { error: insertError } = await supabase
+        .from('campaign_clients')
+        .insert(associations);
+
+      if (insertError) {
+        console.error('Error creating new campaign-client associations:', insertError);
+        throw new Error('Failed to associate clients: ' + insertError.message);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error in updateCampaignClients:', err);
     throw err;
   }
 }
@@ -149,8 +238,8 @@ export async function getCampaignWithClients(campaignId: string): Promise<Campai
       clientName,
       clients,
       strategyGoals: campaignData.strategy_goals || '',
-      targetAudience: '',
-      keywords: [],
+      targetAudience: campaignData.target_audience || '',
+      keywords: campaignData.keywords || [],
       createdAt: new Date(campaignData.created_at),
       status: 'ACTIVE',
       cmsId: campaignData.cms_id
@@ -211,8 +300,8 @@ export async function getAllCampaignsWithClients(): Promise<Campaign[]> {
         clientName,
         clients,
         strategyGoals: camp.strategy_goals || '',
-        targetAudience: '',
-        keywords: [],
+        targetAudience: camp.target_audience || '',
+        keywords: camp.keywords || [],
         createdAt: new Date(camp.created_at),
         status: 'ACTIVE' as const,
         cmsId: camp.cms_id

@@ -117,31 +117,52 @@ interface OutlineGenerationParams {
   keywords?: string[];
   targetAudience?: string;
   clientComments?: Array<{ author: string; text: string; timestamp: Date }>;
+  language?: string;  // Target language for outline content (e.g., "English", "Chinese")
 }
 
 export const generateBlogOutline = async (params: OutlineGenerationParams): Promise<string> => {
   try {
     const ai = getAiClient();
     
+    // Determine target language (default to English)
+    const targetLanguage = params.language || 'English';
+    const isEnglish = targetLanguage.toLowerCase() === 'english';
+    
     // Build comprehensive context from all available information
     let contextParts: string[] = [];
     
     // 1. Primary directive and title (most important)
-    contextParts.push(`您正在为以下标题创建详细的博客文章大纲：\n"${params.selectedTitle}"`);
+    if (isEnglish) {
+      contextParts.push(`You are creating a detailed blog post outline for the following title:\n"${params.selectedTitle}"`);
+    } else {
+      contextParts.push(`您正在为以下标题创建详细的博客文章大纲：\n"${params.selectedTitle}"`);
+    }
     
     // 2. Campaign strategy and goals
     if (params.campaignGoals && params.campaignGoals.trim()) {
-      contextParts.push(`\n营销策略目标：\n${params.campaignGoals}`);
+      if (isEnglish) {
+        contextParts.push(`\nMarketing Strategy Goals:\n${params.campaignGoals}`);
+      } else {
+        contextParts.push(`\n营销策略目标：\n${params.campaignGoals}`);
+      }
     }
     
     // 3. Keywords for SEO
     if (params.keywords && params.keywords.length > 0) {
-      contextParts.push(`\n关键词（请自然融入大纲）：\n${params.keywords.join(', ')}`);
+      if (isEnglish) {
+        contextParts.push(`\nKeywords (integrate naturally into outline):\n${params.keywords.join(', ')}`);
+      } else {
+        contextParts.push(`\n关键词（请自然融入大纲）：\n${params.keywords.join(', ')}`);
+      }
     }
     
     // 4. Target audience
     if (params.targetAudience && params.targetAudience.trim()) {
-      contextParts.push(`\n目标受众：\n${params.targetAudience}`);
+      if (isEnglish) {
+        contextParts.push(`\nTarget Audience:\n${params.targetAudience}`);
+      } else {
+        contextParts.push(`\n目标受众：\n${params.targetAudience}`);
+      }
     }
     
     // 5. Client feedback and requirements
@@ -149,14 +170,61 @@ export const generateBlogOutline = async (params: OutlineGenerationParams): Prom
       const commentsText = params.clientComments
         .map(c => `- ${c.text}`)
         .join('\n');
-      contextParts.push(`\n客户反馈和要求（必须充分考虑）：\n${commentsText}`);
+      if (isEnglish) {
+        contextParts.push(`\nClient Feedback and Requirements (must be fully considered):\n${commentsText}`);
+      } else {
+        contextParts.push(`\n客户反馈和要求（必须充分考虑）：\n${commentsText}`);
+      }
     }
     
     const context = contextParts.join('\n');
     
-    const prompt = `${context}
+    // Generate prompt based on target language
+    let prompt: string;
+    
+    if (isEnglish) {
+      prompt = `${context}
+
+Please create a well-structured, logically organized blog post outline.
+
+**IMPORTANT: All outline content must be written in English.**
+
+**Strict Format Requirements**:
+1. Use only Markdown heading format: # for H1, ## for H2, ### for H3
+2. Write brief descriptions or explanations in plain text below each heading
+3. Never use standalone asterisks (*) or other symbols as headings or list items
+4. Ensure clear hierarchy: H1 is main title, H2 is main sections, H3 is subsections
+5. Keep section descriptions concise, explaining the core direction of each part
+
+**Content Requirements**:
+- Outline content must be highly relevant to the title
+- Fully integrate all information above (marketing goals, keywords, target audience, client feedback)
+- Logical structure (introduction, key points, deep analysis, conclusion, etc.)
+- Professional and informative tone
+
+**Example Format**:
+# Main Title
+Brief introduction to the core topic and value of the article
+
+## Section 1: Core Concepts
+Explain the main content of this section
+
+### Subtopic 1.1
+Specific details or case studies
+
+### Subtopic 1.2
+Analysis from another angle
+
+## Section 2: Deep Dive
+How to expand on the theme
+
+Return ONLY the Markdown formatted outline text, without any explanatory text.`;
+    } else {
+      prompt = `${context}
 
 请创建一个结构清晰、逻辑严谨的博客文章大纲。
+
+**重要：所有大纲内容必须使用中文撰写。**
 
 **严格格式要求**：
 1. 只使用 Markdown 标题格式：# 表示 H1，## 表示 H2，### 表示 H3
@@ -188,6 +256,7 @@ export const generateBlogOutline = async (params: OutlineGenerationParams): Prom
 说明如何深化主题
 
 请只返回 Markdown 格式的大纲文本，不要添加任何解释性文字。`;
+    }
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, ARTICLE_STATUS, Campaign } from '../types';
-import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Copy, Check, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save } from 'lucide-react';
+import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save, Check } from 'lucide-react';
 import { generateBlogOutline, refineBlogOutline } from '../services/geminiService';
-import { generateClientReviewLink, copyToClipboard } from '../services/linkService';
 import { getCampaignWithClients } from '../services/campaignService';
 import { 
   parseMarkdownOutline, 
@@ -22,8 +21,6 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiInstruction, setAiInstruction] = useState('');
   const [isRefining, setIsRefining] = useState(false);
-  const [reviewLink, setReviewLink] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
   
   // New states for preview and validation
   const [showPreview, setShowPreview] = useState(false);
@@ -120,22 +117,6 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
       outlineSections: sections, // Structured data for Client Portal
       status: ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE
     });
-    
-    // Generate review link
-    const link = generateClientReviewLink(project.id);
-    setReviewLink(link);
-    setLinkCopied(false);
-  };
-
-  const handleCopyLink = async () => {
-    if (!reviewLink) return;
-    const success = await copyToClipboard(reviewLink);
-    if (success) {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } else {
-      alert('Failed to copy link. Please copy manually.');
-    }
   };
 
   const handleSaveDraft = () => {
@@ -170,7 +151,8 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         campaignGoals: campaign?.strategyGoals,
         keywords: campaign?.keywords,
         targetAudience: campaign?.targetAudience,
-        clientComments: activeComments
+        clientComments: activeComments,
+        language: project.language  // Pass target language for outline generation
       };
       
       const generated = await generateBlogOutline(params);
@@ -418,34 +400,6 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               )}
             </div>
           </div>
-
-          {/* Review Link Display */}
-          {reviewLink && (
-            <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-indigo-900 mb-1">Client Review Link:</p>
-                  <p className="text-xs text-indigo-700 break-all">{reviewLink}</p>
-                </div>
-                <button
-                  onClick={handleCopyLink}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex-shrink-0"
-                >
-                  {linkCopied ? (
-                    <>
-                      <Check size={16} />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={16} />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
 
           <div className="flex justify-end gap-4">
             <button 

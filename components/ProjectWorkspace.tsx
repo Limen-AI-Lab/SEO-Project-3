@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, Campaign, ARTICLE_STATUS, Comment, ContentBlock, ClientEdit, RevisionHistoryEntry } from '../types';
 import supabase from '../services/supabaseClient.js';
-import { ArrowLeft, Check, Lock, PlayCircle, ChevronRight, Home } from 'lucide-react';
+import { ArrowLeft, Check, Lock, PlayCircle, ChevronRight, Home, CheckCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import StageTitles from './StageTitles';
 import StageOutline from './StageOutline';
 import StageDraft from './StageDraft';
+import Modal from './Modal';
 
 /**
  * Parse client_comments from database (object format from Client Portal)
@@ -49,7 +50,8 @@ function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Co
           id: `section-${index}-${Date.now()}`,
           author: reviewer,
           text: sc.targetId ? `[段落 ${sc.targetId}] ${sc.text}` : sc.text,
-          timestamp
+          timestamp,
+          targetBlockId: sc.targetId || undefined
         });
       }
     });
@@ -74,7 +76,8 @@ function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Co
           id: `content-${index}-${Date.now()}`,
           author: reviewer,
           text: preview ? `[${preview}] ${cc.text}` : cc.text,
-          timestamp
+          timestamp,
+          targetBlockId: cc.targetId || undefined
         });
       }
     });
@@ -126,7 +129,8 @@ function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Co
           author: editAuthor,
           text: editText,
           timestamp: editTimestamp,
-          editType: actionType
+          editType: actionType,
+          targetBlockId: edit.target_id || undefined
         });
       }
     });
@@ -218,6 +222,25 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'default' | 'success' | 'warning' | 'error' | 'info';
+    title: string;
+    message: React.ReactNode;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+  }>({
+    isOpen: false,
+    type: 'default',
+    title: '',
+    message: null,
+    showCancel: false
+  });
+
+  const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
   const loadData = async () => {
     setIsLoading(true);
@@ -433,6 +456,12 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       if (updates.coverImage !== undefined) {
         dbUpdates.cover_image = updates.coverImage;
       }
+      if (updates.language !== undefined) {
+        dbUpdates.language = updates.language;
+      }
+      if (updates.tone !== undefined) {
+        dbUpdates.tone = updates.tone;
+      }
       
       // last_updated will be automatically updated by trigger
 
@@ -455,11 +484,154 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     }
   };
 
+  /**
+   * Handle Client Approved for Titles - implements forking logic
+   * Creates N articles (one for each proposed title) with TITLES_APPROVED status
+   */
+  const handleClientApprovedTitles = async () => {
+    if (!article || !article.proposedTitles || article.proposedTitles.length === 0) {
+      setModalConfig({
+        isOpen: true,
+        type: 'warning',
+        title: '无法批准',
+        message: '没有可批准的标题',
+        confirmText: '确定'
+      });
+      return;
+    }
+
+    const titlesToApprove = article.proposedTitles.filter(t => t && t.trim() !== '');
+    
+    if (titlesToApprove.length === 0) {
+      setModalConfig({
+        isOpen: true,
+        type: 'warning',
+        title: '无法批准',
+        message: '没有有效的标题可以批准',
+        confirmText: '确定'
+      });
+      return;
+    }
+
+    setModalConfig({
+      isOpen: true,
+      type: 'warning',
+      title: '确认批准',
+      message: (
+        <div className="space-y-2">
+          <p>确定要批准所有 <span className="font-bold text-slate-900">{titlesToApprove.length}</span> 个标题吗？</p>
+          <p className="text-sm text-slate-500">这将创建 {titlesToApprove.length} 篇独立的文章，每篇进入 "Needs Outline" 状态。</p>
+        </div>
+      ),
+      showCancel: true,
+      confirmText: '确认批准',
+      onConfirm: async () => {
+        try {
+          console.log('📝 Client Approved Titles - Starting forking process...');
+          console.log('Titles to approve:', titlesToApprove);
+
+          // Create new articles for each title (forking logic)
+          const newArticles = titlesToApprove.map((title) => ({
+            campaign_id: article.campaignId,
+            title: title,
+            selected_title: title,
+            status: ARTICLE_STATUS.TITLES_APPROVED,
+            proposed_titles: [title],
+            created_at: new Date().toISOString(),
+            last_updated: new Date().toISOString()
+          }));
+
+          // Insert all new articles
+          const { data: insertedArticles, error: insertError } = await supabase
+            .from('articles')
+            .insert(newArticles)
+            .select();
+
+          if (insertError) {
+            console.error('Error creating forked articles:', insertError);
+            setModalConfig({
+              isOpen: true,
+              type: 'error',
+              title: '创建文章失败',
+              message: insertError.message,
+              confirmText: '关闭'
+            });
+            return;
+          }
+
+          console.log('✅ Created forked articles:', insertedArticles);
+
+          // Delete the original article (it has been forked)
+          const { error: deleteError } = await supabase
+            .from('articles')
+            .delete()
+            .eq('id', article.id);
+
+          if (deleteError) {
+            console.error('Error deleting original article:', deleteError);
+          }
+
+          setModalConfig({
+            isOpen: true,
+            type: 'success',
+            title: '批准成功',
+            message: (
+              <div className="space-y-3">
+                 <div className="flex items-center gap-2 text-green-700 font-medium">
+                   <p>✅ 成功批准 {titlesToApprove.length} 个标题！</p>
+                 </div>
+                 <p className="text-slate-600">已创建 <span className="font-bold">{titlesToApprove.length}</span> 篇新文章，请返回 Campaign 查看。</p>
+              </div>
+            ),
+            showCancel: false,
+            confirmText: '返回 Campaign',
+            onConfirm: () => {
+               closeModal();
+               onBack();
+            }
+          });
+
+        } catch (err) {
+          console.error('Unexpected error in client approved titles:', err);
+          setModalConfig({
+            isOpen: true,
+            type: 'error',
+            title: '操作失败',
+            message: `发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`,
+            confirmText: '关闭'
+          });
+        }
+      }
+    });
+  };
+
+  /**
+   * Check if current status is title review stage
+   */
+  const isTitleReviewStage = () => {
+    const statusStr = typeof article?.status === 'string' ? article.status : '';
+    return statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES || 
+           statusStr === ProjectStatus.AWAITING_TITLE_APPROVAL ||
+           statusStr === 'AWAITING_REVIEW_TITLES';
+  };
+
+  /**
+   * Handle simple approval for Outline and Draft stages
+   */
   const handleForceApprove = async () => {
     if (!article) return;
 
     try {
       const statusStr = typeof article.status === 'string' ? article.status : article.status;
+      
+      // For title approval, use the forking function
+      if (statusStr === ProjectStatus.AWAITING_TITLE_APPROVAL || 
+          statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES ||
+          statusStr === 'AWAITING_REVIEW_TITLES') {
+        await handleClientApprovedTitles();
+        return;
+      }
+
       let nextStatus = statusStr;
 
       // DIRECT TRANSITION: From Outline Review to Drafting
@@ -469,11 +641,6 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       } else if (statusStr === ProjectStatus.AWAITING_DRAFT_APPROVAL || 
                  statusStr === ARTICLE_STATUS.AWAITING_REVIEW_DRAFT) {
         nextStatus = ARTICLE_STATUS.DRAFT_APPROVED;
-      } else if (statusStr === ProjectStatus.AWAITING_TITLE_APPROVAL || 
-                 statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES) {
-        // For title approval, move to approved state
-        // Note: Forking logic (creating multiple articles) is not implemented here
-        nextStatus = ARTICLE_STATUS.TITLES_APPROVED;
       }
 
       const { error } = await supabase
@@ -615,13 +782,24 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
           
           <div className="flex items-center gap-3">
             {isLocked && (
-               <button 
-                 onClick={handleForceApprove}
-                 className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 text-xs font-bold rounded border border-purple-200 hover:bg-purple-200 transition"
-               >
-                 <PlayCircle size={14} />
-                 DEV: Simulate Client Approval
-               </button>
+               <>
+                 {/* Main Client Approved Button */}
+                 <button 
+                   onClick={isTitleReviewStage() ? handleClientApprovedTitles : handleForceApprove}
+                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition shadow-sm"
+                 >
+                   <CheckCircle size={16} />
+                   Client Approved
+                 </button>
+                 {/* DEV button for quick simulation */}
+                 <button 
+                   onClick={handleForceApprove}
+                   className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 text-xs font-bold rounded border border-purple-200 hover:bg-purple-200 transition"
+                 >
+                   <PlayCircle size={14} />
+                   DEV: Simulate
+                 </button>
+               </>
             )}
           </div>
         </div>
@@ -636,15 +814,70 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
                  <Lock size={32} />
                </div>
                <h2 className="text-xl font-bold text-slate-900 mb-2">Awaiting Client Review</h2>
-               <p className="text-slate-500 mb-6">
+               <p className="text-slate-500 mb-4">
                  This article is currently locked while {campaign.clientName} reviews your submission.
                </p>
+               
+               {/* Client Approved Button - Skip client review */}
+               <div className="mt-6 pt-6 border-t border-slate-100">
+                 <p className="text-xs text-slate-400 mb-3">或者跳过客户审核：</p>
+                 <button 
+                   onClick={isTitleReviewStage() ? handleClientApprovedTitles : handleForceApprove}
+                   className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-600/20"
+                 >
+                   <CheckCircle size={20} />
+                   {isTitleReviewStage() ? 'Client Approved (批准所有标题)' : 'Client Approved'}
+                 </button>
+                 <p className="text-[10px] text-slate-400 mt-2">
+                   {isTitleReviewStage() 
+                     ? `将批准 ${article.proposedTitles?.length || 0} 个标题并创建对应文章` 
+                     : '模拟客户批准，直接进入下一阶段'}
+                 </p>
+               </div>
              </div>
           </div>
         ) : null}
 
         {renderStage()}
       </main>
+
+      <Modal
+        isOpen={modalConfig.isOpen}
+        onClose={closeModal}
+        title={modalConfig.title}
+        type={modalConfig.type}
+        footer={
+          <>
+            {modalConfig.showCancel && (
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              >
+                取消
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (modalConfig.onConfirm) {
+                  modalConfig.onConfirm();
+                } else {
+                  closeModal();
+                }
+              }}
+              className={`px-4 py-2 text-white rounded-lg transition shadow-sm ${
+                modalConfig.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                modalConfig.type === 'warning' ? 'bg-amber-600 hover:bg-amber-700' :
+                modalConfig.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
+              {modalConfig.confirmText || '确定'}
+            </button>
+          </>
+        }
+      >
+        {modalConfig.message}
+      </Modal>
     </div>
   );
 };

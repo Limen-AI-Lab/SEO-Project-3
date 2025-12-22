@@ -20,6 +20,19 @@
           -ms-overflow-style: none;  /* IE and Edge */
           scrollbar-width: none;  /* Firefox */
       }
+      
+      /* Pulse highlight animation for comment navigation - border only */
+      @keyframes pulse-highlight {
+        0%, 100% {
+          box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.6);
+        }
+      }
+      .animate-pulse-highlight {
+        animation: pulse-highlight 0.5s ease-in-out 2;
+      }
     </style>
   <script type="importmap">
 {

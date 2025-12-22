@@ -23,9 +23,8 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
   // Link copy state
   const [linkCopied, setLinkCopied] = useState(false);
   
-  // Modal State for New Article
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newTopic, setNewTopic] = useState('');
+  // State for creating new article
+  const [isCreatingArticle, setIsCreatingArticle] = useState(false);
 
   // Client Management State
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -177,15 +176,20 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
   };
 
   const handleCreateArticle = async () => {
-    if (!newTopic.trim()) return;
+    if (isCreatingArticle) return;
+    
+    setIsCreatingArticle(true);
 
     try {
+      // Use campaign name as default topic - user can modify it in Title Generation page
+      const defaultTopic = campaign?.name || 'New Article';
+      
       const { data, error } = await supabase
         .from('articles')
         .insert({
           campaign_id: campaignId,
-          title: newTopic.trim(),
-          status: ARTICLE_STATUS.NEEDS_TITLES, // Use new status constant
+          title: defaultTopic,
+          status: ARTICLE_STATUS.NEEDS_TITLES,
           proposed_titles: [],
           client_comments: []
         })
@@ -199,16 +203,14 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
       }
 
       if (data) {
-    setIsModalOpen(false);
-    setNewTopic('');
-        // Refresh list to show the new article
-        await loadData();
-    // Optional: Jump straight to it
-        // onSelectArticle(data.id);
+        // Navigate directly to the article workspace (Title Generation page)
+        onSelectArticle(data.id);
       }
     } catch (err) {
       console.error('Unexpected error creating article:', err);
       alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsCreatingArticle(false);
     }
   };
 
@@ -308,11 +310,21 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
                </button>
                
             <button 
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-md"
+              onClick={handleCreateArticle}
+              disabled={isCreatingArticle}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Plus size={18} />
-              New Article
+              {isCreatingArticle ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus size={18} />
+                  New Article
+                </>
+              )}
             </button>
             </div>
          </div>
@@ -366,7 +378,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
            {articles.length === 0 ? (
              <div className="p-12 text-center text-slate-400">
                 <p>No articles in this campaign yet.</p>
-                <button onClick={() => setIsModalOpen(true)} className="text-indigo-600 hover:underline mt-2">Create the first article</button>
+                <button 
+                  onClick={handleCreateArticle} 
+                  disabled={isCreatingArticle}
+                  className="text-indigo-600 hover:underline mt-2 disabled:opacity-50"
+                >
+                  {isCreatingArticle ? 'Creating...' : 'Create the first article'}
+                </button>
              </div>
            ) : (
              articles.map((article) => (
@@ -396,33 +414,6 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
            )}
         </div>
       </div>
-
-      {/* New Article Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-slate-100">
-               <h3 className="text-lg font-bold text-slate-900">Add New Article</h3>
-            </div>
-            <div className="p-6">
-               <label className="block text-sm font-medium text-slate-700 mb-1">Article Topic / Working Title</label>
-               <input 
-                 type="text" 
-                 value={newTopic}
-                 onChange={(e) => setNewTopic(e.target.value)}
-                 placeholder="e.g. 5 Tips for Tax Compliance"
-                 className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                 autoFocus
-               />
-               <p className="text-xs text-slate-500 mt-2">This will be added to the <strong>{campaign.name}</strong> campaign.</p>
-            </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-               <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg transition">Cancel</button>
-               <button onClick={handleCreateArticle} disabled={!newTopic} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">Create Article</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Manage Clients Modal */}
       {isClientModalOpen && (

@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, Campaign, ARTICLE_STATUS } from '../types';
 import { generateBlogTitles, suggestBlogKeywords, KeywordSuggestion } from '../services/geminiService';
-import { Sparkles, Send, Trash2, Plus, ChevronDown, ChevronUp, Settings, Flame, X, Search, Copy, Check } from 'lucide-react';
-import { generateClientReviewLink, copyToClipboard } from '../services/linkService';
+import { Sparkles, Send, Trash2, Plus, ChevronDown, ChevronUp, Settings, Flame, X, Search } from 'lucide-react';
 
 interface Props {
   project: Article;
@@ -31,11 +30,9 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
   const [suggestedKeywords, setSuggestedKeywords] = useState<KeywordSuggestion[]>([]);
   const [isSuggestingKeywords, setIsSuggestingKeywords] = useState(false);
 
-  const [language, setLanguage] = useState('English');
-  const [tone, setTone] = useState('Professional & Authoritative');
+  const [language, setLanguage] = useState(project.language || 'English');
+  const [tone, setTone] = useState(project.tone || 'Professional & Authoritative');
   const [rules, setRules] = useState('');
-  const [reviewLink, setReviewLink] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
 
   // Pre-fill from Campaign Context
   useEffect(() => {
@@ -132,34 +129,24 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
   };
 
   const handleSaveDraft = () => {
-    onUpdate({ proposedTitles: titles.filter(t => t.trim() !== '') });
+    onUpdate({ 
+      proposedTitles: titles.filter(t => t.trim() !== ''),
+      language: language,
+      tone: tone
+    });
   };
 
   const handleSubmit = async () => {
     const validTitles = titles.filter(t => t.trim() !== '');
     if (validTitles.length === 0) return alert("Please add at least one title.");
     
-    // Update article status
+    // Update article status and save language/tone settings
     onUpdate({ 
       proposedTitles: validTitles,
+      language: language,
+      tone: tone,
       status: ARTICLE_STATUS.AWAITING_REVIEW_TITLES // Use new status constant
     });
-
-    // Generate review link
-    const link = generateClientReviewLink(project.id);
-    setReviewLink(link);
-    setLinkCopied(false);
-  };
-
-  const handleCopyLink = async () => {
-    if (!reviewLink) return;
-    const success = await copyToClipboard(reviewLink);
-    if (success) {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } else {
-      alert('Failed to copy link. Please copy manually.');
-    }
   };
 
   return (
@@ -360,34 +347,6 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-100">
-          {/* Review Link Display */}
-          {reviewLink && (
-            <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-indigo-900 mb-1">Client Review Link:</p>
-                  <p className="text-xs text-indigo-700 break-all">{reviewLink}</p>
-                </div>
-                <button
-                  onClick={handleCopyLink}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex-shrink-0"
-                >
-                  {linkCopied ? (
-                    <>
-                      <Check size={16} />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={16} />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
           <div className="flex justify-end gap-4">
           <button onClick={handleSaveDraft} className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition">
             Save Draft

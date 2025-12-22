@@ -6,10 +6,9 @@ import {
   Send, CheckCircle, Wand2, Sparkles, Globe, FileText, MessageSquare, 
   RefreshCw, LayoutTemplate, PenTool, PanelLeftClose, PanelLeftOpen, 
   PanelRightClose, PanelRightOpen, Maximize2, Minimize2, Eye, GitGraph, Code, ArrowRight, X,
-  Paperclip, Image as ImageIcon, Trash2, ArrowUp, ArrowDown, MoveVertical, Copy, Check,
+  Paperclip, Image as ImageIcon, Trash2, ArrowUp, ArrowDown, MoveVertical,
   History, ChevronDown, ChevronUp, Edit3, Plus, Minus
 } from 'lucide-react';
-import { generateClientReviewLink, copyToClipboard } from '../services/linkService';
 import { publishToCMS } from '../services/cmsService';
 import supabase from '../services/supabaseClient.js';
 
@@ -102,8 +101,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const [attachedFile, setAttachedFile] = useState<{ name: string, data: string, type: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiSuggestion, setAiSuggestion] = useState<{ anchor: string, reason: string } | null>(null);
-  const [reviewLink, setReviewLink] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'outline' | 'feedback'>('outline');
   const [showHistory, setShowHistory] = useState(false);
@@ -145,8 +142,33 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   // --- Block Editing State ---
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  
+  // --- Comment Navigation State ---
+  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
+  const editorScrollRef = useRef<HTMLDivElement>(null);
 
   const sidebarRef = useRef<{ startX: number, startWidth: number } | null>(null);
+  
+  // --- Scroll to Block and Highlight ---
+  const scrollToBlockAndHighlight = (targetBlockId: string) => {
+    // Find the target element in the editor
+    const targetElement = document.querySelector(`[data-content-block-id="${targetBlockId}"]`);
+    
+    if (targetElement) {
+      // Scroll into view smoothly
+      targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Set highlighted state to trigger animation
+      setHighlightedBlockId(targetBlockId);
+      
+      // Clear highlight after animation completes
+      setTimeout(() => {
+        setHighlightedBlockId(null);
+      }, 1000);
+    } else {
+      console.log('Target block not found:', targetBlockId);
+    }
+  };
 
   // --- Initialization & Markdown Parsing ---
   useEffect(() => {
@@ -706,22 +728,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     if (md.trim().length < 100) return alert("Draft is too short.");
     handleSaveDraft();
     onUpdate({ status: ARTICLE_STATUS.AWAITING_REVIEW_DRAFT }); // Use new status constant
-    
-    // Generate review link
-    const link = generateClientReviewLink(project.id);
-    setReviewLink(link);
-    setLinkCopied(false);
-  };
-
-  const handleCopyLink = async () => {
-    if (!reviewLink) return;
-    const success = await copyToClipboard(reviewLink);
-    if (success) {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } else {
-      alert('Failed to copy link. Please copy manually.');
-    }
   };
 
   const [isPublishing, setIsPublishing] = useState(false);
@@ -991,7 +997,14 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             }
                             
                             return (
-                              <div key={c.id} className={`${bgColor} p-3 rounded-lg border ${borderColor} shadow-sm relative group hover:shadow-md transition`}>
+                              <div 
+                                key={c.id} 
+                                className={`${bgColor} p-3 rounded-lg border ${borderColor} shadow-sm relative group hover:shadow-md transition ${
+                                  c.targetBlockId ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300' : ''
+                                }`}
+                                onClick={() => c.targetBlockId && scrollToBlockAndHighlight(c.targetBlockId)}
+                                title={c.targetBlockId ? '点击跳转到对应段落' : undefined}
+                              >
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex items-center gap-1.5">
                                       <div className={`w-5 h-5 rounded-full ${avatarBg} flex items-center justify-center text-[10px] font-bold ${avatarText}`}>
@@ -1006,6 +1019,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                         }`}>
                                           {c.editType === 'modify' ? '修改' : c.editType === 'delete' ? '删除' : '新增'}
                                         </span>
+                                      )}
+                                      {c.targetBlockId && (
+                                        <ArrowRight size={10} className="text-indigo-400" />
                                       )}
                                     </div>
                                 </div>
@@ -1203,11 +1219,17 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
             {/* BLOCK EDITOR VIEW */}
             {viewMode === 'markdown' || !isFocusMode ? (
-              <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+              <div ref={editorScrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
                  {/* FLUID EDITOR: No max-w-4xl constraint anymore, fills fluid middle column */}
                  <div className="mx-auto bg-white shadow-sm min-h-[800px] p-8 md:p-12 rounded-lg border border-slate-100 w-full max-w-none">
                     {blocks.map((block, index) => (
-                       <div key={block.id} className="group relative mb-6 hover:ring-2 hover:ring-indigo-50 rounded-lg p-1 -m-1 transition-all">
+                       <div 
+                         key={block.id} 
+                         data-content-block-id={block.id}
+                         className={`group relative mb-6 hover:ring-2 hover:ring-indigo-50 rounded-lg p-1 -m-1 transition-all ${
+                           highlightedBlockId === block.id ? 'ring-2 ring-amber-300 animate-pulse-highlight' : ''
+                         }`}
+                       >
                           {/* Block Controls (Only show when editing this block) */}
                           {editingBlockId === block.id && (
                           <div className="absolute right-0 top-0 -mt-3 -mr-3 flex items-center gap-1 bg-white border border-slate-200 rounded-lg shadow-sm p-1 z-10">
@@ -1275,10 +1297,18 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
               </div>
             ) : viewMode === 'preview' ? (
               /* Client-style preview - matches Client Portal's ContentReview display */
-              <div className="flex-1 w-full p-8 md:p-12 overflow-y-auto bg-white mx-auto max-w-5xl shadow-sm my-4 rounded-lg border border-slate-100">
+              <div className="flex-1 min-h-0 w-full p-8 md:p-12 overflow-y-auto bg-white mx-auto max-w-5xl shadow-sm my-4 rounded-lg border border-slate-100">
                 <div className="space-y-6 font-serif text-lg leading-relaxed text-slate-800">
                   {convertEditorBlocksToContentBlocks(blocks).map((block) => (
-                    <div key={block.id} className="p-4 -mx-4 rounded-lg border border-transparent">
+                    <div 
+                      key={block.id} 
+                      data-content-block-id={block.id}
+                      className={`p-4 -mx-4 rounded-lg border transition-all ${
+                        highlightedBlockId === block.id 
+                          ? 'border-amber-300 animate-pulse-highlight' 
+                          : 'border-transparent'
+                      }`}
+                    >
                       {/* Header rendering */}
                       {block.type === 'header' && (
                         <h2 className="text-2xl md:text-3xl font-bold font-sans text-slate-900 mb-2 mt-4">{block.content}</h2>
@@ -1308,7 +1338,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 w-full p-8 overflow-y-auto bg-slate-50/50">
+              <div className="flex-1 min-h-0 w-full p-8 overflow-y-auto bg-slate-50/50">
                 {renderVisualStructure(blocks)}
               </div>
             )}
@@ -1517,33 +1547,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                       >
                         {isApproved ? 'Update Metadata' : 'Save Progress'}
                       </button>
-                      
-                      {reviewLink && (
-                        <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-indigo-900 mb-1">Client Review Link:</p>
-                              <p className="text-[10px] text-indigo-700 break-all">{reviewLink}</p>
-                            </div>
-                            <button
-                              onClick={handleCopyLink}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex-shrink-0 text-xs"
-                            >
-                              {linkCopied ? (
-                                <>
-                                  <Check size={12} />
-                                  <span>Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy size={12} />
-                                  <span>Copy</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
 
                       {!isApproved ? (
                         <button 

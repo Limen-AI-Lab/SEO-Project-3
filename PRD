@@ -1,0 +1,717 @@
+## 1. 项目概述
+
+### 1.1 项目背景
+
+当前的通用 AIGC 写作工具（如 Writesonic）虽然生成效率高，但缺乏行业的垂直、合规性检查以及代理商（Agency）与甲方（Client）之间复杂的**协作流程管理**。内容要求**高信任度**（High-Trust）、**强行业贴合度**。
+TaxFlow 旨在填补这一空白，构建一个连接 Agency 与 Client 的垂直 SaaS 平台，将“**策略制定-内容生产-客户审批-多渠道发布**”整合在统一的工作流中。
+
+### 1.2 项目目标
+
+1. **构建标准化的内容生产流水线**：从 Campaign 策略到 Article 执行，确保所有内容在符合客户的 Brand Voice 和 Strict Rules的基础上，同时对齐具体内容的颗粒度。
+2. **实现“双边协作”**：通过 Client Portal 让客户参与 Title、Outline、Draft 三个关键节点的审批，降低返工率。
+3. **AI 赋能专业写作**：利用多模态 AI 和智能编辑器，辅助人工写手处理复杂的多模态文件（例如图表、文件等）提高产出效率。
+4. **自动分发，高效管理：** 流程中实现全自动化，一键发送客户&完善的blog一键入库。提高全流程体验与效率。
+
+### 1.3 目标用户
+
+1. **Agency Admin (代理商管理员)**：负责客户管理、Campaign 策略制定。
+2. **Agency Writer/SEO (写手)**：执行具体的文章撰写、AI 辅助编辑。
+3. **Client Manager (客户)**：负责审批选题、大纲和最终稿件，提供专业反馈。
+
+---
+
+## 2. 功能需求
+
+### 2.1 核心功能列表 (Current Core Features)
+
+- **客户资产管理 (Client CRM & Strategic Memory)**
+- **Campaign 策略管理 (Campaign Management)**
+- **智能关键词研究 (Smart Keyword Researcher)**
+- **分阶段内容工作流 (Staged Content Workflow)**
+- **沉浸式多模态编辑器 (Focus Mode & Multi-modal Editor)**
+
+### 2.2 功能详细描述
+
+### 2.2.1 客户资产管理 (Client CRM)
+
+- **功能描述**：左侧导航栏的“Clients”模块，作为全系统的核心数据库。
+- **关键特性**：
+    - **基础信息维护**：客户名称、联系人、职位、公司官网、主要业务。
+    - **策略继承 (Strategic Defaults)**：必须包含 `Default Tone of Voice`（如“权威专业”）和 `Saved Strict Content Rules`（如“禁止提及***，必须引用最新税法”）。
+    - **数据联动**：新建 Campaign 或 Article 时，系统自动拉取该客户的默认策略配置，无需重复输入。
+
+### 2.2.2 Campaign 策略管理
+
+- **功能描述**：确立“先策略后执行”的层级结构（Campaign -> Articles）。
+- **关键特性**：
+    - **关联客户**：创建 Campaign 时通过**多选下拉框 (Searchable Multi-select)** 关联现有客户或新建客户。
+    - **策略定义**：设定 Campaign 目标（Strategy Goals）、目标受众（Target Audience）和种子关键词。
+    - **视图层级**：Dashboard 展示 Active Campaigns 卡片，点击进入后才显示该 Campaign 下的具体 Article 列表。
+
+### 2.2.3 智能关键词研究 (Smart Keyword Researcher)
+
+- **功能描述**：在文章设置页，AI 主动辅助用户筛选高价值关键词。
+- **关键特性**：
+    - **上下文感知**：AI 根据 Topic 和 Audience 推荐关键词。
+    - **可视化交互**：通过“✨ Suggest Keywords”按钮触发。关键词以 **交互式标签 (Chips)** 展示，具备数据指标（如 🔥 火焰图标代表高搜索量，Vol: High 标签）。
+    - **操作**：支持点击添加、手动输入回车添加、点击“X”删除。
+
+### 2.2.4 分阶段内容工作流 (Staged Workflow)
+
+- **功能描述**：严格的状态机管理，确保客户在关键节点介入。
+- **流程逻辑**：
+    1. **Title Generation**：生成多个标题 -> 提交客户 -> 客户审批。
+    2. **Data Forking (关键逻辑)**：当客户批准 N 个标题后，系统自动**裂变**出 N 个独立的 Article Object，状态变更为 `Ready for Outline`。
+    3. **Outline Builder**：生成大纲 -> 提交客户 -> 客户审批。
+    4. **状态跳转 (关键逻辑)**：Outline 审批通过后，状态**直接**变更为 `Drafting Content` 并自动加载编辑器。
+
+### 2.2.5 沉浸式多模态编辑器 (Focus Mode & Editor)
+
+- **功能描述**：支持 Markdown、富文本、多模态交互的写作界面。
+- **关键特性**：
+    - **流式布局 (Fluid Layout)**：利用 95%-98% 的屏幕宽度，中间画布自适应拉伸。
+    - **Focus Mode (沉浸模式)**：
+        - 点击右上角“Expand”图标，隐藏右侧 Metadata，折叠左侧 Outline。
+        - 顶部 Bar 包含：左侧字数
+        - 统计，中间视图切换（Markdown / Preview / Flowchart），右侧退出按钮。
+    - **智能编辑 (Smart Edit)**：鼠标选中段落（蓝色高亮） -> 悬浮“Sparkle”图标 -> 点击弹出输入框 -> AI 局部重写。
+    - **多模态 AI 助手**：
+        - 底部对话框支持上传文件（PDF/图片）。
+        - **拖拽支持**：编辑器画布支持直接拖入图片，并支持可视化预览、删除、移动。
+        - **Agent 行为**：AI 分析上传的图片/文件后，主动建议插入位置，并提供“Yes, Insert”按钮一键插入文章。
+
+### 2.3 用户流程 (User Flow)
+
+1. Onboarding：Agency 在 CRM 中创建客户 "TechStart"，配置好“专业严肃”的语调。
+2. **Strategy**：创建 Campaign "2024 Tax Season"，关联 TechStart。
+3. **Ideation**：进入 Campaign，新建 Article 任务。AI 自动填入客户语调。使用 Smart Keyword 工具选定高热度词。生成 n 个标题后进行筛选和人工修改，最终发送给客户。
+4. **Approval & Forking**：客户通过m个标题并提交建议，系统生成 m 个独立的大纲任务。
+5. **Drafting**：进入其中一篇，AI联系“标题”与“客户建议”，一键生成大纲。人工修改或AI参与修改后，完成大纲最终版。提交给客户。
+6. **Content：** 客户通过大纲并提供意见后，进行内容创作。AI可以联系标题、大纲和客户意见反馈一键生成内容。人工修改或AI参与修改后完成内容。
+7. **Refinement**：用户上传一张税率表截图给 AI，AI 分析后修改文章，用户点击确认。用户开启 Focus Mode 进行深度写作。
+8. **Finalize**：完成写作，导出或同步给客户。
+
+### 2.4 未来功能期望 (Based on Competitive Analysis PDF)
+
+*参考竞品：Profound, Writesonic, Semrush, AthenaHQ, Koala Writer*
+
+1. **GEO Score (税务 GEO 权威分)**：
+    - *参考 AthenaHQ/Surfer*。在编辑器右侧引入 **0-100 的仪表盘**。
+    - 不仅仅是 SEO 评分，而是检测“AI 推荐友好度”。评估文章是否引用了最新权威信源（如 IRS/SARS 官网），逻辑结构是否符合 LLM 抓取偏好。
+2. **关键词排名 (多维度分析)**：
+    - *参考 Semrush*。生成关键词的时候联系相关信息，显示关键词排行列表。
+    - 维度有volume， trend， PKD%， KD%等等。
+3. **Fact-Check Agent (实时事实核查)**：
+    - *参考 Koala/Agility*。底层集成 Google Search API。
+    - 当 AI 生成具体法规条款时，后台自动联网验证。正确则显示“绿色盾牌”，存疑显示“黄色警告”并附带正确信源链接。
+4. **Share of Voice Monitoring (舆论份额监控)**：
+    - *参考 GeoSpy*。在 Campaign Dashboard 增加图表，展示品牌在 ChatGPT/Perplexity 中关于特定税务话题的被提及率。
+5. **Competitor Reverse Engineering (竞品逆向)**：
+    - *参考 Semrush*。输入竞品 URL，分析其结构、引用的法律条款和关键词布局，**直接转化为我们的 Outline 模板**。
+6. **Audio-to-Blog (会议转文章)**：
+    - *参考 VideoToBlog*。允许上传税务研讨会录音，AI 自动提取干货生成结构化文章。
+7. **多渠道发布、多模态文件生成、单词段落超链接等**
+
+### 2.5 图表表示
+
+**1. 用户流程图 (User Flowchart)**
+
+**图表说明**：
+
+- 涵盖了从客户建档到最终发布的完整生命周期。
+- **黄色菱形**代表决策节点（Agency筛选或Client审批）。
+- **红色连线**代表“拒绝/返工”流程，明确展示了当客户拒绝时，系统如何携带**反馈数据（Feedback Data）**回到工作台，并改变UI状态（如右侧栏显示反馈）。
+- **绿色连线**代表“通过/推进”流程。
+
+```mermaid
+flowchart TD
+    %% 定义样式
+    classDef actor fill:#e1f5fe,stroke:#01579b,color:black;
+    classDef system fill:#fff3e0,stroke:#e65100,color:black;
+    classDef decision fill:#fff9c4,stroke:#fbc02d,color:black;
+    classDef state fill:#f3e5f5,stroke:#4a148c,color:black;
+
+    %% 角色定义
+    Agency([Agency User]):::actor
+    Client([Client User]):::actor
+    AI_Sys{{AI / System}}:::system
+
+    %% Phase 1: Onboarding & Strategy
+    subgraph Setup ["Phase 1: Setup & Strategy"]
+        Agency -->|1. Create Client| ClientDB[(Client CRM)]
+        ClientDB -->|Save Tone & Rules| DB_Client
+        Agency -->|2. Create Campaign| CampUI[Campaign Setup]
+        CampUI -->|Select Client| FetchData[System pulls Default Tone & Rules]
+        FetchData --> CampCreated[Campaign Created]
+    end
+
+    %% Phase 2: Ideation & Title
+    subgraph Ideation ["Phase 2: Ideation (Titles)"]
+        CampCreated -->|3. Smart Keyword Research| KW_Tool[Keyword Researcher]
+        KW_Tool -->|Select High Vol Keywords| TitleGen[AI Title Generator]
+        TitleGen -->|Generate n Titles| ReviewTitles[Agency Review List]
+
+        ReviewTitles --> Dec_AgencyTitle{Agency Filter?}:::decision
+        Dec_AgencyTitle -- "Edit/Delete" --> ReviewTitles
+        Dec_AgencyTitle -- "Submit Selection" --> WaitClient1(Status: Awaiting Client Review):::state
+
+        WaitClient1 -.->|Notify| Client
+        Client -->|4. Review Titles| ClientPortal_T[Client Title View]
+        ClientPortal_T --> Dec_ClientTitle{Approval?}:::decision
+
+        Dec_ClientTitle -- "Reject / Comment" --> ReturnTitles[Return to Agency with Comments]
+        ReturnTitles --> ReviewTitles
+
+        Dec_ClientTitle -- "Approve m Titles" --> Forking{{System Forking Logic}}:::system
+    end
+
+    %% Phase 3: Forking
+    Forking -->|Split into m Objects| Art1[Article 1: Ready for Outline]
+    Forking -->|Split into m Objects| Art2[Article 2: Ready for Outline]
+    Forking -->|Split into m Objects| Art3[Article 3: Ready for Outline]
+
+    %% Phase 4: Outline Production
+    subgraph Production ["Phase 3: Production (Per Article)"]
+        Art1 -->|5. Click to Start| OutlineUI[Outline Builder]
+
+        %% Outline Loop
+        OutlineUI -->|Input: Title + Client Title Comments| AI_Outline[AI Generates Outline]
+        AI_Outline --> EditOutline[Agency Edits Outline]
+        EditOutline --> SubmitOutline[Submit to Client]
+        SubmitOutline --> WaitClient2(Status: Reviewing Outline):::state
+
+        WaitClient2 -.->|Notify| Client
+        Client -->|Review Outline| ClientPortal_O[Client Outline View]
+        ClientPortal_O --> Dec_ClientOut{Approval?}:::decision
+
+        %% 关键反馈回路
+        Dec_ClientOut -- "Reject w/ Feedback" --> FeedbackState(Status: Needs Revision):::state
+        FeedbackState -->|UI Update: Show Feedback in Right Sidebar| EditOutline
+
+        %% Drafting Loop
+        Dec_ClientOut -- "Approve" --> DraftingState(Status: Drafting Content):::state
+        DraftingState -->|Auto-Load Editor| ContentUI[Drafting Canvas]
+
+        ContentUI -->|6. Input: Title + Outline + Comments| AI_Draft[AI Generates Full Draft]
+        AI_Draft --> Refine[7. Refine / Focus Mode / Multi-modal]
+        Refine --> SubmitDraft[Submit Draft]
+        SubmitDraft --> WaitClient3(Status: Reviewing Draft):::state
+
+        WaitClient3 -.->|Notify| Client
+        Client -->|8. Review Content| ClientPortal_C[Client Draft View]
+        ClientPortal_C --> Dec_ClientDraft{Final Approval?}:::decision
+
+        Dec_ClientDraft -- "Request Changes" --> FeedbackState2(Status: Needs Revision):::state
+        FeedbackState2 -->|UI Update: Comments Pinned to Text| Refine
+
+        Dec_ClientDraft -- "Approve" --> Final([Finalize & Export]):::state
+    end
+
+```
+
+---
+
+**2. 时序图 (Sequence Diagram)**
+
+**图表说明**：
+
+- 展示了 **Agency (Web)**、**Backend (Server)**、**AI Service**、**Database** 和 **Client Portal** 之间的交互。
+- 重点展示了 **Context Injection（上下文注入）**：即在生成 Outline 时，AI 是如何同时读取“Client Rules”和“Title Comments”的。
+- **Alt 块** 展示了从“拒绝”到“重新提交”的完整循环。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as Agency Writer
+    participant Web as Web Interface
+    participant Server as Backend API
+    participant AI as AI Service (LLM)
+    participant DB as Database
+    participant Client as Client User
+
+    Note over User, Client: Phase 1: Initialization & Context
+    User->>Web: Create Campaign (Select Client "TechStart")
+    Web->>Server: GET /clients/TechStart
+    Server->>DB: Query Client Defaults
+    DB-->>Server: Return {Tone: "Formal", Rules: "No Jargon"}
+    Server-->>Web: Auto-fill Strategy Settings
+
+    Note over User, Client: Phase 2: Ideation & Forking
+    User->>Web: Click "Generate Titles"
+    Web->>AI: Prompt = {Topic + Keywords + Client Tone}
+    AI-->>Web: Return 10 Titles
+    User->>Web: Select 3 Titles & Submit
+    Web->>Server: POST /campaign/titles (Status: Awaiting_Review)
+    Server-->>Client: Notify New Titles
+
+    Client->>Server: Approve 3 Titles (with Comments on Title #2)
+    Server->>DB: UPDATE Campaign Status
+
+    rect rgb(240, 248, 255)
+        Note right of Server: SYSTEM FORKING LOGIC
+        Server->>DB: Create Article_A (Title 1)
+        Server->>DB: Create Article_B (Title 2 + Comment)
+        Server->>DB: Create Article_C (Title 3)
+        Server-->>Web: Refresh: Show 3 "Ready for Outline" items
+    end
+
+    Note over User, Client: Phase 3: Outline Production (Loop)
+    User->>Web: Open Article_B (Ready for Outline)
+    Web->>Server: GET Context (Title + Client Comments)
+
+    User->>Web: Click "Generate Outline"
+    Web->>AI: Prompt = {Title: "..." + Feedback: "Make it punchy" + Rules}
+    AI-->>Web: Return Structured Outline
+    User->>Web: Edit & Submit
+    Web->>Server: PUT /article/B (Status: Client_Reviewing_Outline)
+
+    alt Client Rejects Outline
+        Client->>Server: Reject (Comment: "Add section on VAT")
+        Server->>DB: Update Status: Needs_Revision
+        Server-->>Web: Real-time Update
+
+        Note right of Web: UI State Change
+        Web->>User: Show "Feedback Sidebar" with "Add section on VAT"
+        User->>Web: Modify Outline manually
+        User->>Web: Resubmit
+    else Client Approves Outline
+        Client->>Server: Approve
+        Server->>DB: Update Status: Drafting_Content
+    end
+
+    Note over User, Client: Phase 4: Content Drafting
+    Web->>User: Auto-redirect to Content Editor
+    User->>Web: Click "Generate Draft"
+
+    Note right of Web: Context Aggregation
+    Web->>AI: Prompt = {Title + Final_Outline + Previous_Feedback + Tone}
+    AI-->>Web: Return Full Blog Post (Markdown)
+
+    User->>Web: Upload Image (TaxRate.png)
+    Web->>AI: Analyze Image & Suggest Location
+    AI-->>Web: Suggestion: "Insert after Section 2"
+    User->>Web: Confirm Insert
+
+    User->>Web: Submit Final Draft
+    Server-->>Client: Notify for Final Review
+
+```
+
+---
+
+## 3. 非功能需求
+
+### 3.1 性能要求
+
+- **AI 响应速度**：关键词建议 < 3秒；长文生成/修改 < 15秒。
+- **编辑器渲染**：在 Focus Mode 下，处理 5000+ 字长文无卡顿。
+- **布局响应**：Fluid Layout 必须在不同分辨率显示器（13寸至27寸）上自适应铺满。
+
+### 3.2 安全要求
+
+- **数据隔离**：不同 Client 的 Content Rules 和历史数据必须严格逻辑隔离。
+- **RBAC 权限**：Agency 可读写所有；Client 仅可对分配给自己的任务进行 Review/Comment。
+
+### 3.3 可用性要求
+
+- **状态机健壮性**：工作流状态（Status）的流转必须原子化，不可逆（除非手动退回），防止出现死循环或中间状态（如 Ready to Write）。
+- **多模态反馈**：文件上传必须有明确的进度条和预览（Thumbnail）。
+
+---
+
+## 4. 技术规格
+
+### 4.1 技术栈 (推测/建议)
+
+- **前端**：React.js / Next.js (支持 Mermaid 渲染, Fluid Layout, 复杂状态管理)。
+- **样式**：Tailwind CSS (实现 Responsive 和 Grid 布局)。
+- **后端**：Node.js 或 Python (FastAPI)。
+- **数据库**：PostgreSQL (存储 Client, Campaign, Article 关系数据)。
+- **AI 模型层**：OpenAI GPT-4o 或 Google Gemini 1.5 Pro (支持长文本和多模态理解)。
+
+### 4.2 系统架构
+
+- **Client-Server 架构**：前端通过 REST/GraphQL API 与后端交互。
+- **Agent Service**：独立的 AI 服务层，处理 Keyword Research、Smart Edit、Fact Check 等耗时任务，通过 WebSocket 推送结果给前端。
+
+### 4.3 第三方集成
+
+- **Search API**：Google Custom Search API 或 Bing Search API (用于 Keyword Vol 数据及未来的 Fact Check)。
+- **File Storage**：AWS S3 或类似对象存储 (用于存储用户上传的多模态文件)。
+- **Visualization**：Mermaid.js (用于编辑器内的流程图渲染)。
+
+---
+
+## 5. 交付
+
+### 5.1 里程碑
+
+1. **Phase 1 (MVP - Completed)**: 核心工作流跑通，Client/Campaign 管理，基础 AI 写作。
+2. **Phase 2 (UX Polish - Current)**: Focus Mode，Fluid Layout，Smart Edit，多模态交互优化。
+3. **Phase 3 (Trust & Data - Future)**: 集成 Fact-Check Agent，Tax-GEO Score，实时联网搜索。
+
+### 5.2 时间线
+
+- *当前重点*：完成 Phase 2 的所有 UI/UX 细节修正（特别是消除 Ready to Write 状态，完善 Smart Edit 交互）。
+
+### 5.3 验收标准
+
+1. **全流程无断点**：从新建 Client 到 Campaign 再到 Article 发布，没有任何页面报错或死胡同。
+2. **布局达标**：Drafting Canvas 在宽屏下占用率 > 95%。
+3. **多模态可用**：上传 PDF/图片后，AI 能准确读取并按指令插入图片到正确段落。
+4. **状态准确**：Outline 审批后，直接进入 Drafting Content 且编辑器立即可用。
+
+## 6. 其他
+
+### 6.1 客户端产品
+
+**产品目标：**节省客户与我们的沟通成本。
+
+**产品定位：**以浏览和评论为主要产品功能的轻量化工具。
+
+**产品形式：**客户通过邮件获得链接，点击链接即可进入预览模式。在简介的界面中清晰地预览title - outline - content，并可以以最方便的方式增加评论。轻点发送便可通过邮件/数据库 的形式同步给我们。
+
+**补充：**可以参考AthenaHQ / GeoSpy等产品做出让客户感到安心的AI监控dashboard。
+
+**title节点审批** 客户能够从n个我们交付的title和key words里轻松进行选择（approve or reject）、编辑、comment。最终点击发送即可。
+**outline节点审批**客户能够清晰地浏览title和outline，对outline进行选择、编辑、comment。最终选择approve or reject，点击发送即可。
+**content节点审批**客户能够清晰地浏览title和content，对outline进行编辑和comment。最终选择approve or reject，点击发送即可。
+
+### 6.2 竞品分析文档：
+
+[SEO_GEO Product PRD.pdf](attachment:718b7c51-b30c-455a-b42f-ae737c313ea4:SEO_GEO_Product_PRD.pdf)
+
+## 7.Interaction.md
+
+```markdown
+# 两个项目交互流程文档
+
+## 项目概述
+
+### Agency Portal (SEO-2-version-main)
+- **角色**：内容创作机构
+- **功能**：创建和管理 campaigns、articles，生成标题、大纲、草稿
+- **技术栈**：React + TypeScript + Supabase + Vite
+
+### Client Portal (SEO-client-version)
+- **角色**：客户
+- **功能**：审查和批准文章内容（标题、大纲、草稿）
+- **技术栈**：React + TypeScript + Supabase + Vite
+
+## 状态机定义
+
+### 完整状态列表
+
+#### 标题阶段 (Title Phase)
+1. `NEEDS_TITLES` - 机构需要生成标题
+2. `AWAITING_REVIEW_TITLES` - 等待客户端审查标题
+3. `TITLES_APPROVED` - 标题已批准，机构可以继续
+4. `NEEDS_TITLES_REVISION` - 标题需要修改（客户端拒绝）
+
+#### 大纲阶段 (Outline Phase)
+5. `NEEDS_OUTLINE` - 机构需要创建大纲
+6. `AWAITING_REVIEW_OUTLINE` - 等待客户端审查大纲
+7. `OUTLINE_APPROVED` - 大纲已批准
+8. `NEEDS_OUTLINE_REVISION` - 大纲需要修改（客户端拒绝）
+
+#### 草稿阶段 (Draft Phase)
+9. `NEEDS_DRAFT` - 机构需要创建草稿
+10. `AWAITING_REVIEW_DRAFT` - 等待客户端审查草稿
+11. `DRAFT_APPROVED` - 草稿已批准（完成）
+12. `NEEDS_DRAFT_REVISION` - 草稿需要修改（客户端拒绝）
+
+#### 其他状态
+13. `PUBLISHED` - 已发布
+14. `NEEDS_REVISION` - (已弃用) 保留用于向后兼容
+
+## 状态流转图
+
+```
+┌─────────────────┐
+│  NEEDS_TITLES   │ (机构工作)
+└────────┬────────┘
+         │ [机构生成标题并提交]
+         ↓
+┌─────────────────────────┐
+│ AWAITING_REVIEW_TITLES  │ (客户端审查)
+└────────┬────────────────┘
+         │ [客户端选择标题]
+    ┌────┴────┐
+    │         │
+    ↓         ↓
+┌─────────┐ ┌───────────────────────┐
+│TITLES_  │ │NEEDS_TITLES_REVISION  │
+│APPROVED │ │                       │
+└────┬────┘ └───────────┬───────────┘
+     │                  │ [机构修改后重新提交]
+     │                  ↓
+     │          ┌─────────────────────────┐
+     │          │ AWAITING_REVIEW_TITLES  │
+     │          └─────────────────────────┘
+     │
+     │ [机构创建大纲并提交]
+     ↓
+┌─────────────────┐
+│  NEEDS_OUTLINE  │ (机构工作)
+└────────┬────────┘
+         │ [机构提交大纲]
+         ↓
+┌──────────────────────────┐
+│ AWAITING_REVIEW_OUTLINE  │ (客户端审查)
+└────────┬─────────────────┘
+         │ [客户端批准/拒绝]
+    ┌────┴────┐
+    │         │
+    ↓         ↓
+┌─────────┐ ┌────────────────────────┐
+│OUTLINE_ │ │NEEDS_OUTLINE_REVISION  │
+│APPROVED │ │                        │
+└────┬────┘ └───────────┬────────────┘
+     │                  │ [机构修改后重新提交]
+     │                  ↓
+     │          ┌──────────────────────────┐
+     │          │ AWAITING_REVIEW_OUTLINE  │
+     │          └──────────────────────────┘
+     │
+     │ [机构创建草稿并提交]
+     ↓
+┌─────────────────┐
+│   NEEDS_DRAFT   │ (机构工作)
+└────────┬────────┘
+         │ [机构提交草稿]
+         ↓
+┌─────────────────────────┐
+│ AWAITING_REVIEW_DRAFT   │ (客户端审查)
+└────────┬────────────────┘
+         │ [客户端批准/拒绝]
+    ┌────┴────┐
+    │         │
+    ↓         ↓
+┌─────────┐ ┌──────────────────────┐
+│ DRAFT_  │ │NEEDS_DRAFT_REVISION  │
+│APPROVED │ │                      │
+└────┬────┘ └───────────┬──────────┘
+     │                  │ [机构修改后重新提交]
+     │                  ↓
+     │          ┌─────────────────────────┐
+     │          │ AWAITING_REVIEW_DRAFT   │
+     │          └─────────────────────────┘
+     ↓
+┌─────────────────┐
+│   PUBLISHED     │
+└─────────────────┘
+```
+
+## 数据交互方式
+
+### 共享数据库表
+两个项目共享同一个 Supabase 数据库的以下表：
+- `clients` - 客户信息
+- `campaigns` - 营销活动
+- `articles` - 文章内容
+
+### 关键字段说明
+
+#### articles 表
+- `status` (TEXT) - 当前状态，必须匹配预定义的状态值
+- `proposed_titles` (TEXT[]) - 机构生成的标题列表
+- `title` (TEXT) - 客户端选择的最终标题
+- `outline_content` (TEXT) - 文章大纲
+- `draft_content` (TEXT) - 文章草稿
+- `client_comments` (JSONB) - 客户端评论历史
+
+#### client_comments JSONB 结构
+```json
+[
+  {
+    "id": "uuid",
+    "author": "Client",
+    "text": "评论内容",
+    "timestamp": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+## 交互流程详解
+
+### 1. 标题生成流程
+**Agency Portal:**
+1. 机构在 `StageTitles` 组件中生成多个标题
+2. 保存 `proposed_titles` 数组
+3. 设置状态为 `AWAITING_REVIEW_TITLES`
+4. 通知客户端（通过邮件/链接）
+
+**Client Portal:**
+1. 客户端访问审查页面（通过 articleId）
+2. 查看 `proposed_titles` 列表
+3. 选择一个标题
+4. 点击"批准"，更新：
+   - `status` = `TITLES_APPROVED`
+   - `title` = 选中的标题
+5. 或点击"请求修改"，更新：
+   - `status` = `NEEDS_TITLES_REVISION`
+   - 添加评论到 `client_comments`
+
+### 2. 大纲审查流程
+**Agency Portal:**
+1. 机构在 `StageOutline` 组件中创建大纲
+2. 保存 `outline_content`
+3. 设置状态为 `AWAITING_REVIEW_OUTLINE`
+
+**Client Portal:**
+1. 客户端查看 `outline_content`
+2. 可以添加评论（可选）
+3. 选择操作：
+   - **批准**：`status` = `OUTLINE_APPROVED`
+   - **拒绝**：`status` = `NEEDS_OUTLINE_REVISION`，添加评论到 `client_comments`
+
+### 3. 草稿审查流程
+**Agency Portal:**
+1. 机构在 `StageDraft` 组件中创建草稿
+2. 保存 `draft_content`
+3. 设置状态为 `AWAITING_REVIEW_DRAFT`
+
+**Client Portal:**
+1. 客户端查看 `draft_content`
+2. 可以添加评论（可选）
+3. 选择操作：
+   - **批准**：`status` = `DRAFT_APPROVED`（完成）
+   - **拒绝**：`status` = `NEEDS_DRAFT_REVISION`，添加评论到 `client_comments`
+
+### 4. 修改流程
+**Agency Portal:**
+1. 检测到对应的 `NEEDS_*_REVISION` 状态
+2. 显示对应阶段的编辑界面：
+   - `NEEDS_TITLES_REVISION` → 显示标题编辑界面
+   - `NEEDS_OUTLINE_REVISION` → 显示大纲编辑界面
+   - `NEEDS_DRAFT_REVISION` → 显示草稿编辑界面
+3. 读取 `client_comments` 获取反馈
+4. 修改内容后重新提交
+5. 设置状态回到对应的 `AWAITING_REVIEW_*` 状态
+
+## 数据同步机制
+
+### 当前实现
+- **轮询**：客户端页面定期刷新检查状态
+- **手动刷新**：用户操作后自动重新加载数据
+
+### 未来优化（可选）
+- **Supabase Realtime**：实时监听数据库变化
+- **WebSocket**：自定义实时通信
+- **推送通知**：状态变更时通知用户
+
+## 安全考虑
+
+### 当前实现
+- RLS (Row Level Security) 已禁用（开发阶段）
+- 使用 anon key 进行所有操作
+
+### 生产环境建议
+1. 启用 RLS
+2. 为客户端创建只读策略
+3. 为机构端创建读写策略
+4. 使用服务端角色（service_role）进行敏感操作
+
+## API 端点映射
+
+### Agency Portal 操作
+- `GET /articles?campaign_id=xxx` - 获取文章列表
+- `POST /articles` - 创建文章
+- `PATCH /articles/:id` - 更新文章（包括状态）
+- `GET /campaigns/:id` - 获取活动详情
+
+### Client Portal 操作
+- `GET /articles/:id` - 获取单个文章（通过 articleId）
+- `PATCH /articles/:id` - 更新状态和评论
+
+## 测试场景
+
+### 完整流程测试
+1. 机构创建文章 → `NEEDS_TITLES`
+2. 机构生成标题 → `AWAITING_REVIEW_TITLES`
+3. 客户端选择标题 → `TITLES_APPROVED`
+4. 机构创建大纲 → `AWAITING_REVIEW_OUTLINE`
+5. 客户端批准大纲 → `OUTLINE_APPROVED`
+6. 机构创建草稿 → `AWAITING_REVIEW_DRAFT`
+7. 客户端批准草稿 → `DRAFT_APPROVED`
+
+### 拒绝流程测试（标题）
+1. 客户端拒绝标题 → `NEEDS_TITLES_REVISION`
+2. 机构查看评论并修改
+3. 机构重新提交 → `AWAITING_REVIEW_TITLES`
+4. 客户端再次审查
+
+### 拒绝流程测试（大纲）
+1. 客户端拒绝大纲 → `NEEDS_OUTLINE_REVISION`
+2. 机构查看评论并修改
+3. 机构重新提交 → `AWAITING_REVIEW_OUTLINE`
+4. 客户端再次审查
+
+### 拒绝流程测试（草稿）
+1. 客户端拒绝草稿 → `NEEDS_DRAFT_REVISION`
+2. 机构查看评论并修改
+3. 机构重新提交 → `AWAITING_REVIEW_DRAFT`
+4. 客户端再次审查
+
+```
+
+## 8.开发优先级分类
+
+### P0
+
+**Agency Portal**
+
+- [x]  campaign对应一个link
+- [x]  outline编辑的时候，我们可以编辑**用户评价、标题等等**
+- [x]  client portal做出的修改 → 点击needs revision → agency端没有收到修改
+- [ ]  content drafting界面的outline要可以修改
+
+**Client Portal**
+
+- [x]  有登录系统
+- [x]  **Outline Review和 content review应该也要有general comment**
+
+### P1
+
+- [x]  客户要可以修改content，可以删除
+- [x]  outline提示词的微调（不出现*等符号）
+
+**Agency Portal**
+
+- [x]  有export的功能，可以导出文件
+- [x]  新建topic后直接跳转至产出titles
+- [x]  目前弹窗用的是浏览器的弹窗提醒，可以引入的UI组件(lucide-react)的弹窗
+- [x]  可以不用审核，直接进入outline/content
+- [ ]  outline生成旁边有选择字数等（参考quickcreator）
+- [ ]  每一次生成中加入外部权威链接和数据引用，提升文章可信度。
+- [ ]  一键生成内容功能，可以略去大纲生成步骤。
+- [x]  每一次submit的时候还会有自动生成的链接，把这个删除
+- [ ]  content drafting的structure模式没用，可以删掉
+- [ ]  使用过的strict rules可以自动储存
+- [ ]  **在Awaiting Client Review放上链接**
+- [ ]  campaign的dashboard可以有新消息提醒类似的功能
+- [ ]  outline drafting&content drafting的comment对应段落不显示
+- [ ]  content的系统提示词需要修改（比如有很多不规范标点）
+- [x]  content drafting的cms逻辑应该是（被approve了后有了一键生成概括和URL，再一键入库）
+- [x]  client管理内应该加重“企业白皮书、产品手册、官网链接”，支持ai调取企业私有数据， 确保生成的文章中包含准确的产品参数、品牌故事和独特观点
+
+**Client Portal**
+
+- [ ]  client portal 的outline和content的界面丑，段落之间间隙过大
+- [ ]  client portal 的outline和content的修改界面丑
+- [ ]  **Title & Keyword Review 右侧的Target Audience和Target Keywords信息还没有同步**
+- [ ]  client portal的title review不一定是approve&reject两级的，可以就是send
+- [ ]  client portal的title review可以是在标题旁点击approve，不一定是打勾
+
+
+P2
+
+- [ ]  评分的架构 —— 客户可以 看到blog评分
+- [ ]  可以在前端ui可以修改系统提示词
+- [ ]  有时候标题是不是不应该以approve和reject来两级选择。而是选择出excellent的title
+- [ ]  在**Metadata**中可以直接通过文章内容ai生成图片
+- [ ]  换名字
+- [ ]  作为产品，思考多人同时编辑
+
+未知
+- [ ]  自动内链

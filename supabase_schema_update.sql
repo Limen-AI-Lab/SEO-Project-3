@@ -131,4 +131,16 @@ ORDER BY a.last_updated DESC;
 -- 11. Grant permissions on view
 GRANT SELECT ON articles_awaiting_review TO public;
 
+-- ============================================
+-- 12. Add language and tone fields for AI content generation
+-- ============================================
+-- These fields store the target language and tone settings from Title Generation stage
+-- They are used by outline and draft generation to ensure content is in the correct language
+
+ALTER TABLE articles 
+ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'English',
+ADD COLUMN IF NOT EXISTS tone TEXT;
+
+COMMENT ON COLUMN articles.language IS 'Target language for AI-generated content. Values: English, Chinese. Default: English';
+COMMENT ON COLUMN articles.tone IS 'Tone of voice for AI-generated content. e.g. Professional & Authoritative';
 

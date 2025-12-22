@@ -566,6 +566,35 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                       <Pencil size={12} />
                       编辑
                     </button>
+                    <div onClick={(e) => e.stopPropagation()} className="ml-2">
+                       <select
+                         value={camp.cmsId || ''}
+                         onChange={async (e) => {
+                           const newId = e.target.value || null;
+                           // Optimistic update
+                           const updatedCampaigns = campaigns.map(c => 
+                             c.id === camp.id ? { ...c, cmsId: newId as any } : c
+                           );
+                           setCampaigns(updatedCampaigns);
+                           
+                           // Actual update
+                           try {
+                             await updateCampaign(camp.id, { cmsId: newId as any });
+                           } catch (err) {
+                             console.error('Failed to update CMS ID', err);
+                             // Revert on error (could refetch or just let user know)
+                             showAlert('更新失败', '无法更新 CMS ID。请检查控制台获取更多信息。', 'error');
+                           }
+                         }}
+                         className="px-2 py-1 rounded border border-slate-300 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50 bg-white shadow-sm"
+                       >
+                         <option value="">No CMS ID</option>
+                         <option value="advisories">advisories</option>
+                         <option value="bam">bam</option>
+                         <option value="fbpsnews">fbpsnews</option>
+                         <option value="solutions">solutions</option>
+                       </select>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
                     <Briefcase size={14} />
@@ -795,7 +824,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   <option value="advisories">advisories</option>
                   <option value="bam">bam</option>
                   <option value="fbpsnews">fbpsnews</option>
-                  <option value="solution">solution</option>
+                  <option value="solutions">solutions</option>
                 </select>
               </div>
 

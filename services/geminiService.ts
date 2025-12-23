@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Comment } from "../types";
+import { Comment, WordCountRange, ArticlePerspective, WORD_COUNT_CONFIG, PERSPECTIVE_CONFIG } from "../types";
 
 // Initialize the client
 // NOTE: In Vite, use import.meta.env instead of process.env
@@ -118,6 +118,8 @@ interface OutlineGenerationParams {
   targetAudience?: string;
   clientComments?: Array<{ author: string; text: string; timestamp: Date }>;
   language?: string;  // Target language for outline content (e.g., "English", "Chinese")
+  wordCountRange?: WordCountRange;  // Target word count range (affects H2 count)
+  perspective?: ArticlePerspective;  // Writing perspective (first/second/third person)
 }
 
 export const generateBlogOutline = async (params: OutlineGenerationParams): Promise<string> => {
@@ -128,17 +130,40 @@ export const generateBlogOutline = async (params: OutlineGenerationParams): Prom
     const targetLanguage = params.language || 'English';
     const isEnglish = targetLanguage.toLowerCase() === 'english';
     
+    // Get word count and H2 count configuration
+    const wordCountConfig = params.wordCountRange ? WORD_COUNT_CONFIG[params.wordCountRange] : WORD_COUNT_CONFIG['1000-2000'];
+    const perspectiveConfig = params.perspective ? PERSPECTIVE_CONFIG[params.perspective] : PERSPECTIVE_CONFIG['third'];
+    
+    // Calculate H3 count based on H2 count (1-2 H3 per H2, total around 7-8)
+    const h3Min = wordCountConfig.h2Min;
+    const h3Max = wordCountConfig.h2Max * 2;
+    
     // Build comprehensive context from all available information
     let contextParts: string[] = [];
     
     // 1. Primary directive and title (most important)
     if (isEnglish) {
-      contextParts.push(`You are creating a detailed blog post outline for the following title:\n"${params.selectedTitle}"`);
+      contextParts.push(`You are creating a concise blog post outline for the following title:\n"${params.selectedTitle}"`);
     } else {
-      contextParts.push(`您正在为以下标题创建详细的博客文章大纲：\n"${params.selectedTitle}"`);
+      contextParts.push(`您正在为以下标题创建简洁的博客文章大纲：\n"${params.selectedTitle}"`);
     }
     
-    // 2. Campaign strategy and goals
+    // 2. Word count and structure requirements
+    if (isEnglish) {
+      contextParts.push(`\nArticle Length Requirements:
+- Target word count: ${wordCountConfig.min}-${wordCountConfig.max} words (STRICTLY follow this limit)
+- Number of H2 sections: exactly ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} sections
+- Number of H3 subsections: ${h3Min}-${h3Max} total (1-2 per H2 section)
+- Writing perspective: ${perspectiveConfig.label} (${perspectiveConfig.description})`);
+    } else {
+      contextParts.push(`\n文章长度要求：
+- 目标字数：${wordCountConfig.min}-${wordCountConfig.max} 字（必须严格遵守）
+- H2章节数量：${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个
+- H3子章节数量：总共 ${h3Min}-${h3Max} 个（每个H2下1-2个H3）
+- 写作视角：${perspectiveConfig.label}（${perspectiveConfig.description}）`);
+    }
+    
+    // 3. Campaign strategy and goals
     if (params.campaignGoals && params.campaignGoals.trim()) {
       if (isEnglish) {
         contextParts.push(`\nMarketing Strategy Goals:\n${params.campaignGoals}`);
@@ -147,16 +172,16 @@ export const generateBlogOutline = async (params: OutlineGenerationParams): Prom
       }
     }
     
-    // 3. Keywords for SEO
+    // 4. Keywords for SEO
     if (params.keywords && params.keywords.length > 0) {
       if (isEnglish) {
-        contextParts.push(`\nKeywords (integrate naturally into outline):\n${params.keywords.join(', ')}`);
+        contextParts.push(`\nKeywords (integrate naturally into headings):\n${params.keywords.join(', ')}`);
       } else {
-        contextParts.push(`\n关键词（请自然融入大纲）：\n${params.keywords.join(', ')}`);
+        contextParts.push(`\n关键词（请自然融入标题）：\n${params.keywords.join(', ')}`);
       }
     }
     
-    // 4. Target audience
+    // 5. Target audience
     if (params.targetAudience && params.targetAudience.trim()) {
       if (isEnglish) {
         contextParts.push(`\nTarget Audience:\n${params.targetAudience}`);
@@ -165,7 +190,7 @@ export const generateBlogOutline = async (params: OutlineGenerationParams): Prom
       }
     }
     
-    // 5. Client feedback and requirements
+    // 6. Client feedback and requirements
     if (params.clientComments && params.clientComments.length > 0) {
       const commentsText = params.clientComments
         .map(c => `- ${c.text}`)
@@ -185,77 +210,83 @@ export const generateBlogOutline = async (params: OutlineGenerationParams): Prom
     if (isEnglish) {
       prompt = `${context}
 
-Please create a well-structured, logically organized blog post outline.
+Create a CONCISE blog post outline with ONLY headings (H1, H2, H3). NO descriptions or explanations under headings.
 
-**IMPORTANT: All outline content must be written in English.**
+**CRITICAL RULES - MUST FOLLOW**:
+1. Output ONLY heading lines starting with #, ##, or ###
+2. DO NOT add any text below headings - just headings only
+3. DO NOT add bullet points, descriptions, or explanations
+4. Exactly 1 H1 (main title)
+5. Exactly ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} H2 sections
+6. Only ${h3Min}-${h3Max} H3 subsections total (1-2 per H2, some H2s may have no H3)
+7. Keep outline compact to fit ${wordCountConfig.min}-${wordCountConfig.max} word article
+8. Use ${perspectiveConfig.label} perspective
 
-**Strict Format Requirements**:
-1. Use only Markdown heading format: # for H1, ## for H2, ### for H3
-2. Write brief descriptions or explanations in plain text below each heading
-3. Never use standalone asterisks (*) or other symbols as headings or list items
-4. Ensure clear hierarchy: H1 is main title, H2 is main sections, H3 is subsections
-5. Keep section descriptions concise, explaining the core direction of each part
-
-**Content Requirements**:
-- Outline content must be highly relevant to the title
-- Fully integrate all information above (marketing goals, keywords, target audience, client feedback)
-- Logical structure (introduction, key points, deep analysis, conclusion, etc.)
-- Professional and informative tone
-
-**Example Format**:
+**CORRECT FORMAT EXAMPLE**:
 # Main Title
-Brief introduction to the core topic and value of the article
 
-## Section 1: Core Concepts
-Explain the main content of this section
+## Section One
 
 ### Subtopic 1.1
-Specific details or case studies
 
-### Subtopic 1.2
-Analysis from another angle
+## Section Two
 
-## Section 2: Deep Dive
-How to expand on the theme
+### Subtopic 2.1
 
-Return ONLY the Markdown formatted outline text, without any explanatory text.`;
+### Subtopic 2.2
+
+## Section Three
+
+## Conclusion
+
+**WRONG FORMAT (DO NOT DO THIS)**:
+# Main Title
+This is a description - DO NOT ADD THIS
+
+## Section One
+Explaining what this section covers - DO NOT ADD THIS
+
+Return ONLY the Markdown headings, nothing else.`;
     } else {
       prompt = `${context}
 
-请创建一个结构清晰、逻辑严谨的博客文章大纲。
+创建一个简洁的博客文章大纲，只包含标题（H1、H2、H3）。标题下不要有任何描述或说明文字。
 
-**重要：所有大纲内容必须使用中文撰写。**
+**必须严格遵守的规则**：
+1. 只输出以 #、## 或 ### 开头的标题行
+2. 标题下方不要添加任何文字 - 只有标题
+3. 不要添加列表项、描述或解释
+4. 只有 1 个 H1（主标题）
+5. 正好 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个 H2 章节
+6. 总共只有 ${h3Min}-${h3Max} 个 H3 子章节（每个H2下1-2个，有些H2可以没有H3）
+7. 保持大纲紧凑，以适应 ${wordCountConfig.min}-${wordCountConfig.max} 字的文章
+8. 使用${perspectiveConfig.label}视角
 
-**严格格式要求**：
-1. 只使用 Markdown 标题格式：# 表示 H1，## 表示 H2，### 表示 H3
-2. 在标题下方用普通文本（不加任何符号）写简短的描述或说明
-3. 绝对不要使用单独的星号 (*) 或其他符号作为标题或列表项
-4. 确保层级清晰：H1 是主标题，H2 是主要章节，H3 是子章节
-5. 每个章节下的描述文字要简洁明了，说明该部分的核心内容方向
-
-**内容要求**：
-- 大纲内容必须与标题高度相关
-- 充分结合上述所有信息（营销目标、关键词、目标受众、客户反馈）
-- 结构合理，逻辑流畅（引言、核心观点、深入分析、总结等）
-- 专业且信息丰富的语气
-
-**示例格式**：
+**正确格式示例**：
 # 主标题
-简要介绍本文的核心主题和价值
 
-## 第一章节：核心概念
-说明本章节将阐述的主要内容
+## 第一章节
 
-### 子主题1.1
-具体细节或案例说明
+### 子主题 1.1
 
-### 子主题1.2
-另一个角度的分析
+## 第二章节
 
-## 第二章节：深入探讨
-说明如何深化主题
+### 子主题 2.1
 
-请只返回 Markdown 格式的大纲文本，不要添加任何解释性文字。`;
+### 子主题 2.2
+
+## 第三章节
+
+## 总结
+
+**错误格式（不要这样做）**：
+# 主标题
+这是描述文字 - 不要添加这个
+
+## 第一章节
+说明本章节内容 - 不要添加这个
+
+只返回 Markdown 标题，不要有其他内容。`;
     }
 
     const response = await ai.models.generateContent({
@@ -292,37 +323,130 @@ export const refineBlogOutline = async (currentOutline: string, instruction: str
   }
 };
 
+interface DraftGenerationParams {
+  title: string;
+  outline: string;
+  comments: Comment[];
+  clientName: string;
+  wordCountRange?: WordCountRange;
+  perspective?: ArticlePerspective;
+  language?: string;
+}
+
 export const generateBlogDraft = async (
-  title: string, 
-  outline: string, 
-  comments: Comment[], 
-  clientName: string
+  titleOrParams: string | DraftGenerationParams, 
+  outline?: string, 
+  comments?: Comment[], 
+  clientName?: string
 ): Promise<string> => {
   try {
     const ai = getAiClient();
     
+    // Support both old and new function signatures
+    let params: DraftGenerationParams;
+    if (typeof titleOrParams === 'string') {
+      // Legacy call: generateBlogDraft(title, outline, comments, clientName)
+      params = {
+        title: titleOrParams,
+        outline: outline || '',
+        comments: comments || [],
+        clientName: clientName || ''
+      };
+    } else {
+      // New call: generateBlogDraft(params)
+      params = titleOrParams;
+    }
+    
+    // Get word count and perspective configuration
+    const wordCountConfig = params.wordCountRange ? WORD_COUNT_CONFIG[params.wordCountRange] : WORD_COUNT_CONFIG['1000-2000'];
+    const perspectiveConfig = params.perspective ? PERSPECTIVE_CONFIG[params.perspective] : PERSPECTIVE_CONFIG['third'];
+    
+    // Determine target language
+    const targetLanguage = params.language || 'English';
+    const isEnglish = targetLanguage.toLowerCase() === 'english';
+    
     let commentsContext = "";
-    if (comments.length > 0) {
-      commentsContext = `
-      IMPORTANT: You must incorporate the following feedback from the client into the draft:
-      ${comments.map(c => `- "${c.text}" (from ${c.author})`).join('\n')}
-      `;
+    if (params.comments.length > 0) {
+      if (isEnglish) {
+        commentsContext = `
+IMPORTANT: You must incorporate the following feedback from the client into the draft:
+${params.comments.map(c => `- "${c.text}" (from ${c.author})`).join('\n')}
+`;
+      } else {
+        commentsContext = `
+重要：请在正文中融入以下客户反馈：
+${params.comments.map(c => `- "${c.text}" (来自 ${c.author})`).join('\n')}
+`;
+      }
+    }
+    
+    // Build perspective instruction
+    let perspectiveInstruction: string;
+    if (isEnglish) {
+      switch (params.perspective) {
+        case 'first':
+          perspectiveInstruction = 'Use first person perspective ("we", "our", "us") throughout the article.';
+          break;
+        case 'second':
+          perspectiveInstruction = 'Use second person perspective ("you", "your") throughout the article, directly addressing the reader.';
+          break;
+        case 'third':
+        default:
+          perspectiveInstruction = 'Use third person perspective with objective, professional tone throughout the article.';
+      }
+    } else {
+      switch (params.perspective) {
+        case 'first':
+          perspectiveInstruction = '全文使用第一人称视角（"我们"、"本公司"），拉近与读者的距离。';
+          break;
+        case 'second':
+          perspectiveInstruction = '全文使用第二人称视角（"您"、"你"），直接与读者对话。';
+          break;
+        case 'third':
+        default:
+          perspectiveInstruction = '全文使用第三人称视角，保持客观、专业的叙述方式。';
+      }
     }
 
-    const prompt = `Write a full blog post draft for a firm named "${clientName}".
+    let prompt: string;
     
-    Title: "${title}"
+    if (isEnglish) {
+      prompt = `Write a full blog post draft for a firm named "${params.clientName}".
     
-    Follow this structure strictly:
-    ${outline}
+Title: "${params.title}"
+
+Follow this structure strictly:
+${params.outline}
+
+${commentsContext}
+
+**Writing Requirements**:
+- ${perspectiveInstruction}
+- Tone: Professional, Authoritative, yet Accessible.
+- Format: Markdown. Use bold (**text**) for emphasis.
+- Do NOT use single asterisks (*) for italics. Use asterisks ONLY for bullet points.
+- Length: ${wordCountConfig.min}-${wordCountConfig.max} words.
+
+Do not include preambles like "Here is the draft". Just start with the content.`;
+    } else {
+      prompt = `为"${params.clientName}"撰写一篇完整的博客文章。
     
-    ${commentsContext}
-    
-    Tone: Professional, Authoritative, yet Accessible.
-    Format: Markdown.
-    Length: 800-1200 words.
-    
-    Do not include preambles like "Here is the draft". Just start with the content.`;
+标题："${params.title}"
+
+请严格按照以下大纲结构撰写：
+${params.outline}
+
+${commentsContext}
+
+**写作要求**：
+- ${perspectiveInstruction}
+- 语气：专业、权威，同时保持亲和力。
+- 格式：Markdown。可以使用粗体（**文字**）进行强调。
+- 不要使用单星号 (*) 进行斜体强调。星号仅用于列表项（Bullet points）。
+- 字数：${wordCountConfig.min}-${wordCountConfig.max} 字。
+
+不要包含"以下是草稿"之类的开场白，直接开始正文内容。`;
+    }
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -549,7 +673,7 @@ export const generateCampaignKeywords = async (
 ): Promise<string[]> => {
   try {
     const ai = getAiClient();
-    const prompt = `Act as an SEO Expert. Generate 10-15 high-value, relevant seed keywords (tags) for a content marketing campaign.
+    const prompt = `Act as an SEO Expert. Generate 5-7 high-value, relevant seed keywords (tags) for a content marketing campaign.
     
     Campaign Name: "${name}"
     Client: "${client}"

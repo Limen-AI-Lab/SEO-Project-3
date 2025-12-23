@@ -145,6 +145,26 @@ export interface ContentBlock {
   caption?: string;  // For images: caption text
 }
 
+// Word count range options for article generation
+export type WordCountRange = '800-1000' | '1000-2000' | '2000-3000';
+
+// Perspective/POV options for article writing
+export type ArticlePerspective = 'first' | 'second' | 'third';
+
+// Word count to H2 count mapping
+export const WORD_COUNT_CONFIG: Record<WordCountRange, { min: number; max: number; h2Min: number; h2Max: number; label: string }> = {
+  '800-1000': { min: 800, max: 1000, h2Min: 2, h2Max: 3, label: '800-1000 (2-3 H2s)' },
+  '1000-2000': { min: 1000, max: 2000, h2Min: 3, h2Max: 5, label: '1000-2000 (3-5 H2s)' },
+  '2000-3000': { min: 2000, max: 3000, h2Min: 5, h2Max: 7, label: '2000-3000 (5-7 H2s)' },
+};
+
+// Perspective labels
+export const PERSPECTIVE_CONFIG: Record<ArticlePerspective, { label: string; description: string }> = {
+  'first': { label: 'First Person', description: 'Use "we" or "I"' },
+  'second': { label: 'Second Person', description: 'Use "you" or "your"' },
+  'third': { label: 'Third Person', description: 'Objective tone' },
+};
+
 export interface Article {
   id: string;
   campaignId: string;
@@ -155,6 +175,10 @@ export interface Article {
   // Content Settings (from Title Generation stage)
   language?: string;  // Target language for content (e.g., "English", "Chinese")
   tone?: string;      // Tone of voice for content
+  
+  // Outline & Draft Generation Settings
+  wordCountRange?: WordCountRange;      // Target word count range (affects H2 count)
+  perspective?: ArticlePerspective;     // Writing perspective (first/second/third person)
   
   // Data for stages
   proposedTitles: string[];

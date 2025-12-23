@@ -6,6 +6,8 @@ import ProjectWorkspace from './components/ProjectWorkspace';
 import ClientManagement from './components/ClientManagement';
 import { Layout, BookOpen, User } from 'lucide-react';
 import { ViewState } from './types';
+import { ToastProvider } from './components/Toast';
+import { ConfirmProvider } from './components/ConfirmDialog';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
@@ -33,8 +35,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
-      {/* Sidebar */}
+    <ToastProvider>
+      <ConfirmProvider>
+        <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
+          {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex-col hidden md:flex z-20">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">T</div>
@@ -101,7 +105,9 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+        </div>
+      </ConfirmProvider>
+    </ToastProvider>
   );
 };
 

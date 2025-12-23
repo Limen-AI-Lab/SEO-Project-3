@@ -8,6 +8,7 @@ import StageTitles from './StageTitles';
 import StageOutline from './StageOutline';
 import StageDraft from './StageDraft';
 import Modal from './Modal';
+import { useToast } from './Toast';
 
 /**
  * Parse client_comments from database (object format from Client Portal)
@@ -218,6 +219,7 @@ interface Props {
 }
 
 const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
+  const { showToast } = useToast();
   const [article, setArticle] = useState<Article | undefined>(undefined);
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -472,7 +474,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
       if (error) {
         console.error('Error updating article:', error);
-        alert(`更新文章失败：${error.message}`);
+        showToast(`更新文章失败：${error.message}`, 'error');
         return;
       }
 
@@ -480,7 +482,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       await loadData();
     } catch (err) {
       console.error('Unexpected error updating article:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      showToast(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -650,7 +652,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
       if (error) {
         console.error('Error updating article status:', error);
-        alert(`更新状态失败：${error.message}`);
+        showToast(`更新状态失败：${error.message}`, 'error');
         return;
       }
 
@@ -658,7 +660,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       await loadData();
     } catch (err) {
       console.error('Unexpected error in force approve:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      showToast(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, Campaign, ARTICLE_STATUS } from '../types';
 import { generateBlogTitles, suggestBlogKeywords, KeywordSuggestion } from '../services/geminiService';
 import { Sparkles, Send, Trash2, Plus, ChevronDown, ChevronUp, Settings, Flame, X, Search } from 'lucide-react';
+import { useToast } from './Toast';
 
 interface Props {
   project: Article;
@@ -16,6 +17,7 @@ interface KeywordTag {
 }
 
 const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
+  const { showToast } = useToast();
   const [titles, setTitles] = useState<string[]>(project.proposedTitles.length > 0 ? project.proposedTitles : ['', '', '']);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showConfig, setShowConfig] = useState(true);
@@ -88,7 +90,7 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
 
   const handleSuggestKeywords = async () => {
     if (!genTopic) {
-      alert("Please enter a Topic/Subject first.");
+      showToast("Please enter a Topic/Subject first.", 'warning');
       return;
     }
     setIsSuggestingKeywords(true);
@@ -105,7 +107,7 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
 
   const handleGenerateAI = async () => {
     if (!genTopic) {
-      alert("Please enter a Topic/Subject");
+      showToast("Please enter a Topic/Subject", 'warning');
       return;
     }
 
@@ -138,7 +140,10 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
 
   const handleSubmit = async () => {
     const validTitles = titles.filter(t => t.trim() !== '');
-    if (validTitles.length === 0) return alert("Please add at least one title.");
+    if (validTitles.length === 0) {
+      showToast("Please add at least one title.", 'warning');
+      return;
+    }
     
     // Update article status and save language/tone settings
     onUpdate({ 

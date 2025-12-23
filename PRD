@@ -702,6 +702,7 @@ sequenceDiagram
 - [ ]  **Title & Keyword Review 右侧的Target Audience和Target Keywords信息还没有同步**
 - [ ]  client portal的title review不一定是approve&reject两级的，可以就是send
 - [ ]  client portal的title review可以是在标题旁点击approve，不一定是打勾
+- [ ]  标题可以标星，表示最喜欢哪个
 
 
 P2

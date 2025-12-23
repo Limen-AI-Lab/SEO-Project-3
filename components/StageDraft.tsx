@@ -7,10 +7,13 @@ import {
   RefreshCw, LayoutTemplate, PenTool, PanelLeftClose, PanelLeftOpen, 
   PanelRightClose, PanelRightOpen, Maximize2, Minimize2, Eye, GitGraph, Code, ArrowRight, X,
   Paperclip, Image as ImageIcon, Trash2, ArrowUp, ArrowDown, MoveVertical,
-  History, ChevronDown, ChevronUp, Edit3, Plus, Minus
+  History, ChevronDown, ChevronUp, Edit3, Plus, Minus, Undo2, RotateCcw, Save,
+  Copy, Download
 } from 'lucide-react';
 import { publishToCMS } from '../services/cmsService';
 import supabase from '../services/supabaseClient.js';
+import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 
 /**
  * Parse revision history edits to Comment[] format for display
@@ -77,7 +80,25 @@ interface EditorBlock {
   size?: 'small' | 'medium' | 'large';
 }
 
+
+// Helper to render inline markdown (bold)
+const renderFormattedText = (text: string) => {
+  if (!text) return null;
+  
+  // Split by bold pattern **text**
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return <strong key={index} className="font-bold">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
 const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   // We maintain 'blocks' as internal state, sync to 'content' (markdown) on save
   const [blocks, setBlocks] = useState<EditorBlock[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -104,6 +125,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const [activeTab, setActiveTab] = useState<'outline' | 'feedback'>('outline');
   const [showHistory, setShowHistory] = useState(false);
+
+  // --- Editable Outline State ---
+  const [editableOutline, setEditableOutline] = useState(project.outlineContent || '');
+  const [outlineHistory, setOutlineHistory] = useState<string[]>([]); // History stack for undo
+  const [originalOutline] = useState(project.outlineContent || ''); // Original outline for reset
+  const [hasOutlineChanges, setHasOutlineChanges] = useState(false);
 
   // --- Layout State ---
   const [leftWidth, setLeftWidth] = useState(320);
@@ -149,6 +176,51 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const sidebarRef = useRef<{ startX: number, startWidth: number } | null>(null);
   
+  // --- Sync editableOutline when project.outlineContent changes externally ---
+  useEffect(() => {
+    if (project.outlineContent && project.outlineContent !== editableOutline && !hasOutlineChanges) {
+      setEditableOutline(project.outlineContent);
+    }
+  }, [project.outlineContent]);
+
+  // --- Outline Editing Handlers ---
+  const handleOutlineChange = (newContent: string) => {
+    // Save current state to history before making changes
+    setOutlineHistory(prev => [...prev, editableOutline]);
+    setEditableOutline(newContent);
+    setHasOutlineChanges(newContent !== project.outlineContent);
+  };
+
+  const handleUndoOutline = () => {
+    if (outlineHistory.length > 0) {
+      const previousState = outlineHistory[outlineHistory.length - 1];
+      setOutlineHistory(prev => prev.slice(0, -1));
+      setEditableOutline(previousState);
+      setHasOutlineChanges(previousState !== project.outlineContent);
+    }
+  };
+
+  const handleResetOutline = async () => {
+    const isConfirmed = await confirm({
+      title: 'Reset Outline',
+      message: '确定要恢复到原始大纲吗？所有编辑将会丢失。',
+      type: 'warning',
+      confirmText: 'Reset',
+    });
+
+    if (isConfirmed) {
+      setOutlineHistory(prev => [...prev, editableOutline]);
+      setEditableOutline(originalOutline);
+      setHasOutlineChanges(originalOutline !== project.outlineContent);
+    }
+  };
+
+  const handleSaveOutline = () => {
+    onUpdate({ outlineContent: editableOutline });
+    setHasOutlineChanges(false);
+    setOutlineHistory([]); // Clear history after save
+  };
+
   // --- Scroll to Block and Highlight ---
   const scrollToBlockAndHighlight = (targetBlockId: string) => {
     // Find the target element in the editor
@@ -196,7 +268,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       });
     }, 0);
     return () => clearTimeout(timer);
-  }, [blocks]);
+  }, [blocks, isFocusMode, viewMode]);
   
   // Convert ContentBlock[] to EditorBlock[] for the visual editor
   const convertContentBlocksToEditorBlocks = (contentBlocks: ContentBlock[]): EditorBlock[] => {
@@ -236,42 +308,50 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   };
 
   const parseMarkdownToBlocks = (md: string): EditorBlock[] => {
-    // Simple parser: Split by image regex ![caption](url)
-    // This is a naive implementation for demo purposes.
-    const regex = /!\[(.*?)\]\((.*?)\)/g;
+    // Improved parser: Split by paragraphs/headers (double newlines) to create granular blocks
+    const chunks = md.split(/\n\s*\n/);
     const result: EditorBlock[] = [];
-    let lastIndex = 0;
-    let match;
+    
+    chunks.forEach(chunk => {
+      const trimmed = chunk.trim();
+      if (!trimmed) return;
+      
+      // Check for images within the chunk
+      const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+      let lastIndex = 0;
+      let match;
+      
+      // If chunk contains images, we might need to split further
+      while ((match = imageRegex.exec(trimmed)) !== null) {
+        // Add text before image
+        if (match.index > lastIndex) {
+          const text = trimmed.substring(lastIndex, match.index).trim();
+          if (text) {
+            result.push({ id: Math.random().toString(36).substr(2, 9), type: 'text', content: text });
+          }
+        }
 
-    while ((match = regex.exec(md)) !== null) {
-      // Add text before image
-      if (match.index > lastIndex) {
-        const text = md.substring(lastIndex, match.index).trim();
+        // Add image
+        result.push({
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'image',
+          content: '',
+          src: match[2],
+          caption: match[1],
+          size: 'medium'
+        });
+
+        lastIndex = imageRegex.lastIndex;
+      }
+
+      // Add remaining text after last image (or if no image found)
+      if (lastIndex < trimmed.length) {
+        const text = trimmed.substring(lastIndex).trim();
         if (text) {
           result.push({ id: Math.random().toString(36).substr(2, 9), type: 'text', content: text });
         }
       }
-
-      // Add image
-      result.push({
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'image',
-        content: '',
-        src: match[2],
-        caption: match[1],
-        size: 'medium'
-      });
-
-      lastIndex = regex.lastIndex;
-    }
-
-    // Add remaining text
-    if (lastIndex < md.length) {
-      const text = md.substring(lastIndex).trim();
-      if (text) {
-        result.push({ id: Math.random().toString(36).substr(2, 9), type: 'text', content: text });
-      }
-    }
+    });
 
     // Default empty block if nothing
     if (result.length === 0) {
@@ -481,9 +561,16 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     setBlocks(newBlocks);
   };
 
-  const deleteBlock = (index: number) => {
+  const deleteBlock = async (index: number) => {
     console.log("Deleting block at index", index);
-    if (confirm("Delete this block?")) {
+    const isConfirmed = await confirm({
+      title: 'Delete Block',
+      message: 'Are you sure you want to delete this block?',
+      type: 'warning',
+      confirmText: 'Delete'
+    });
+
+    if (isConfirmed) {
       setBlocks(prev => prev.filter((_, i) => i !== index));
       setIsSyncing(true);
     }
@@ -501,14 +588,28 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   // --- AI Actions ---
   const handleGenerateDraft = async () => {
-    if (!project.outlineContent) return alert("No outline found.");
+    if (!editableOutline.trim()) {
+      showToast("No outline found. Please add an outline first.", 'error');
+      return;
+    }
+    
+    // Auto-save the edited outline before generating
+    if (hasOutlineChanges) {
+      onUpdate({ outlineContent: editableOutline });
+      setHasOutlineChanges(false);
+      setOutlineHistory([]);
+    }
+    
     setIsGenerating(true);
-    const draft = await generateBlogDraft(
-      project.selectedTitle || project.title, 
-      project.outlineContent, 
-      project.clientComments, 
-      "Client" 
-    );
+    const draft = await generateBlogDraft({
+      title: project.selectedTitle || project.title, 
+      outline: editableOutline, // Use the edited outline
+      comments: project.clientComments, 
+      clientName: "Client",
+      wordCountRange: project.wordCountRange,
+      perspective: project.perspective,
+      language: project.language
+    });
     if (draft) {
       setBlocks(parseMarkdownToBlocks(draft));
       onUpdate({ draftContent: draft });
@@ -532,7 +633,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              reason: suggestion.reason
            });
         } else {
-           alert("Could not determine placement. " + suggestion.reason);
+           showToast("Could not determine placement. " + suggestion.reason, 'error');
         }
         setIsRefining(false);
         return;
@@ -576,7 +677,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
        setRefineInstruction('');
        onUpdate({ draftContent: serializeBlocksToMarkdown(newBlocks) });
     } else {
-      alert("Could not locate the anchor text to insert image. Inserting at the end.");
+      showToast("Could not locate the anchor text to insert image. Inserting at the end.", 'warning');
       setBlocks([...blocks, {
          id: Date.now().toString(),
          type: 'image',
@@ -592,7 +693,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const handleGenerateMetadata = async () => {
     const md = serializeBlocksToMarkdown(blocks);
-    if (md.length < 100) return alert("Write some content first.");
+    if (md.length < 100) {
+      showToast("Write some content first.", 'warning');
+      return;
+    }
     setIsMetaGenerating(true);
     const meta = await generatePostMetadata(md, project.selectedTitle || project.title);
     if (meta) {
@@ -607,12 +711,14 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     const file = e.target.files[0];
     // Basic validation
     if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
-      return alert("Only JPG, PNG, GIF, and WebP formats are supported.");
+      showToast("Only JPG, PNG, GIF, and WebP formats are supported.", 'error');
+      return;
     }
     
     // File size validation (e.g., 5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      return alert("File size must be less than 5MB.");
+      showToast("File size must be less than 5MB.", 'error');
+      return;
     }
 
     setIsUploading(true);
@@ -636,7 +742,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       setCoverImage(data.publicUrl);
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      alert(`Upload failed: ${error.message || 'Unknown error'}`);
+      showToast(`Upload failed: ${error.message || 'Unknown error'}`, 'error');
     } finally {
       setIsUploading(false);
       // Reset input
@@ -644,8 +750,15 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     }
   };
 
-  const removeCoverImage = () => {
-    if(confirm("Remove cover image?")) {
+  const removeCoverImage = async () => {
+    const isConfirmed = await confirm({
+      title: 'Remove Cover Image',
+      message: 'Remove cover image?',
+      type: 'warning',
+      confirmText: 'Remove'
+    });
+    
+    if(isConfirmed) {
       setCoverImage('');
     }
   };
@@ -710,6 +823,30 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     return result;
   };
 
+  const handleCopyContent = async () => {
+    const md = serializeBlocksToMarkdown(blocks);
+    try {
+      await navigator.clipboard.writeText(md);
+      showToast("内容已复制到剪贴板 (Markdown格式)", 'success');
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      showToast("复制失败", 'error');
+    }
+  };
+
+  const handleDownloadContent = () => {
+    const md = serializeBlocksToMarkdown(blocks);
+    const blob = new Blob([md], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${project.selectedTitle || project.title || 'draft'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleSaveDraft = () => {
     const md = serializeBlocksToMarkdown(blocks);
     const contentBlocks = convertEditorBlocksToContentBlocks(blocks);
@@ -725,7 +862,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const handleSubmitToClient = () => {
     const md = serializeBlocksToMarkdown(blocks);
-    if (md.trim().length < 100) return alert("Draft is too short.");
+    if (md.trim().length < 100) {
+      showToast("Draft is too short.", 'warning');
+      return;
+    }
     handleSaveDraft();
     onUpdate({ status: ARTICLE_STATUS.AWAITING_REVIEW_DRAFT }); // Use new status constant
   };
@@ -735,25 +875,32 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const handlePublishToCMS = async () => {
     // Validate required fields
     if (!summary) {
-      alert("请填写 Short Text 摘要后再发布。");
+      showToast("请填写 Short Text 摘要后再发布。", 'warning');
       return;
     }
 
     // Get the markdown content
     const markdownContent = serializeBlocksToMarkdown(blocks);
     if (!markdownContent || markdownContent.trim().length < 50) {
-      alert("正文内容太少，请先完成文章内容再发布。");
+      showToast("正文内容太少，请先完成文章内容再发布。", 'warning');
       return;
     }
 
     // Get the article title
     const articleTitle = project.selectedTitle || project.title;
     if (!articleTitle) {
-      alert("文章标题不能为空。");
+      showToast("文章标题不能为空。", 'error');
       return;
     }
 
-    if (!confirm("确定要将此内容发布到 CMS 吗？")) {
+    const isConfirmed = await confirm({
+      title: 'Publish to CMS',
+      message: '确定要将此内容发布到 CMS 吗？',
+      confirmText: 'Publish',
+      type: 'default'
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -781,11 +928,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
         handleSaveDraft();
         onUpdate({ status: ProjectStatus.PUBLISHED });
         
-        alert(`✅ 文章已成功发布到 CMS！\n\n标题: ${articleTitle}\n发布时间: ${new Date().toLocaleString()}`);
+        showToast(`✅ 文章已成功发布到 CMS！`, 'success');
       }
     } catch (error: any) {
       console.error('❌ Publish to CMS failed:', error);
-      alert(`发布失败: ${error.message || '未知错误'}`);
+      showToast(`发布失败: ${error.message || '未知错误'}`, 'error');
     } finally {
       setIsPublishing(false);
     }
@@ -946,8 +1093,58 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              ) : (
                <div className="h-full overflow-y-auto p-4 custom-scrollbar">
                   {activeTab === 'outline' ? (
-                    <div className="prose prose-sm prose-slate max-w-none">
-                      <div className="whitespace-pre-wrap text-slate-600 font-mono text-xs leading-relaxed">{project.outlineContent}</div>
+                    <div className="flex flex-col h-full">
+                      {/* Outline Toolbar */}
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={handleUndoOutline}
+                            disabled={outlineHistory.length === 0}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="撤销上一步 (Undo)"
+                          >
+                            <Undo2 size={14} />
+                          </button>
+                          <button
+                            onClick={handleResetOutline}
+                            disabled={editableOutline === originalOutline}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="恢复原始大纲 (Reset)"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {hasOutlineChanges && (
+                            <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                              未保存
+                            </span>
+                          )}
+                          <button
+                            onClick={handleSaveOutline}
+                            disabled={!hasOutlineChanges}
+                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="保存大纲"
+                          >
+                            <Save size={12} />
+                            保存
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Editable Outline Textarea */}
+                      <textarea
+                        value={editableOutline}
+                        onChange={(e) => handleOutlineChange(e.target.value)}
+                        className="flex-1 w-full resize-none outline-none bg-white border border-slate-200 rounded-lg p-3 text-slate-700 font-mono text-xs leading-relaxed focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition custom-scrollbar"
+                        placeholder="在此编辑大纲内容...&#10;&#10;# 标题&#10;## 二级标题&#10;### 三级标题"
+                        style={{ minHeight: '300px' }}
+                      />
+                      
+                      {/* Edit Hint */}
+                      <p className="text-[10px] text-slate-400 mt-2 text-center">
+                        直接编辑大纲，AI 将基于修改后的大纲生成内容
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1194,11 +1391,35 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                 </div>
              )}
              
-             <div className="flex items-center gap-3">
-               {!blocks.some(b => b.content.trim()) && !isGenerating && !isFocusMode && (
-                 <button onClick={handleGenerateDraft} className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm hover:shadow"><Sparkles size={16} /> Auto-Write Draft</button>
+             <div className="flex items-center gap-2">
+               {!isFocusMode && (
+                 <button 
+                   onClick={handleGenerateDraft} 
+                   disabled={isGenerating}
+                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                   title="Generate Draft with AI"
+                 >
+                   <Sparkles size={14} /> Draft
+                 </button>
                )}
-               <button onClick={() => setIsFocusMode(!isFocusMode)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${isFocusMode ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+               
+               <button 
+                 onClick={handleCopyContent} 
+                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-indigo-600 transition"
+                 title="Copy Markdown"
+               >
+                  <Copy size={14} /> Copy
+               </button>
+               
+               <button 
+                 onClick={handleDownloadContent} 
+                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-indigo-600 transition"
+                 title="Download TXT"
+               >
+                  <Download size={14} /> Download
+               </button>
+
+               <button onClick={() => setIsFocusMode(!isFocusMode)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${isFocusMode ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
                   {isFocusMode ? <><Minimize2 size={14} /> Exit Focus</> : <><Maximize2 size={14} /> Focus</>}
                </button>
              </div>
@@ -1315,7 +1536,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                       )}
                       {/* Paragraph rendering */}
                       {block.type === 'paragraph' && (
-                        <p>{block.content}</p>
+                        <div className={block.content.trim().startsWith('* ') ? 'pl-5 relative' : ''}>
+                          {block.content.trim().startsWith('* ') && (
+                             <span className="absolute left-0">•</span>
+                          )}
+                          <p>{renderFormattedText(block.content.trim().startsWith('* ') ? block.content.trim().substring(2) : block.content)}</p>
+                        </div>
                       )}
                       {/* Quote rendering */}
                       {block.type === 'quote' && (

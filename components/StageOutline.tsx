@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Article, ProjectStatus, ARTICLE_STATUS, Campaign } from '../types';
+import { Article, ProjectStatus, ARTICLE_STATUS, Campaign, WordCountRange, ArticlePerspective, WORD_COUNT_CONFIG, PERSPECTIVE_CONFIG } from '../types';
 import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save, Check } from 'lucide-react';
 import { generateBlogOutline, refineBlogOutline } from '../services/geminiService';
 import { getCampaignWithClients } from '../services/campaignService';
@@ -10,6 +10,8 @@ import {
   OutlineSection 
 } from '../services/outlineParser';
 import OutlinePreview from './OutlinePreview';
+import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 
 interface Props {
   project: Article;
@@ -17,10 +19,16 @@ interface Props {
 }
 
 const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [outline, setOutline] = useState(project.outlineContent || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiInstruction, setAiInstruction] = useState('');
   const [isRefining, setIsRefining] = useState(false);
+  
+  // Generation settings states
+  const [wordCountRange, setWordCountRange] = useState<WordCountRange>(project.wordCountRange || '1000-2000');
+  const [perspective, setPerspective] = useState<ArticlePerspective>(project.perspective || 'third');
   
   // New states for preview and validation
   const [showPreview, setShowPreview] = useState(false);
@@ -100,12 +108,13 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
     // Validate before submitting
     const validation = validateMarkdownOutline(outline);
     if (!validation.valid) {
-      alert('大纲格式有误：\n' + validation.errors.join('\n'));
+      showToast('Outline format error: ' + validation.errors.join(', '), 'error');
       return;
     }
 
     if (outline.trim().length < 10) {
-      return alert("Please provide a more detailed outline.");
+      showToast("Please provide a more detailed outline.", 'warning');
+      return;
     }
 
     // Parse to structured format
@@ -130,7 +139,13 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
 
   const handleAiGenerate = async () => {
     if (outline.trim().length > 10) {
-      if (!confirm("This will overwrite the current outline. Continue?")) return;
+      const isConfirmed = await confirm({
+        title: 'Overwrite Outline',
+        message: 'This will overwrite the current outline. Continue?',
+        type: 'warning',
+        confirmText: 'Overwrite'
+      });
+      if (!isConfirmed) return;
     }
     
     setIsGenerating(true);
@@ -152,7 +167,9 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         keywords: campaign?.keywords,
         targetAudience: campaign?.targetAudience,
         clientComments: activeComments,
-        language: project.language  // Pass target language for outline generation
+        language: project.language,  // Pass target language for outline generation
+        wordCountRange: wordCountRange,  // Pass word count range for H2 count
+        perspective: perspective  // Pass perspective for writing style
       };
       
       const generated = await generateBlogOutline(params);
@@ -180,7 +197,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
 
   const handleExportMarkdown = () => {
     if (!outline.trim()) {
-      alert('大纲内容为空，无法导出');
+      showToast('Outline is empty, cannot export', 'warning');
       return;
     }
     
@@ -262,18 +279,50 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                 <h2 className="text-2xl font-bold text-slate-900">Outline Builder</h2>
                 <p className="text-slate-500 text-sm mt-1">Define headers and key points.</p>
               </div>
-              <button 
-                onClick={handleAiGenerate}
-                disabled={isGenerating}
-                className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg shadow hover:shadow-md transition disabled:opacity-70 text-sm font-medium"
-              >
-                {isGenerating ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-                ) : (
-                  <Sparkles size={16} />
-                )}
-                {isGenerating ? 'Drafting...' : 'Generate with Gemini'}
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Word Count Range Selector */}
+                <select
+                  value={wordCountRange}
+                  onChange={(e) => {
+                    const newValue = e.target.value as WordCountRange;
+                    setWordCountRange(newValue);
+                    onUpdate({ wordCountRange: newValue });
+                  }}
+                  className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                >
+                  {Object.entries(WORD_COUNT_CONFIG).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
+                </select>
+                
+                {/* Perspective Selector */}
+                <select
+                  value={perspective}
+                  onChange={(e) => {
+                    const newValue = e.target.value as ArticlePerspective;
+                    setPerspective(newValue);
+                    onUpdate({ perspective: newValue });
+                  }}
+                  className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                >
+                  {Object.entries(PERSPECTIVE_CONFIG).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
+                </select>
+                
+                <button 
+                  onClick={handleAiGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg shadow hover:shadow-md transition disabled:opacity-70 text-sm font-medium"
+                >
+                  {isGenerating ? (
+                    <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
+                  ) : (
+                    <Sparkles size={16} />
+                  )}
+                  {isGenerating ? 'Drafting...' : 'Generate with Gemini'}
+                </button>
+              </div>
             </div>
 
             {/* Toolbar */}
@@ -289,24 +338,24 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                 {showPreview ? (
                   <>
                     <Edit3 size={16} />
-                    编辑模式
+                    Edit Mode
                   </>
                 ) : (
                   <>
                     <Eye size={16} />
-                    预览模式
+                    Preview
                   </>
                 )}
               </button>
               
-              {/* 导出按钮 */}
+              {/* Export button */}
               <button
                 onClick={handleExportMarkdown}
                 disabled={!outline.trim()}
                 className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download size={16} />
-                导出文本
+                Export
               </button>
               
               <div className="flex-1" />
@@ -314,7 +363,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               {parsedOutline.length > 0 && (
                 <span className="flex items-center gap-1 px-3 py-2 bg-green-50 text-green-700 text-sm rounded-lg">
                   <Check size={14} />
-                  已识别 {parsedOutline.length} 个段落
+                  {parsedOutline.length} sections detected
                 </span>
               )}
             </div>
@@ -324,7 +373,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center gap-2 text-red-800 font-medium text-sm mb-2">
                   <AlertTriangle size={16} />
-                  格式错误
+                  Format Errors
                 </div>
                 <ul className="text-sm text-red-700 space-y-1">
                   {validationErrors.map((err, i) => (
@@ -339,7 +388,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-center gap-2 text-amber-800 font-medium text-sm mb-2">
                   <AlertTriangle size={16} />
-                  建议
+                  Suggestions
                 </div>
                 <ul className="text-sm text-amber-700 space-y-1">
                   {validationWarnings.map((warn, i) => (
@@ -380,19 +429,19 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               value={outline}
               onChange={(e) => setOutline(e.target.value)}
                   className="w-full h-full p-4 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition resize-none font-mono text-sm leading-relaxed"
-                  placeholder={`使用 Markdown 格式输入大纲：
+                  placeholder={`Enter outline in Markdown format:
 
-# 主标题
-描述内容方向
+# Main Title
+Describe the content direction
 
-## 第一节：核心概念
-- 要点一
-- 要点二
+## Section 1: Core Concepts
+- Key point one
+- Key point two
 
-### 子主题 1.1
-具体说明
+### Subtopic 1.1
+Specific details
 
-## 第二节：深入分析
+## Section 2: Deep Dive
 ...`}
                 />
               ) : (
@@ -543,12 +592,12 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
 
            {/* Format Guide */}
            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
-               <h3 className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">格式指南</h3>
+               <h3 className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">Format Guide</h3>
                <div className="text-xs text-slate-600 space-y-2 font-mono">
-                  <p><span className="bg-slate-800 text-white px-1.5 py-0.5 rounded">H1</span> # 主标题</p>
-                  <p><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">H2</span> ## 章节标题</p>
-                  <p><span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border">H3</span> ### 子章节</p>
-                  <p className="text-slate-400 mt-3">描述文字放在标题下一行</p>
+                  <p><span className="bg-slate-800 text-white px-1.5 py-0.5 rounded">H1</span> # Main Title</p>
+                  <p><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">H2</span> ## Section</p>
+                  <p><span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border">H3</span> ### Subsection</p>
+                  <p className="text-slate-400 mt-3">Add description below headers</p>
                </div>
            </div>
         </div>

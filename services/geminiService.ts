@@ -703,3 +703,130 @@ export const generateCampaignKeywords = async (
     return [];
   }
 };
+
+// Blog topic idea for keyword-driven writing
+export interface BlogTopicIdea {
+  type: string;   // e.g., "Listicle", "How-to", "Comparison", "Tutorial"
+  topic: string;  // e.g., "Top 10 AI SEO tools for 2026"
+}
+
+export interface TopicIdeasParams {
+  keyword: string;
+  targetMarket: string;    // e.g., "United States"
+  targetLanguage: string;  // e.g., "English"
+}
+
+/**
+ * Generate 10 blog topic ideas based on a keyword
+ * Used in Keyword-Driven Writing path
+ */
+export const generateBlogTopicIdeas = async (params: TopicIdeasParams): Promise<BlogTopicIdea[]> => {
+  try {
+    const ai = getAiClient();
+    
+    const prompt = `You are an expert SEO content strategist. Generate exactly 10 diverse blog post topic ideas based on the following keyword.
+
+Keyword: "${params.keyword}"
+Target Market: ${params.targetMarket}
+Target Language: ${params.targetLanguage}
+
+Requirements:
+1. Generate exactly 10 unique topic ideas
+2. Each topic should have a different article type (vary the types)
+3. Types should be practical, such as: "Listicle", "How-to", "Comparison", "Tutorial", "Review", "Guide", "Tips", "Trends", "Case Study", "Beginner's Guide", "Ultimate Guide", "Checklist", "FAQ", "Deep Dive"
+4. Topics should be specific and actionable, suitable for SEO blog posts
+5. Consider the target market and language for relevance
+6. Make topics engaging and click-worthy
+
+Return a JSON array of objects with "type" and "topic" fields.
+Example format:
+[
+  { "type": "Listicle", "topic": "Top 10 AI SEO tools for 2026" },
+  { "type": "How-to", "topic": "How AI tools can improve your website rankings" }
+]`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING },
+              topic: { type: Type.STRING }
+            }
+          }
+        }
+      }
+    });
+
+    const jsonStr = response.text;
+    if (!jsonStr) return [];
+    return JSON.parse(jsonStr) as BlogTopicIdea[];
+  } catch (error) {
+    console.error("Failed to generate topic ideas:", error);
+    return [];
+  }
+};
+
+export interface KeywordDrivenTitleParams {
+  keyword: string;
+  selectedTopicIdea: BlogTopicIdea;  // The topic idea user selected
+  targetAudience: string;
+  tone: string;
+  rules?: string;
+  language: string;
+}
+
+/**
+ * Generate 5 specific blog titles based on selected topic idea
+ * Used in Keyword-Driven Writing path after user selects a topic
+ */
+export const generateKeywordDrivenTitles = async (params: KeywordDrivenTitleParams): Promise<string[]> => {
+  try {
+    const ai = getAiClient();
+    
+    const prompt = `You are an expert SEO copywriter. Generate exactly 5 compelling, SEO-optimized blog post titles.
+
+Context:
+- Primary Keyword: "${params.keyword}"
+- Article Type: "${params.selectedTopicIdea.type}"
+- Topic Direction: "${params.selectedTopicIdea.topic}"
+- Target Audience: "${params.targetAudience}"
+- Tone of Voice: "${params.tone}"
+- Language: "${params.language}"
+${params.rules ? `- Content Rules: "${params.rules}"` : ''}
+
+Requirements:
+1. Generate exactly 5 unique titles
+2. All titles should be variations of the "${params.selectedTopicIdea.type}" article type
+3. Titles should naturally incorporate the keyword "${params.keyword}"
+4. Titles should be engaging, specific, and optimized for click-through rate
+5. Match the specified tone of voice
+6. Output in ${params.language}
+
+Return ONLY a JSON array of 5 title strings.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+
+    const jsonStr = response.text;
+    if (!jsonStr) return [];
+    return JSON.parse(jsonStr) as string[];
+  } catch (error) {
+    console.error("Failed to generate keyword-driven titles:", error);
+    return [];
+  }
+};

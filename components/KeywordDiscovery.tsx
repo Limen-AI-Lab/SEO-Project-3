@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Campaign, Client, ARTICLE_STATUS } from '../types';
+import { Campaign, Article, ARTICLE_STATUS, ProjectStatus } from '../types';
 import supabase from '../services/supabaseClient.js';
-import { ArrowLeft, Home, ChevronRight, MapPin, Globe, Search, HelpCircle, Sparkles, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Home, ChevronRight, MapPin, Globe, HelpCircle, Sparkles, ChevronDown } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import StageTitlesKeyword from './StageTitlesKeyword';
+import { generateBlogTopicIdeas, BlogTopicIdea } from '../services/geminiService';
+import { useToast } from './Toast';
 
 // Standard country list with English names
 const COUNTRIES = [
@@ -257,17 +260,26 @@ const SimpleDropdown: React.FC<{
 };
 
 const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
+  const { showToast } = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [clientName, setClientName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state
+  // Step management: 'keyword-input' or 'topic-selection'
+  const [currentStep, setCurrentStep] = useState<'keyword-input' | 'topic-selection'>('keyword-input');
+  
+  // Form state (Step 1)
   const [keyword, setKeyword] = useState('');
   const [targetMarket, setTargetMarket] = useState('US');
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [searchPages, setSearchPages] = useState('2');
   const [timeRange, setTimeRange] = useState('any');
+
+  // Step 2 state
+  const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
+  const [topicIdeas, setTopicIdeas] = useState<BlogTopicIdea[]>([]);
+  const [createdArticle, setCreatedArticle] = useState<Article | null>(null);
 
   const MAX_KEYWORD_LENGTH = 100;
 
@@ -335,15 +347,143 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
     loadData();
   }, [campaignId]);
 
-  const handleGenerateIdeas = () => {
-    // Placeholder - functionality to be added later
-    console.log('Generate Ideas clicked', {
-      keyword,
-      targetMarket,
-      targetLanguage,
-      searchPages,
-      timeRange,
-    });
+  const handleGenerateIdeas = async () => {
+    if (!keyword.trim()) {
+      showToast('Please enter a keyword', 'warning');
+      return;
+    }
+
+    setIsGeneratingIdeas(true);
+
+    try {
+      // 1. Get target market and language display names
+      const marketName = COUNTRIES.find(c => c.code === targetMarket)?.name || targetMarket;
+      const languageName = LANGUAGES.find(l => l.code === targetLanguage)?.name || targetLanguage;
+
+      // 2. Call Gemini API to generate 10 topic ideas
+      const ideas = await generateBlogTopicIdeas({
+        keyword: keyword.trim(),
+        targetMarket: marketName,
+        targetLanguage: languageName
+      });
+
+      if (ideas.length === 0) {
+        showToast('Failed to generate topic ideas. Please try again.', 'error');
+        setIsGeneratingIdeas(false);
+        return;
+      }
+
+      setTopicIdeas(ideas);
+
+      // 3. Create Article record in database
+      const newArticle = {
+        campaign_id: campaignId,
+        title: keyword.trim(), // Working title is the keyword
+        status: ARTICLE_STATUS.NEEDS_TITLES,
+        proposed_titles: [],
+        language: languageName,
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString()
+      };
+
+      const { data: insertedArticle, error: insertError } = await supabase
+        .from('articles')
+        .insert(newArticle)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating article:', insertError);
+        showToast(`Failed to create article: ${insertError.message}`, 'error');
+        setIsGeneratingIdeas(false);
+        return;
+      }
+
+      // Map to Article interface
+      const mappedArticle: Article = {
+        id: insertedArticle.id,
+        campaignId: insertedArticle.campaign_id,
+        title: insertedArticle.title,
+        status: insertedArticle.status as ProjectStatus,
+        lastUpdated: new Date(insertedArticle.last_updated),
+        proposedTitles: insertedArticle.proposed_titles || [],
+        language: insertedArticle.language,
+        clientComments: []
+      };
+
+      setCreatedArticle(mappedArticle);
+
+      // 4. Switch to Step 2
+      setCurrentStep('topic-selection');
+
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      showToast(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      setIsGeneratingIdeas(false);
+    }
+  };
+
+  // Handle article updates from StageTitlesKeyword
+  const handleArticleUpdate = async (updates: Partial<Article>) => {
+    if (!createdArticle) return;
+
+    try {
+      // Map TypeScript fields to database fields
+      const dbUpdates: Record<string, unknown> = {};
+      
+      if (updates.status !== undefined) {
+        dbUpdates.status = updates.status;
+      }
+      if (updates.proposedTitles !== undefined) {
+        dbUpdates.proposed_titles = updates.proposedTitles;
+      }
+      if (updates.language !== undefined) {
+        dbUpdates.language = updates.language;
+      }
+      if (updates.tone !== undefined) {
+        dbUpdates.tone = updates.tone;
+      }
+
+      const { error } = await supabase
+        .from('articles')
+        .update(dbUpdates)
+        .eq('id', createdArticle.id);
+
+      if (error) {
+        console.error('Error updating article:', error);
+        showToast(`Failed to update: ${error.message}`, 'error');
+        return;
+      }
+
+      // Update local state
+      setCreatedArticle(prev => prev ? { ...prev, ...updates } : null);
+
+      // If status changed to AWAITING_REVIEW_TITLES, navigate back to campaign
+      if (updates.status === ARTICLE_STATUS.AWAITING_REVIEW_TITLES) {
+        showToast('Titles submitted for client review!', 'success');
+        onBack();
+      }
+    } catch (err) {
+      console.error('Unexpected error updating article:', err);
+      showToast(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  // Handle going back from Step 2 to Step 1
+  const handleBackToKeyword = async () => {
+    // Delete the created article since user is going back
+    if (createdArticle) {
+      await supabase
+        .from('articles')
+        .delete()
+        .eq('id', createdArticle.id);
+    }
+    
+    // Reset Step 2 state
+    setTopicIdeas([]);
+    setCreatedArticle(null);
+    setCurrentStep('keyword-input');
   };
 
   if (isLoading) {
@@ -382,6 +522,64 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
     );
   }
 
+  // Get language display name for passing to StageTitlesKeyword
+  const languageName = LANGUAGES.find(l => l.code === targetLanguage)?.name || targetLanguage;
+
+  // Step 2: Show StageTitlesKeyword component
+  if (currentStep === 'topic-selection' && createdArticle && topicIdeas.length > 0) {
+    return (
+      <div className="flex flex-col h-full bg-slate-50">
+        {/* Top Bar */}
+        <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col gap-2 flex-shrink-0 z-10">
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <span className="hover:text-indigo-600 cursor-pointer flex items-center gap-1">
+              <Home size={10} /> Home
+            </span>
+            <ChevronRight size={10} />
+            <span className="hover:text-indigo-600 cursor-pointer" onClick={onBack}>Campaigns</span>
+            <ChevronRight size={10} />
+            <span className="hover:text-indigo-600 cursor-pointer font-medium text-slate-700" onClick={onBack}>
+              {campaign.name}
+            </span>
+            <ChevronRight size={10} />
+            <span className="text-slate-400">Keyword-Driven Writing</span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button onClick={handleBackToKeyword} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition">
+                <ArrowLeft size={20} />
+              </button>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900 leading-tight">{campaign.name}</h1>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span>{clientName || 'No client'}</span>
+                  <span>•</span>
+                  <StatusBadge status={ARTICLE_STATUS.NEEDS_TITLES} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content - StageTitlesKeyword */}
+        <main className="flex-1 overflow-y-auto p-8">
+          <StageTitlesKeyword
+            project={createdArticle}
+            campaign={campaign}
+            keyword={keyword}
+            language={languageName}
+            topicIdeas={topicIdeas}
+            onUpdate={handleArticleUpdate}
+            onBack={handleBackToKeyword}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // Step 1: Keyword Input Form
   return (
     <div className="flex flex-col h-full bg-slate-50">
       {/* Top Bar */}
@@ -515,18 +713,27 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
             <div className="flex justify-center">
               <button
                 onClick={handleGenerateIdeas}
-                disabled={!keyword.trim()}
+                disabled={!keyword.trim() || isGeneratingIdeas}
                 className={`
                   flex items-center gap-2 px-8 py-3 rounded-xl font-medium text-white transition shadow-lg
-                  ${keyword.trim()
+                  ${keyword.trim() && !isGeneratingIdeas
                     ? 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 shadow-indigo-500/25'
                     : 'bg-slate-300 cursor-not-allowed shadow-none'
                   }
                 `}
               >
-                <Sparkles size={18} />
-                Generate Ideas
-                <ChevronRight size={18} />
+                {isGeneratingIdeas ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    Generating Ideas...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    Generate Ideas
+                    <ChevronRight size={18} />
+                  </>
+                )}
               </button>
             </div>
           </div>

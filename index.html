@@ -4,7 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TaxFlow Agency Portal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>
+      tailwind.config = {
+          darkMode: "class",
+          theme: {
+              extend: {
+                  colors: {
+                      primary: "#544AED",
+                      "primary-hover": "#4338CA",
+                      "background-light": "#F3F4F6",
+                      "background-dark": "#0F172A",
+                      "card-light": "#FFFFFF",
+                      "card-dark": "#1E293B",
+                      "border-light": "#E5E7EB",
+                      "border-dark": "#334155",
+                  },
+                  fontFamily: {
+                      display: ["Inter", "sans-serif"],
+                      sans: ["Inter", "sans-serif"],
+                  },
+                  borderRadius: {
+                      DEFAULT: "0.5rem",
+                  },
+                  boxShadow: {
+                      'soft': '0 10px 40px -10px rgba(0,0,0,0.08)',
+                  }
+              },
+          },
+      };
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       body {

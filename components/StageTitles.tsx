@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, Campaign, ARTICLE_STATUS } from '../types';
 import { generateBlogTitles, suggestBlogKeywords, KeywordSuggestion } from '../services/geminiService';
@@ -25,7 +24,8 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
   // Generation Settings State
   const [genTopic, setGenTopic] = useState(project.title);
   const [audience, setAudience] = useState('');
-  
+  const [targetCountries, setTargetCountries] = useState('');
+
   // Keyword State
   const [selectedKeywords, setSelectedKeywords] = useState<KeywordTag[]>([]);
   const [manualKeywordInput, setManualKeywordInput] = useState('');
@@ -161,6 +161,9 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
            <h2 className="text-2xl font-bold text-slate-900">Title Generation</h2>
            <p className="text-slate-500 mt-1">Configure the AI to propose 5-10 engaging titles.</p>
         </div>
+        <button className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-lg hover:bg-indigo-100 transition border border-indigo-200">
+          Directly generate article
+        </button>
       </div>
 
       {/* Configuration Panel */}
@@ -197,6 +200,43 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
                 onChange={(e) => setAudience(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder="e.g. Small Business Owners, CFOs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Target Countries</label>
+              <input 
+                type="text" 
+                value={targetCountries}
+                onChange={(e) => setTargetCountries(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. USA, Canada"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Target Language</label>
+              <div className="relative">
+                <select 
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer text-slate-700"
+                >
+                  <option value="English">English</option>
+                  <option value="Chinese">Chinese</option>
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tone of Voice</label>
+              <input 
+                type="text" 
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. Professional, Witty, Urgent"
               />
             </div>
 
@@ -273,32 +313,6 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
                   </div>
                 </div>
               )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Target Language</label>
-              <div className="relative">
-                <select 
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer text-slate-700"
-                >
-                  <option value="English">English</option>
-                  <option value="Chinese">Chinese</option>
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tone of Voice</label>
-              <input 
-                type="text" 
-                value={tone}
-                onChange={(e) => setTone(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Professional, Witty, Urgent"
-              />
             </div>
 
             <div className="md:col-span-2">

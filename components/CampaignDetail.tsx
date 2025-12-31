@@ -6,15 +6,17 @@ import { generateCampaignReviewLink, copyToClipboard } from '../services/linkSer
 import { getCampaignWithClients, addClientToCampaign, removeClientFromCampaign } from '../services/campaignService';
 import { getAllClientsWithContacts } from '../services/clientService';
 import StatusBadge from './StatusBadge';
+import SelectWritingMethodModal from './SelectWritingMethodModal';
 import { ArrowLeft, Plus, Search, Target, Users, Tag, Link2, CheckCircle, Copy, X, Building, Trash2 } from 'lucide-react';
 
 interface Props {
   campaignId: string;
   onBack: () => void;
   onSelectArticle: (articleId: string) => void;
+  onKeywordDiscovery?: () => void; // Navigate to Keyword Discovery page
 }
 
-const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }) => {
+const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, onKeywordDiscovery }) => {
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +32,9 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [isAddingClient, setIsAddingClient] = useState(false);
+
+  // Writing Method Modal State
+  const [isWritingMethodModalOpen, setIsWritingMethodModalOpen] = useState(false);
 
   // Handle copy campaign review link
   const handleCopyLink = async () => {
@@ -175,7 +180,59 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
     return availableClients.filter(c => !associatedIds.includes(c.id));
   };
 
-  const handleCreateArticle = async () => {
+  const handleOpenCreateModal = () => {
+    setIsWritingMethodModalOpen(true);
+  };
+
+  const handleBlogWizard = async (method: string) => {
+    setIsWritingMethodModalOpen(false);
+    
+    if (method === 'keyword-driven') {
+      // Keyword-Driven Writing: Navigate to Keyword Discovery page
+      if (onKeywordDiscovery) {
+        onKeywordDiscovery();
+      }
+    } else if (method === 'topic-expansion') {
+      // Topic Expansion Writing: Create article and navigate to Title Generation page
+      if (isCreatingArticle) return;
+      
+      setIsCreatingArticle(true);
+      try {
+        const defaultTopic = campaign?.name || 'New Article';
+        
+        const { data, error } = await supabase
+          .from('articles')
+          .insert({
+            campaign_id: campaignId,
+            title: defaultTopic,
+            status: ARTICLE_STATUS.NEEDS_TITLES,
+            proposed_titles: [],
+            client_comments: []
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error creating article:', error);
+          alert(`创建文章失败：${error.message}`);
+          return;
+        }
+
+        if (data) {
+          onSelectArticle(data.id);
+        }
+      } catch (err) {
+        console.error('Unexpected error creating article:', err);
+        alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      } finally {
+        setIsCreatingArticle(false);
+      }
+    }
+  };
+
+  const handleMethodConfirm = async () => {
+    setIsWritingMethodModalOpen(false);
+    
     if (isCreatingArticle) return;
     
     setIsCreatingArticle(true);
@@ -310,7 +367,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
                </button>
                
             <button 
-              onClick={handleCreateArticle}
+              onClick={handleOpenCreateModal}
               disabled={isCreatingArticle}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -379,7 +436,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
              <div className="p-12 text-center text-slate-400">
                 <p>No articles in this campaign yet.</p>
                 <button 
-                  onClick={handleCreateArticle} 
+                  onClick={handleOpenCreateModal} 
                   disabled={isCreatingArticle}
                   className="text-indigo-600 hover:underline mt-2 disabled:opacity-50"
                 >
@@ -544,6 +601,14 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle }
           </div>
         </div>
       )}
+
+      {/* Select Writing Method Modal */}
+      <SelectWritingMethodModal 
+        isOpen={isWritingMethodModalOpen}
+        onClose={() => setIsWritingMethodModalOpen(false)}
+        onConfirm={handleMethodConfirm}
+        onBlogWizard={handleBlogWizard}
+      />
     </div>
   );
 };

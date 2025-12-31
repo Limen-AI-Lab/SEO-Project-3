@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, ARTICLE_STATUS, Campaign, WordCountRange, ArticlePerspective, WORD_COUNT_CONFIG, PERSPECTIVE_CONFIG } from '../types';
-import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save, Check } from 'lucide-react';
+import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save, Check, ChevronUp, ChevronDown } from 'lucide-react';
 import { generateBlogOutline, refineBlogOutline } from '../services/geminiService';
 import { getCampaignWithClients } from '../services/campaignService';
 import { 
@@ -44,6 +44,36 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
   const [ignoredFeedbackIds, setIgnoredFeedbackIds] = useState<string[]>([]);
   const [editingFeedbackId, setEditingFeedbackId] = useState<string | null>(null);
   const [editedFeedbackText, setEditedFeedbackText] = useState<string>('');
+
+  // Reference module state
+  const [isReferencesExpanded, setIsReferencesExpanded] = useState(true);
+
+  const mockReferences = [
+    {
+      id: 5,
+      title: "How to Choose the Right VR Headset for Your Needs",
+      snippet: "For gaming: Look for headsets with a high refresh rate (90Hz or above), wide field of view, and precise tracking. These features ensure immersive gameplay...",
+      type: "Guide",
+      date: "Oct 20, 2025",
+      url: "#"
+    },
+    {
+      id: 6,
+      title: "How to Choose the Right VR Headset: A Complete Guide",
+      snippet: "1. Define Your Usage Needs. Before choosing a VR headset, it's essential to clarify your intended use. 2. Types of VR Headsets: Tethered vs. Standalone...",
+      type: "Manual",
+      date: "Nov 26, 2024",
+      url: "#"
+    },
+    {
+      id: 10,
+      title: "How to Choose the Right VR Headset? - TechTips",
+      snippet: "To determine the right VR-headset, it is helpful to first think about whether you want to use a VR-headset with or without a PC. This defines the category...",
+      type: "Review",
+      date: "Dec 15, 2024",
+      url: "#"
+    }
+  ];
 
   // Real-time parsing and validation
   useEffect(() => {
@@ -588,6 +618,51 @@ Specific details
                     <span className="font-medium text-blue-600">Outline Development</span>
                   </div>
                </div>
+           </div>
+
+           {/* References Module */}
+           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+               <button 
+                 onClick={() => setIsReferencesExpanded(!isReferencesExpanded)}
+                 className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition text-left"
+               >
+                 <div className="flex items-center gap-2">
+                   <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">References</h3>
+                   <span className="text-xs font-normal text-slate-500 normal-case bg-white border border-slate-200 px-1.5 py-0.5 rounded-full">3</span>
+                 </div>
+                 <div className="text-slate-400">
+                   {isReferencesExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                 </div>
+               </button>
+               
+               {isReferencesExpanded && (
+                 <div className="p-5 pt-2 space-y-5">
+                    <p className="text-xs text-slate-500 mb-4">
+                      Select relevant ideas from search results matching your topic.
+                    </p>
+                    {mockReferences.map((ref) => (
+                      <div key={ref.id} className="group">
+                        <div className="flex items-start gap-3">
+                           <span className="text-sm font-medium text-slate-400 min-w-[1.25rem]">{ref.id}</span>
+                           <div>
+                             <a href={ref.url} className="block text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline mb-1 leading-snug">
+                               {ref.title}
+                             </a>
+                             <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">
+                               {ref.snippet}
+                             </p>
+                             <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                               <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                                 {ref.type}
+                               </span>
+                               <span>{ref.date}</span>
+                             </div>
+                           </div>
+                        </div>
+                      </div>
+                    ))}
+                 </div>
+               )}
            </div>
 
            {/* Format Guide */}

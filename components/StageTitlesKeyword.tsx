@@ -8,7 +8,7 @@ interface Props {
   project: Article;
   campaign?: Campaign;
   keyword: string;
-  language: string;  // From KeywordDiscovery (图一)
+  language: string;  // From KeywordDiscovery (Figure 1)
   topicIdeas: BlogTopicIdea[];  // 10 topic ideas from AI
   onUpdate: (updates: Partial<Article>) => void;
   onBack: () => void;  // Go back to KeywordDiscovery step 1

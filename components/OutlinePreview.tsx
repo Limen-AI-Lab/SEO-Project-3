@@ -20,9 +20,9 @@ const OutlinePreview: React.FC<Props> = ({ sections, showStats = true, className
     return (
       <div className={`bg-slate-50 border border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center ${className || 'h-96'}`}>
         <FileText className="w-12 h-12 text-slate-300 mb-4" />
-        <p className="text-slate-500 font-medium">暂无大纲内容</p>
+        <p className="text-slate-500 font-medium">No outline content</p>
         <p className="text-slate-400 text-sm mt-2">
-          使用 # ## ### 添加标题层级
+          Use # ## ### to add heading levels
         </p>
       </div>
     );
@@ -40,7 +40,7 @@ const OutlinePreview: React.FC<Props> = ({ sections, showStats = true, className
       <div className="px-4 py-3 bg-slate-100 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2 text-slate-600">
           <Eye className="w-4 h-4" />
-          <span className="text-sm font-medium">客户端预览</span>
+          <span className="text-sm font-medium">Client Preview</span>
         </div>
         
         {showStats && (
@@ -49,7 +49,7 @@ const OutlinePreview: React.FC<Props> = ({ sections, showStats = true, className
             <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded">H2: {h2Count}</span>
             <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded border">H3: {h3Count}</span>
             <span className="text-slate-400">|</span>
-            <span>预估 ~{totalWords.toLocaleString()} 字</span>
+            <span>Estimated ~{totalWords.toLocaleString()} words</span>
           </div>
         )}
       </div>

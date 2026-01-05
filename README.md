@@ -1,4 +1,4 @@
-# TaxFlow Agency Portal
+# Imprintly
 
 <div align="center">
   <h3>AI-Powered Content Creation Platform for SEO Agencies</h3>
@@ -7,7 +7,7 @@
 
 ## Overview
 
-TaxFlow Agency Portal is a comprehensive content management system designed for SEO agencies to create, manage, and collaborate on blog content with their clients. The platform integrates AI-powered content generation (via Google Gemini) with a structured workflow that guides articles through titles, outlines, drafts, and client review stages.
+Imprintly is a comprehensive content management system designed for SEO agencies to create, manage, and collaborate on blog content with their clients. The platform integrates AI-powered content generation (via Google Gemini) with a structured workflow that guides articles through titles, outlines, drafts, and client review stages.
 
 ## Features
 

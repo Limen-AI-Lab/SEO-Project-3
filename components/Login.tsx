@@ -22,9 +22,9 @@ const Login: React.FC = () => {
           <div className="flex flex-col items-center mb-8">
             <div className="flex items-center justify-center mb-3">
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md mr-3">
-                <span className="text-white text-xl font-bold font-display">T</span>
+                <span className="text-white text-xl font-bold font-display">I</span>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">TaxFlow</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Imprintly</h1>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Manage strategic content campaigns.</p>
           </div>
@@ -109,7 +109,7 @@ const Login: React.FC = () => {
               <a className="font-medium text-primary hover:text-primary-hover" href="#">Request Access</a>
             </p>
             <p className="mt-6 text-xs text-gray-400 dark:text-gray-500">
-              © 2024 TaxFlow Inc. All rights reserved.
+              © 2024 Imprintly Inc. All rights reserved.
             </p>
           </div>
         </div>

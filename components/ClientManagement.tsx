@@ -43,7 +43,7 @@ const ClientManagement: React.FC = () => {
         setClients(clientsWithContacts);
       } catch (err) {
         console.error('Unexpected error fetching clients:', err);
-        alert('获取客户列表失败。请刷新页面重试。');
+        alert('Failed to fetch client list. Please refresh the page and try again.');
       }
     };
 
@@ -156,14 +156,14 @@ const ClientManagement: React.FC = () => {
 
       if (error) {
         console.error('Error deleting client:', error);
-        alert(`删除客户失败：${error.message}`);
+        alert(`Failed to delete client: ${error.message}`);
         return;
       }
 
       await refetchClients();
     } catch (err) {
       console.error('Unexpected error deleting client:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -189,7 +189,7 @@ const ClientManagement: React.FC = () => {
 
         if (error) {
           console.error('Error updating client:', error);
-          alert(`更新客户失败：${error.message}`);
+          alert(`Failed to update client: ${error.message}`);
           return;
         }
 
@@ -210,7 +210,7 @@ const ClientManagement: React.FC = () => {
 
         if (error) {
           console.error('Error creating client:', error);
-          alert(`创建客户失败：${error.message}`);
+          alert(`Failed to create client: ${error.message}`);
           return;
         }
 
@@ -222,7 +222,7 @@ const ClientManagement: React.FC = () => {
     setIsModalOpen(false);
     } catch (err) {
       console.error('Unexpected error saving client:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 

@@ -29,7 +29,7 @@ const ClientReviewPage: React.FC = () => {
     const articleId = urlParams.get('articleId');
     
     if (!articleId) {
-      setError('缺少文章ID参数。请使用 ?articleId=xxx 访问此页面。');
+      setError('Missing article ID parameter. Please use ?articleId=xxx to access this page.');
       setIsLoading(false);
       return;
     }
@@ -50,13 +50,13 @@ const ClientReviewPage: React.FC = () => {
 
       if (fetchError) {
         console.error('Error fetching article:', fetchError);
-        setError(`获取文章失败：${fetchError.message}`);
+        setError(`Failed to fetch article: ${fetchError.message}`);
         setIsLoading(false);
         return;
       }
 
       if (!data) {
-        setError('文章不存在');
+        setError('Article does not exist');
         setIsLoading(false);
         return;
       }
@@ -67,7 +67,7 @@ const ClientReviewPage: React.FC = () => {
       setSelectedTitles([]);
     } catch (err) {
       console.error('Unexpected error loading article:', err);
-      setError(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +94,7 @@ const ClientReviewPage: React.FC = () => {
 
       if (updateError) {
         console.error('Error adding comment:', updateError);
-        alert(`添加评论失败：${updateError.message}`);
+        alert(`Failed to add comment: ${updateError.message}`);
         return;
       }
 
@@ -103,7 +103,7 @@ const ClientReviewPage: React.FC = () => {
       setCommentText('');
     } catch (err) {
       console.error('Unexpected error adding comment:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -122,17 +122,17 @@ const ClientReviewPage: React.FC = () => {
 
       if (updateError) {
         console.error('Error approving:', updateError);
-        alert(`批准失败：${updateError.message}`);
+        alert(`Failed to approve: ${updateError.message}`);
         setIsSubmitting(false);
         return;
       }
 
-      setSuccessMessage('已成功批准！');
+      setSuccessMessage('Successfully approved!');
       // Reload article to get updated status
       await loadArticle(article.id);
     } catch (err) {
       console.error('Unexpected error approving:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -141,7 +141,7 @@ const ClientReviewPage: React.FC = () => {
   // Handle multi-title approval - creates new articles for each selected title
   const handleApproveTitles = async () => {
     if (!article || selectedTitles.length === 0) {
-      alert('请至少选择一个标题。');
+      alert('Please select at least one title.');
       return;
     }
 
@@ -165,7 +165,7 @@ const ClientReviewPage: React.FC = () => {
 
       if (insertError) {
         console.error('Error creating new articles:', insertError);
-        alert(`创建文章失败：${insertError.message}`);
+        alert(`Failed to create articles: ${insertError.message}`);
         setIsSubmitting(false);
         return;
       }
@@ -179,10 +179,10 @@ const ClientReviewPage: React.FC = () => {
       if (deleteError) {
         console.error('Error deleting original article:', deleteError);
         // Don't fail completely - articles were created successfully
-        alert(`注意：新文章已创建，但原文章删除失败：${deleteError.message}`);
+        alert(`Note: New articles created, but failed to delete original article: ${deleteError.message}`);
       }
 
-      setSuccessMessage(`已成功批准 ${selectedTitles.length} 个标题！页面将在 3 秒后关闭...`);
+      setSuccessMessage(`Successfully approved ${selectedTitles.length} titles! Page will close in 3 seconds...`);
       
       // Close page or show completion after 3 seconds
       setTimeout(() => {
@@ -191,13 +191,13 @@ const ClientReviewPage: React.FC = () => {
           window.close();
         } catch {
           // If window.close() doesn't work, just show a completion message
-          setSuccessMessage('批准完成！您可以关闭此页面。');
+          setSuccessMessage('Approval complete! You can close this page.');
         }
       }, 3000);
 
     } catch (err) {
       console.error('Unexpected error approving titles:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -214,7 +214,7 @@ const ClientReviewPage: React.FC = () => {
 
   const handleReject = async () => {
     if (!article || !commentText.trim()) {
-      alert('请先输入拒绝原因或修改建议。');
+      alert('Please enter rejection reason or modification suggestions first.');
       return;
     }
 
@@ -254,18 +254,18 @@ const ClientReviewPage: React.FC = () => {
 
       if (updateError) {
         console.error('Error rejecting:', updateError);
-        alert(`拒绝失败：${updateError.message}`);
+        alert(`Failed to reject: ${updateError.message}`);
         setIsSubmitting(false);
         return;
       }
 
-      setSuccessMessage('已提交修改请求。');
+      setSuccessMessage('Modification request submitted.');
       setCommentText('');
       // Reload article to get updated status
       await loadArticle(article.id);
     } catch (err) {
       console.error('Unexpected error rejecting:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -277,7 +277,7 @@ const ClientReviewPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="animate-spin h-12 w-12 text-indigo-600 mx-auto mb-4" />
-          <p className="text-slate-500">加载中...</p>
+          <p className="text-slate-500">Loading...</p>
         </div>
       </div>
     );
@@ -289,13 +289,13 @@ const ClientReviewPage: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-md">
           <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-          <p className="text-red-600 font-medium mb-2">加载失败</p>
-          <p className="text-red-500 text-sm mb-4">{error || '文章不存在'}</p>
+          <p className="text-red-600 font-medium mb-2">Failed to Load</p>
+          <p className="text-red-500 text-sm mb-4">{error || 'Article does not exist'}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
           >
-            重试
+            Retry
           </button>
         </div>
       </div>
@@ -322,7 +322,7 @@ const ClientReviewPage: React.FC = () => {
     if (titles.length === 0) {
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-          <p className="text-yellow-800">暂无可供审查的标题。</p>
+          <p className="text-yellow-800">No titles available for review.</p>
         </div>
       );
     }
@@ -330,9 +330,9 @@ const ClientReviewPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">请选择标题</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Please Select Titles</h2>
           <p className="text-slate-600 mb-6">
-            请勾选您满意的标题（可多选）。每个被批准的标题将创建一篇独立的文章：
+            Please check the titles you are satisfied with (multiple selection allowed). Each approved title will create an independent article:
           </p>
           
           <div className="space-y-3">
@@ -360,8 +360,8 @@ const ClientReviewPage: React.FC = () => {
           {selectedTitles.length > 0 && (
             <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
               <p className="text-indigo-700 text-sm">
-                已选择 <span className="font-bold">{selectedTitles.length}</span> 个标题，
-                批准后将创建 <span className="font-bold">{selectedTitles.length}</span> 篇独立文章
+                Selected <span className="font-bold">{selectedTitles.length}</span> titles,
+                will create <span className="font-bold">{selectedTitles.length}</span> independent articles after approval
               </p>
             </div>
           )}
@@ -379,8 +379,8 @@ const ClientReviewPage: React.FC = () => {
               <Check size={20} />
             )}
             {isSubmitting 
-              ? '处理中...' 
-              : `批准所选标题 (${selectedTitles.length})`
+              ? 'Processing...' 
+              : `Approve Selected Titles (${selectedTitles.length})`
             }
           </button>
         </div>
@@ -389,12 +389,12 @@ const ClientReviewPage: React.FC = () => {
   };
 
   const renderOutlineReview = () => {
-    const outline = article.outline_content || '暂无大纲内容。';
+    const outline = article.outline_content || 'No outline content.';
     
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">大纲审查</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Outline Review</h2>
           
           <div className="bg-white border border-slate-200 rounded-lg p-6 mb-6">
             <div className="prose max-w-none">
@@ -404,11 +404,11 @@ const ClientReviewPage: React.FC = () => {
 
           <div className="space-y-4">
             <label className="block">
-              <span className="text-sm font-medium text-slate-700 mb-2 block">添加评论（可选）</span>
+              <span className="text-sm font-medium text-slate-700 mb-2 block">Add Comment (Optional)</span>
               <textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="请输入您的意见或建议..."
+                placeholder="Please enter your comments or suggestions..."
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none h-32"
               />
             </label>
@@ -422,7 +422,7 @@ const ClientReviewPage: React.FC = () => {
             className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
           >
             <Check size={20} />
-            批准大纲
+            Approve Outline
           </button>
           <button
             onClick={handleReject}
@@ -430,7 +430,7 @@ const ClientReviewPage: React.FC = () => {
             className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
           >
             <X size={20} />
-            请求修改
+            Request Revision
           </button>
         </div>
       </div>
@@ -438,12 +438,12 @@ const ClientReviewPage: React.FC = () => {
   };
 
   const renderDraftReview = () => {
-    const draft = article.draft_content || '暂无草稿内容。';
+    const draft = article.draft_content || 'No draft content.';
     
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">草稿审查</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Draft Review</h2>
           
           <div className="bg-white border border-slate-200 rounded-lg p-6 mb-6">
             <div className="prose max-w-none">
@@ -453,11 +453,11 @@ const ClientReviewPage: React.FC = () => {
 
           <div className="space-y-4">
             <label className="block">
-              <span className="text-sm font-medium text-slate-700 mb-2 block">添加评论（可选）</span>
+              <span className="text-sm font-medium text-slate-700 mb-2 block">Add Comment (Optional)</span>
               <textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="请输入您的意见或建议..."
+                placeholder="Please enter your comments or suggestions..."
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none h-32"
               />
             </label>
@@ -471,7 +471,7 @@ const ClientReviewPage: React.FC = () => {
             className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
           >
             <Check size={20} />
-            批准草稿
+            Approve Draft
           </button>
           <button
             onClick={handleReject}
@@ -479,7 +479,7 @@ const ClientReviewPage: React.FC = () => {
             className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
           >
             <X size={20} />
-            请求修改
+            Request Revision
           </button>
         </div>
       </div>
@@ -507,26 +507,26 @@ const ClientReviewPage: React.FC = () => {
         {isCompleted ? (
           <>
             <Check className="h-16 w-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">任务已完成</h2>
-            <p className="text-slate-600">此文章已获得最终批准。</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Task Completed</h2>
+            <p className="text-slate-600">This article has received final approval.</p>
           </>
         ) : isAgencyWorking ? (
           <>
             <Loader2 className="h-16 w-16 text-indigo-600 mx-auto mb-4 animate-spin" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">等待机构处理</h2>
-            <p className="text-slate-600">文章正在由机构处理中，请稍候...</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Waiting for Agency Processing</h2>
+            <p className="text-slate-600">Article is being processed by the agency, please wait...</p>
           </>
         ) : isRevisionInProgress ? (
           <>
             <MessageSquare className="h-16 w-16 text-amber-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">需要修改</h2>
-            <p className="text-slate-600">您的修改请求已提交，机构正在处理中...</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Revision Required</h2>
+            <p className="text-slate-600">Your revision request has been submitted, agency is processing...</p>
           </>
         ) : (
           <>
             <AlertCircle className="h-16 w-16 text-slate-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">未知状态</h2>
-            <p className="text-slate-600">当前状态：{article.status}</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Unknown Status</h2>
+            <p className="text-slate-600">Current status: {article.status}</p>
           </>
         )}
       </div>
@@ -543,7 +543,7 @@ const ClientReviewPage: React.FC = () => {
       <div className="mt-8 pt-8 border-t border-slate-200">
         <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
           <MessageSquare size={20} />
-          评论历史
+          Comment History
         </h3>
         <div className="space-y-4">
           {comments.map((comment: any, index: number) => (

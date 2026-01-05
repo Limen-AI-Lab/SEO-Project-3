@@ -45,8 +45,8 @@ const MainLayout: React.FC = () => {
           {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex-col hidden md:flex z-20">
         <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">T</div>
-          <span className="font-bold text-xl tracking-tight">TaxFlow</span>
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">I</div>
+          <span className="font-bold text-xl tracking-tight">Imprintly</span>
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-4">

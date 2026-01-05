@@ -40,15 +40,15 @@ function parseHistoryEdits(historyEntry: RevisionHistoryEntry): Comment[] {
       const oldContent = edit.original_content?.content || edit.original_content?.title || JSON.stringify(edit.original_content);
       const newContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
       const oldPreview = typeof oldContent === 'string' ? oldContent.substring(0, 50) : String(oldContent).substring(0, 50);
-      editText = `[${oldPreview}${oldContent.length > 50 ? '...' : ''}] 修改建议`;
+      editText = `[${oldPreview}${oldContent.length > 50 ? '...' : ''}] Modification Suggestion`;
     } else if (actionType === 'delete') {
       const deletedContent = edit.original_content?.content || edit.original_content?.title || JSON.stringify(edit.original_content);
       const deletePreview = typeof deletedContent === 'string' ? deletedContent.substring(0, 50) : String(deletedContent).substring(0, 50);
-      editText = `[${deletePreview}${deletedContent.length > 50 ? '...' : ''}] 删除建议`;
+      editText = `[${deletePreview}${deletedContent.length > 50 ? '...' : ''}] Deletion Suggestion`;
     } else if (actionType === 'add') {
       const addedContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
       const addPreview = typeof addedContent === 'string' ? addedContent.substring(0, 50) : String(addedContent).substring(0, 50);
-      editText = `[新增内容] ${addPreview}${addedContent.length > 50 ? '...' : ''}`;
+      editText = `[New Content] ${addPreview}${addedContent.length > 50 ? '...' : ''}`;
     }
     
     if (editText) {
@@ -340,7 +340,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const handleResetOutline = async () => {
     const isConfirmed = await confirm({
       title: 'Reset Outline',
-      message: '确定要恢复到原始大纲吗？所有编辑将会丢失。',
+      message: 'Are you sure you want to restore the original outline? All edits will be lost.',
       type: 'warning',
       confirmText: 'Reset',
     });
@@ -661,7 +661,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
         newText = `~~${selectedText}~~`;
         break;
       case 'link':
-        const url = prompt('输入链接地址:', 'https://');
+        const url = prompt('Enter link URL:', 'https://');
         if (url) {
           newText = `[${selectedText}](${url})`;
         } else {
@@ -1071,10 +1071,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     const md = serializeBlocksToMarkdown(blocks);
     try {
       await navigator.clipboard.writeText(md);
-      showToast("内容已复制到剪贴板 (Markdown格式)", 'success');
+      showToast("Content copied to clipboard (Markdown format)", 'success');
     } catch (err) {
       console.error('Failed to copy: ', err);
-      showToast("复制失败", 'error');
+      showToast("Copy failed", 'error');
     }
   };
 
@@ -1119,27 +1119,27 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const handlePublishToCMS = async () => {
     // Validate required fields
     if (!summary) {
-      showToast("请填写 Short Text 摘要后再发布。", 'warning');
+      showToast("Please fill in the Short Text summary before publishing.", 'warning');
       return;
     }
 
     // Get the markdown content
     const markdownContent = serializeBlocksToMarkdown(blocks);
     if (!markdownContent || markdownContent.trim().length < 50) {
-      showToast("正文内容太少，请先完成文章内容再发布。", 'warning');
+      showToast("Content is too short. Please complete the article content before publishing.", 'warning');
       return;
     }
 
     // Get the article title
     const articleTitle = project.selectedTitle || project.title;
     if (!articleTitle) {
-      showToast("文章标题不能为空。", 'error');
+      showToast("Article title cannot be empty.", 'error');
       return;
     }
 
     const isConfirmed = await confirm({
       title: 'Publish to CMS',
-      message: '确定要将此内容发布到 CMS 吗？',
+      message: 'Are you sure you want to publish this content to CMS?',
       confirmText: 'Publish',
       type: 'default'
     });
@@ -1155,9 +1155,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       const cmsData = {
         article_id: project.id,
         title: articleTitle,
-        create_date: new Date().toISOString(), // 点击发布时的当天日期
-        content: markdownContent, // Markdown 格式的正文
-        short_text: summary, // Metadata 中的 Short Text
+        create_date: new Date().toISOString(), // Current date when publishing
+        content: markdownContent, // Markdown formatted content
+        short_text: summary, // Short Text from Metadata
         cover_image: coverImage || undefined,
         cms_category: cmsId || undefined
       };
@@ -1172,11 +1172,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
         handleSaveDraft();
         onUpdate({ status: ProjectStatus.PUBLISHED });
         
-        showToast(`✅ 文章已成功发布到 CMS！`, 'success');
+        showToast(`✅ Article successfully published to CMS!`, 'success');
       }
     } catch (error: any) {
       console.error('❌ Publish to CMS failed:', error);
-      showToast(`发布失败: ${error.message || '未知错误'}`, 'error');
+      showToast(`Publish failed: ${error.message || 'Unknown error'}`, 'error');
     } finally {
       setIsPublishing(false);
     }
@@ -1306,7 +1306,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                     const newLevel = (currentHeading + 1) % 4;
                     handleFloatingHeadingChange(newLevel);
                   }}
-                  title="切换标题级别"
+                  title="Toggle heading level"
                 >
                   <Type size={14} />
                   <span className="font-mono text-[10px] bg-slate-200 px-1 rounded">{currentHeading === 0 ? 'P' : `H${currentHeading}`}</span>
@@ -1319,28 +1319,28 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
               <button
                 onClick={() => handleFloatingFormat('bold')}
                 className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-lg transition"
-                title="加粗 **text**"
+                title="Bold **text**"
               >
                 <Bold size={14} />
               </button>
               <button
                 onClick={() => handleFloatingFormat('italic')}
                 className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-lg transition"
-                title="斜体 *text*"
+                title="Italic *text*"
               >
                 <Italic size={14} />
               </button>
               <button
                 onClick={() => handleFloatingFormat('underline')}
                 className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-lg transition"
-                title="下划线"
+                title="Underline"
               >
                 <Underline size={14} />
               </button>
               <button
                 onClick={() => handleFloatingFormat('strikethrough')}
                 className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-lg transition"
-                title="删除线 ~~text~~"
+                title="Strikethrough ~~text~~"
               >
                 <Strikethrough size={14} />
               </button>
@@ -1350,21 +1350,21 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
               <button
                 onClick={() => handleFloatingFormat('link')}
                 className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-lg transition"
-                title="链接"
+                title="Link"
               >
                 <Link2 size={14} />
               </button>
               <button
                 onClick={() => handleFloatingFormat('quote')}
                 className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-lg transition"
-                title="引用"
+                title="Quote"
               >
                 <Quote size={14} />
               </button>
               <button
                 onClick={() => handleFloatingFormat('bulletList')}
                 className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-lg transition"
-                title="无序列表"
+                title="Unordered list"
               >
                 <List size={14} />
               </button>
@@ -1374,7 +1374,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
               <button
                 onClick={() => handleFloatingFormat('clear')}
                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
-                title="清除格式"
+                title="Clear formatting"
               >
                 <Eraser size={14} />
               </button>
@@ -1513,7 +1513,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             onClick={handleUndoOutline}
                             disabled={outlineHistory.length === 0}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="撤销上一步 (Undo)"
+                            title="Undo last step"
                           >
                             <Undo2 size={14} />
                           </button>
@@ -1521,7 +1521,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             onClick={handleResetOutline}
                             disabled={editableOutline === originalOutline}
                             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="恢复原始大纲 (Reset)"
+                            title="Reset to original outline"
                           >
                             <RotateCcw size={14} />
                           </button>
@@ -1529,17 +1529,17 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         <div className="flex items-center gap-2">
                           {hasOutlineChanges && (
                             <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                              未保存
+                              Unsaved
                             </span>
                           )}
                           <button
                             onClick={handleSaveOutline}
                             disabled={!hasOutlineChanges}
                             className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="保存大纲"
+                            title="Save outline"
                           >
                             <Save size={12} />
-                            保存
+                            Save
                           </button>
                         </div>
                       </div>
@@ -1549,13 +1549,13 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         value={editableOutline}
                         onChange={(e) => handleOutlineChange(e.target.value)}
                         className="flex-1 w-full resize-none outline-none bg-white border border-slate-200 rounded-xl p-4 text-slate-700 font-mono text-xs leading-relaxed focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition custom-scrollbar shadow-sm hover:border-slate-300"
-                        placeholder="在此编辑大纲内容...&#10;&#10;# 标题&#10;## 二级标题&#10;### 三级标题"
+                        placeholder="Edit outline content here...&#10;&#10;# Heading&#10;## Subheading&#10;### Sub-subheading"
                         style={{ minHeight: '300px' }}
                       />
                       
                       {/* Edit Hint */}
                       <p className="text-[10px] text-slate-400 mt-2 text-center">
-                        直接编辑大纲，AI 将基于修改后的大纲生成内容
+                        Edit the outline directly, AI will generate content based on the modified outline
                       </p>
                     </div>
                   )}
@@ -1567,7 +1567,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
                           <History size={14} className="text-indigo-600" />
                           <span className="text-xs font-bold text-indigo-700">
-                            第 {project.revisionRound} 轮审核
+                            Round {project.revisionRound} Review
                           </span>
                         </div>
                       )}
@@ -1614,7 +1614,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                   c.targetBlockId ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300' : ''
                                 }`}
                                 onClick={() => c.targetBlockId && scrollToBlockAndHighlight(c.targetBlockId)}
-                                title={c.targetBlockId ? '点击跳转到对应段落' : undefined}
+                                title={c.targetBlockId ? 'Click to jump to corresponding paragraph' : undefined}
                               >
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex items-center gap-1.5">
@@ -1628,7 +1628,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                           c.editType === 'delete' ? 'bg-red-100 text-red-700' :
                                           c.editType === 'add' ? 'bg-green-100 text-green-700' : ''
                                         }`}>
-                                          {c.editType === 'modify' ? '修改' : c.editType === 'delete' ? '删除' : '新增'}
+                                          {c.editType === 'modify' ? 'Modify' : c.editType === 'delete' ? 'Delete' : 'Add'}
                                         </span>
                                       )}
                                       {c.targetBlockId && (
@@ -1653,7 +1653,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             <div className="flex items-center gap-2">
                               <History size={14} className="text-slate-500" />
                               <span className="text-xs font-medium text-slate-600">
-                                历史反馈 ({project.revisionHistory.length} 轮)
+                                Revision History ({project.revisionHistory.length} rounds)
                               </span>
                             </div>
                             {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -1666,7 +1666,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                   <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
                                     <div className="flex items-center justify-between">
                                       <span className="text-xs font-bold text-slate-600">
-                                        第 {historyEntry.round} 轮
+                                        Round {historyEntry.round}
                                       </span>
                                       <span className="text-[10px] text-slate-400">
                                         {historyEntry.timestamp ? new Date(historyEntry.timestamp).toLocaleDateString() : ''}
@@ -1677,7 +1677,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     {/* General Comments from history */}
                                     {historyEntry.generalComments && (
                                       <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
-                                        <div className="font-semibold text-slate-700 mb-1">整体反馈：</div>
+                                        <div className="font-semibold text-slate-700 mb-1">General Feedback:</div>
                                         {historyEntry.generalComments}
                                       </div>
                                     )}
@@ -1685,7 +1685,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     {(historyEntry.sectionComments || historyEntry.contentComments || []).length > 0 && (
                                       <div className="space-y-2">
                                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                                          评论 ({((historyEntry.sectionComments || []).length + (historyEntry.contentComments || []).length)})
+                                          Comments ({((historyEntry.sectionComments || []).length + (historyEntry.contentComments || []).length)})
                                         </div>
                                         {(historyEntry.sectionComments || historyEntry.contentComments || []).map((hc: any, hcIndex: number) => (
                                           <div key={hcIndex} className="text-xs text-slate-600 bg-amber-50/30 p-2 rounded border border-amber-100/50">
@@ -1699,7 +1699,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     {historyEntry.edits && historyEntry.edits.length > 0 && (
                                       <div className="space-y-2 mt-3 pt-3 border-t border-slate-200">
                                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                                          编辑建议 ({historyEntry.edits.length})
+                                          Edit Suggestions ({historyEntry.edits.length})
                                         </div>
                                         {parseHistoryEdits(historyEntry).map((editComment: Comment) => {
                                           // Determine style based on editType
@@ -1743,7 +1743,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                                       editComment.editType === 'delete' ? 'bg-red-100 text-red-700' :
                                                       editComment.editType === 'add' ? 'bg-green-100 text-green-700' : ''
                                                     }`}>
-                                                      {editComment.editType === 'modify' ? '修改' : editComment.editType === 'delete' ? '删除' : '新增'}
+                                                      {editComment.editType === 'modify' ? 'Modify' : editComment.editType === 'delete' ? 'Delete' : 'Add'}
                                                     </span>
                                                   )}
                                                 </div>
@@ -1923,9 +1923,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                     <div className="px-6 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
                       <span className="text-xs text-slate-400 flex items-center gap-2">
                         <Type size={12} />
-                        选中文本后可使用格式化工具
+                        Select text to use formatting tools
                       </span>
-                      <span className="text-xs text-slate-300">Markdown 编辑器</span>
+                      <span className="text-xs text-slate-300">Markdown Editor</span>
                     </div>
                     
                     {/* Editor Content Area - Larger blocks */}
@@ -2002,7 +2002,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                  }}
                                  onMouseUp={(e) => handleTextareaMouseUp(e, block.id)}
                                  className="w-full resize-none outline-none bg-transparent text-lg md:text-xl leading-relaxed text-slate-800 font-serif px-3 py-2 rounded-xl transition"
-                                 placeholder="输入内容，选中文本后会出现格式化工具..."
+                                 placeholder="Enter content, formatting tools will appear when text is selected..."
                                  style={{ 
                                    minHeight: '3em',
                                    overflow: 'hidden',
@@ -2020,7 +2020,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     onFocus={() => setEditingBlockId(block.id)}
                                     onBlur={() => setEditingBlockId(null)}
                                     className="w-full text-center text-sm text-slate-500 mt-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition"
-                                    placeholder="添加图片说明..." 
+                                    placeholder="Add image caption..." 
                                   />
                                </div>
                             )}
@@ -2033,7 +2033,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         onClick={() => setBlocks([...blocks, { id: Date.now().toString(), type: 'text', content: '' }])}
                       >
                          <Plus size={20} className="mr-2" />
-                         <span className="text-base">点击添加文本或拖拽图片到此处</span>
+                         <span className="text-base">Click to add text or drag images here</span>
                       </div>
                     </div>
                  </div>

@@ -50,7 +50,7 @@ function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Co
         comments.push({
           id: `section-${index}-${Date.now()}`,
           author: reviewer,
-          text: sc.targetId ? `[段落 ${sc.targetId}] ${sc.text}` : sc.text,
+          text: sc.targetId ? `[Paragraph ${sc.targetId}] ${sc.text}` : sc.text,
           timestamp,
           targetBlockId: sc.targetId || undefined
         });
@@ -91,7 +91,7 @@ function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Co
         comments.push({
           id: `title-${titleId}-${Date.now()}`,
           author: reviewer,
-          text: `[标题备注] ${note}`,
+          text: `[Title Note] ${note}`,
           timestamp
         });
       }
@@ -113,15 +113,15 @@ function parseClientComments(rawComments: any, draftBlocks?: ContentBlock[]): Co
         const newContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
         const oldPreview = typeof oldContent === 'string' ? oldContent.substring(0, 50) : String(oldContent).substring(0, 50);
         const newPreview = typeof newContent === 'string' ? newContent.substring(0, 50) : String(newContent).substring(0, 50);
-        editText = `[${oldPreview}${oldContent.length > 50 ? '...' : ''}] 标题修改`;
+        editText = `[${oldPreview}${oldContent.length > 50 ? '...' : ''}] Title Modification`;
       } else if (actionType === 'delete') {
         const deletedContent = edit.original_content?.content || edit.original_content?.title || JSON.stringify(edit.original_content);
         const deletePreview = typeof deletedContent === 'string' ? deletedContent.substring(0, 50) : String(deletedContent).substring(0, 50);
-        editText = `[${deletePreview}${deletedContent.length > 50 ? '...' : ''}] 删除建议`;
+        editText = `[${deletePreview}${deletedContent.length > 50 ? '...' : ''}] Deletion Suggestion`;
       } else if (actionType === 'add') {
         const addedContent = edit.suggested_content?.content || edit.suggested_content?.title || JSON.stringify(edit.suggested_content);
         const addPreview = typeof addedContent === 'string' ? addedContent.substring(0, 50) : String(addedContent).substring(0, 50);
-        editText = `[新增内容] ${addPreview}${addedContent.length > 50 ? '...' : ''}`;
+        editText = `[New Content] ${addPreview}${addedContent.length > 50 ? '...' : ''}`;
       }
       
       if (editText) {
@@ -258,13 +258,13 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
       if (articleError) {
         console.error('Error fetching article:', articleError);
-        setError(`获取文章失败：${articleError.message}`);
+        setError(`Failed to fetch article: ${articleError.message}`);
         setIsLoading(false);
         return;
       }
 
       if (!articleData) {
-        setError('文章不存在');
+        setError('Article does not exist');
         setIsLoading(false);
         return;
       }
@@ -326,13 +326,13 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
       if (campaignError) {
         console.error('Error fetching campaign:', campaignError);
-        setError(`获取 Campaign 失败：${campaignError.message}`);
+        setError(`Failed to fetch Campaign: ${campaignError.message}`);
         setIsLoading(false);
         return;
       }
 
       if (!campaignData) {
-        setError('Campaign 不存在');
+        setError('Campaign does not exist');
         setIsLoading(false);
         return;
       }
@@ -363,7 +363,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       setCampaign(mappedCampaign);
     } catch (err) {
       console.error('Unexpected error loading data:', err);
-      setError(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -378,7 +378,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       <div className="flex flex-col h-screen bg-slate-50 items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-slate-500">加载中...</p>
+          <p className="text-slate-500">Loading...</p>
         </div>
       </div>
     );
@@ -390,18 +390,18 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         <header className="bg-white border-b border-slate-200 px-6 py-4">
           <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition">
             <ArrowLeft size={16} />
-            <span className="text-sm font-medium">返回</span>
+            <span className="text-sm font-medium">Back</span>
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-md">
-            <p className="text-red-600 font-medium mb-2">加载失败</p>
-            <p className="text-red-500 text-sm mb-4">{error || '数据不存在'}</p>
+            <p className="text-red-600 font-medium mb-2">Failed to Load</p>
+            <p className="text-red-500 text-sm mb-4">{error || 'Data does not exist'}</p>
             <button 
               onClick={loadData} 
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
             >
-              重试
+              Retry
             </button>
           </div>
         </div>
@@ -474,7 +474,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
       if (error) {
         console.error('Error updating article:', error);
-        showToast(`更新文章失败：${error.message}`, 'error');
+        showToast(`Failed to update article: ${error.message}`, 'error');
         return;
       }
 
@@ -482,7 +482,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       await loadData();
     } catch (err) {
       console.error('Unexpected error updating article:', err);
-      showToast(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showToast(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -495,9 +495,9 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       setModalConfig({
         isOpen: true,
         type: 'warning',
-        title: '无法批准',
-        message: '没有可批准的标题',
-        confirmText: '确定'
+        title: 'Cannot Approve',
+        message: 'No titles available to approve',
+        confirmText: 'OK'
       });
       return;
     }
@@ -508,9 +508,9 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       setModalConfig({
         isOpen: true,
         type: 'warning',
-        title: '无法批准',
-        message: '没有有效的标题可以批准',
-        confirmText: '确定'
+        title: 'Cannot Approve',
+        message: 'No valid titles available to approve',
+        confirmText: 'OK'
       });
       return;
     }
@@ -518,15 +518,15 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     setModalConfig({
       isOpen: true,
       type: 'warning',
-      title: '确认批准',
+      title: 'Confirm Approval',
       message: (
         <div className="space-y-2">
-          <p>确定要批准所有 <span className="font-bold text-slate-900">{titlesToApprove.length}</span> 个标题吗？</p>
-          <p className="text-sm text-slate-500">这将创建 {titlesToApprove.length} 篇独立的文章，每篇进入 "Needs Outline" 状态。</p>
+          <p>Are you sure you want to approve all <span className="font-bold text-slate-900">{titlesToApprove.length}</span> titles?</p>
+          <p className="text-sm text-slate-500">This will create {titlesToApprove.length} independent articles, each entering "Needs Outline" status.</p>
         </div>
       ),
       showCancel: true,
-      confirmText: '确认批准',
+      confirmText: 'Confirm Approval',
       onConfirm: async () => {
         try {
           console.log('📝 Client Approved Titles - Starting forking process...');
@@ -554,9 +554,9 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
             setModalConfig({
               isOpen: true,
               type: 'error',
-              title: '创建文章失败',
+              title: 'Failed to Create Articles',
               message: insertError.message,
-              confirmText: '关闭'
+              confirmText: 'Close'
             });
             return;
           }
@@ -576,17 +576,17 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
           setModalConfig({
             isOpen: true,
             type: 'success',
-            title: '批准成功',
+            title: 'Approval Successful',
             message: (
               <div className="space-y-3">
                  <div className="flex items-center gap-2 text-green-700 font-medium">
-                   <p>✅ 成功批准 {titlesToApprove.length} 个标题！</p>
+                   <p>✅ Successfully approved {titlesToApprove.length} titles!</p>
                  </div>
-                 <p className="text-slate-600">已创建 <span className="font-bold">{titlesToApprove.length}</span> 篇新文章，请返回 Campaign 查看。</p>
+                 <p className="text-slate-600">Created <span className="font-bold">{titlesToApprove.length}</span> new articles. Please return to Campaign to view them.</p>
               </div>
             ),
             showCancel: false,
-            confirmText: '返回 Campaign',
+            confirmText: 'Back to Campaign',
             onConfirm: () => {
                closeModal();
                onBack();
@@ -598,9 +598,9 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
           setModalConfig({
             isOpen: true,
             type: 'error',
-            title: '操作失败',
-            message: `发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`,
-            confirmText: '关闭'
+            title: 'Operation Failed',
+            message: `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            confirmText: 'Close'
           });
         }
       }
@@ -652,7 +652,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
       if (error) {
         console.error('Error updating article status:', error);
-        showToast(`更新状态失败：${error.message}`, 'error');
+        showToast(`Failed to update status: ${error.message}`, 'error');
         return;
       }
 
@@ -660,7 +660,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       await loadData();
     } catch (err) {
       console.error('Unexpected error in force approve:', err);
-      showToast(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showToast(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -822,18 +822,18 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
                
                {/* Client Approved Button - Skip client review */}
                <div className="mt-6 pt-6 border-t border-slate-100">
-                 <p className="text-xs text-slate-400 mb-3">或者跳过客户审核：</p>
+                 <p className="text-xs text-slate-400 mb-3">Or skip client review:</p>
                  <button 
                    onClick={isTitleReviewStage() ? handleClientApprovedTitles : handleForceApprove}
                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-600/20"
                  >
                    <CheckCircle size={20} />
-                   {isTitleReviewStage() ? 'Client Approved (批准所有标题)' : 'Client Approved'}
+                   {isTitleReviewStage() ? 'Client Approved (Approve All Titles)' : 'Client Approved'}
                  </button>
                  <p className="text-[10px] text-slate-400 mt-2">
                    {isTitleReviewStage() 
-                     ? `将批准 ${article.proposedTitles?.length || 0} 个标题并创建对应文章` 
-                     : '模拟客户批准，直接进入下一阶段'}
+                     ? `Will approve ${article.proposedTitles?.length || 0} titles and create corresponding articles` 
+                     : 'Simulate client approval, proceed directly to next stage'}
                  </p>
                </div>
              </div>
@@ -855,7 +855,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
                 onClick={closeModal}
                 className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
               >
-                取消
+                Cancel
               </button>
             )}
             <button
@@ -873,7 +873,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
                 'bg-indigo-600 hover:bg-indigo-700'
               }`}
             >
-              {modalConfig.confirmText || '确定'}
+              {modalConfig.confirmText || 'OK'}
             </button>
           </>
         }

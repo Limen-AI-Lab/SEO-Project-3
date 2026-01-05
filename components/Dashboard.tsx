@@ -150,7 +150,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       const invalidClients = selectedClients.filter(c => !uuidRegex.test(c.id));
       
       if (invalidClients.length > 0) {
-        showAlert('客户 ID 无效', '部分选中的客户 ID 格式无效。请确保客户数据已同步到数据库，并先在"Clients"页面创建客户。', 'error');
+        showAlert('Invalid Client ID', 'Some selected client IDs have invalid format. Please ensure client data is synced to the database and create clients in the "Clients" page first.', 'error');
         return;
       }
 
@@ -190,13 +190,13 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
       // If new method failed, it means migration hasn't been run
       // Show error message to user
-      showAlert('数据库迁移未完成', '请在 Supabase SQL Editor 中运行迁移脚本。详情请查看控制台。', 'error');
+      showAlert('Database Migration Incomplete', 'Please run the migration script in Supabase SQL Editor. See console for details.', 'error');
       console.error('Campaign creation failed: campaign_clients table not found or client_id column still exists.');
       console.log('Please run the database migration script in Supabase.');
       return;
     } catch (err) {
       console.error('Unexpected error creating campaign:', err);
-      showAlert('创建失败', `发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}。请检查控制台获取更多信息。`, 'error');
+      showAlert('Creation Failed', `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}. Please check console for more information.`, 'error');
     }
   };
 
@@ -242,7 +242,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   const handleGenerateKeywords = async () => {
     if (!campName && !strategy) {
-      showAlert('缺少信息', '请先填写 Campaign Name 和 Strategy Goals，以便 AI 有足够的上下文生成关键词。', 'warning');
+      showAlert('Missing Information', 'Please fill in Campaign Name and Strategy Goals first so AI has enough context to generate keywords.', 'warning');
       return;
     }
     setIsGeneratingKeywords(true);
@@ -270,7 +270,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   const handleDeleteClient = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    showConfirm('删除客户', '确定要删除此客户吗？此操作无法撤销。', () => {
+    showConfirm('Delete Client', 'Are you sure you want to delete this client? This action cannot be undone.', () => {
       deleteClient(id);
       setAvailableClients(getClients());
       setSelectedClients(selectedClients.filter(c => c.id !== id));
@@ -333,7 +333,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   const handleEditGenerateKeywords = async () => {
     if (!editCampName && !editStrategy) {
-      showAlert('缺少信息', '请先填写 Campaign Name 和 Strategy Goals，以便 AI 有足够的上下文生成关键词。', 'warning');
+      showAlert('Missing Information', 'Please fill in Campaign Name and Strategy Goals first so AI has enough context to generate keywords.', 'warning');
       return;
     }
     setIsEditGeneratingKeywords(true);
@@ -369,7 +369,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       closeEditModal();
     } catch (err) {
       console.error('Error saving campaign:', err);
-      showAlert('保存失败', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showAlert('Save Failed', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {
       setIsSavingEdit(false);
     }
@@ -419,7 +419,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       closeEditModal();
     } catch (err) {
       console.error('Error deleting campaign:', err);
-      showAlert('删除失败', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showAlert('Delete Failed', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {
       setIsDeletingCampaign(false);
     }
@@ -430,11 +430,11 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
     
     const articleCount = articleCounts[editingCampaign.id] || 0;
     const confirmMsg = articleCount > 0 
-      ? `此操作将同时删除该 Campaign 下的 ${articleCount} 篇文章，且无法恢复！`
-      : '此操作无法恢复！';
+      ? `This will also delete ${articleCount} articles under this Campaign, and cannot be recovered!`
+      : 'This action cannot be undone!';
     
     showConfirm(
-      `删除 "${editingCampaign.name}"`,
+      `Delete "${editingCampaign.name}"`,
       confirmMsg,
       executeDeleteCampaign,
       'error'
@@ -564,7 +564,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                       title="Edit Campaign"
                     >
                       <Pencil size={12} />
-                      编辑
+                      Edit
                     </button>
                     <div onClick={(e) => e.stopPropagation()} className="ml-2">
                        <select
@@ -583,7 +583,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                            } catch (err) {
                              console.error('Failed to update CMS ID', err);
                              // Revert on error (could refetch or just let user know)
-                             showAlert('更新失败', '无法更新 CMS ID。请检查控制台获取更多信息。', 'error');
+                             showAlert('Update Failed', 'Unable to update CMS ID. Please check console for more information.', 'error');
                            }
                          }}
                          className="px-2 py-1 rounded border border-slate-300 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50 bg-white shadow-sm"
@@ -690,7 +690,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     
                     {selectedClients.length === 0 && (
                       <span className="text-slate-400 text-sm py-1">
-                        {availableClients.length === 0 ? '请先在 Clients 页面创建客户' : 'Select Client(s)...'}
+                        {availableClients.length === 0 ? 'Please create clients in Clients page first' : 'Select Client(s)...'}
                       </span>
                     )}
 
@@ -752,9 +752,9 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                         
                         {filteredClients.length === 0 && !clientSearchTerm && availableClients.length === 0 && (
                           <div className="px-4 py-3 text-sm text-center">
-                            <div className="text-slate-500 mb-2 font-medium">数据库中还没有客户</div>
+                            <div className="text-slate-500 mb-2 font-medium">No clients in database yet</div>
                             <div className="text-slate-400 text-xs">
-                              请先在 "Clients" 页面创建客户，然后才能创建 Campaign。
+                              Please create clients in "Clients" page first before creating a Campaign.
                             </div>
                           </div>
                         )}
@@ -888,7 +888,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 onClick={handleCreateCampaign}
                 disabled={!campName || selectedClients.length === 0 || availableClients.length === 0}
                 className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:shadow-none transition flex items-center gap-2"
-                title={availableClients.length === 0 ? '请先在 Clients 页面创建客户' : ''}
+                title={availableClients.length === 0 ? 'Please create clients in Clients page first' : ''}
               >
                 <Plus size={18} />
                 Start Campaign
@@ -903,7 +903,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-lg font-bold text-slate-900">编辑 Campaign</h3>
+              <h3 className="text-lg font-bold text-slate-900">Edit Campaign</h3>
               <button 
                 onClick={closeEditModal}
                 className="text-slate-400 hover:text-slate-600 transition p-1 hover:bg-slate-100 rounded-full"
@@ -951,7 +951,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     
                     {editSelectedClients.length === 0 && (
                       <span className="text-slate-400 text-sm py-1">
-                        {availableClients.length === 0 ? '请先在 Clients 页面创建客户' : 'Select Client(s)...'}
+                        {availableClients.length === 0 ? 'Please create clients in Clients page first' : 'Select Client(s)...'}
                       </span>
                     )}
 
@@ -1003,9 +1003,9 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                         
                         {filteredEditClients.length === 0 && !editClientSearchTerm && availableClients.length === 0 && (
                           <div className="px-4 py-3 text-sm text-center">
-                            <div className="text-slate-500 mb-2 font-medium">数据库中还没有客户</div>
+                            <div className="text-slate-500 mb-2 font-medium">No clients in database yet</div>
                             <div className="text-slate-400 text-xs">
-                              请先在 "Clients" 页面创建客户。
+                              Please create clients in "Clients" page first.
                             </div>
                           </div>
                         )}
@@ -1122,7 +1122,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 ) : (
                   <Trash2 size={16} />
                 )}
-                删除 Campaign
+                Delete Campaign
               </button>
 
               {/* Cancel and Save on the right */}
@@ -1144,7 +1144,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   ) : (
                     <Check size={18} />
                   )}
-                  保存
+                  Save
                 </button>
               </div>
             </div>
@@ -1164,7 +1164,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
             onClick={() => setAlertModal({ ...alertModal, isOpen: false })}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition"
           >
-            确定
+            OK
           </button>
         }
       >
@@ -1185,7 +1185,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
               className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg border border-slate-200 transition"
             >
-              取消
+              Cancel
             </button>
             <button
               onClick={() => {
@@ -1198,7 +1198,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   : 'bg-amber-600 text-white hover:bg-amber-700'
               }`}
             >
-              确定
+              OK
             </button>
           </>
         }

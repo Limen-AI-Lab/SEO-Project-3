@@ -70,13 +70,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
 
         if (campaignError) {
           console.error('Error fetching campaign:', campaignError);
-          setError(`获取 Campaign 失败：${campaignError.message}`);
+          setError(`Failed to fetch Campaign: ${campaignError.message}`);
           setIsLoading(false);
           return;
         }
 
         if (!campaignData) {
-          setError('Campaign 不存在');
+          setError('Campaign does not exist');
           setIsLoading(false);
           return;
         }
@@ -125,7 +125,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       }
     } catch (err) {
       console.error('Unexpected error loading data:', err);
-      setError(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -214,7 +214,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
 
         if (error) {
           console.error('Error creating article:', error);
-          alert(`创建文章失败：${error.message}`);
+          alert(`Failed to create article: ${error.message}`);
           return;
         }
 
@@ -223,7 +223,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
         }
       } catch (err) {
         console.error('Unexpected error creating article:', err);
-        alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+        alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       } finally {
         setIsCreatingArticle(false);
       }
@@ -255,7 +255,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
 
       if (error) {
         console.error('Error creating article:', error);
-        alert(`创建文章失败：${error.message}`);
+        alert(`Failed to create article: ${error.message}`);
         return;
       }
 
@@ -265,7 +265,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       }
     } catch (err) {
       console.error('Unexpected error creating article:', err);
-      alert(`发生意外错误：${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsCreatingArticle(false);
     }
@@ -276,7 +276,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       <div className="p-8 max-w-7xl mx-auto flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-slate-500">加载中...</p>
+          <p className="text-slate-500">Loading...</p>
         </div>
       </div>
     );
@@ -290,13 +290,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
           <span className="text-sm font-medium">Back to Dashboard</span>
         </button>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <p className="text-red-600 font-medium mb-2">加载失败</p>
-          <p className="text-red-500 text-sm">{error || 'Campaign 不存在'}</p>
+          <p className="text-red-600 font-medium mb-2">Failed to Load</p>
+          <p className="text-red-500 text-sm">{error || 'Campaign does not exist'}</p>
           <button 
             onClick={loadData} 
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
           >
-            重试
+            Retry
           </button>
         </div>
       </div>

@@ -90,8 +90,8 @@ export const redeemInviteCode = async (
     const { data, error } = await supabase
       .rpc('redeem_invite_code', {
         input_code: code.toUpperCase(),
-        user_email: userEmail,
-        user_id: userId
+        p_user_email: userEmail,
+        p_user_id: userId
       });
     
     if (error) {

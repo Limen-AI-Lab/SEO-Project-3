@@ -93,6 +93,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         options: {
           // Email verification is required - redirect to dashboard after verification
           emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            invite_code: inviteCode
+          }
         },
       });
 

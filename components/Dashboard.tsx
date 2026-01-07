@@ -481,6 +481,9 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
   const totalCampaigns = campaigns.length;
   const activeArticles = articleTotals.active;
   const publishedArticles = articleTotals.published;
+  const maxQuota = userQuota?.max_quota ?? 10;
+  const calculatedRemaining = maxQuota - activeArticles;
+  console.log('---calculatedRemaining---', calculatedRemaining);
 
   const chartData = [
     { name: 'Active', value: activeArticles },
@@ -524,14 +527,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                <p className="text-3xl font-bold text-slate-900">{activeArticles}</p>
                <p className="text-lg text-slate-400">/ {userQuota?.max_quota ?? 10}</p>
              </div>
-             {userQuota && userQuota.remaining <= 0 && (
+             {userQuota && calculatedRemaining <= 0 && (
                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                  <AlertCircle size={12} />
                  Quota reached
                </p>
              )}
-             {userQuota && userQuota.remaining > 0 && userQuota.remaining <= 3 && (
-               <p className="text-xs text-amber-500 mt-1">{userQuota.remaining} remaining</p>
+             {userQuota && calculatedRemaining > 0 && calculatedRemaining <= 3 && (
+               <p className="text-xs text-amber-500 mt-1">{calculatedRemaining} remaining</p>
              )}
           </div>
           <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">

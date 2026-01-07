@@ -92,8 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password,
         options: {
           // Email verification is required - redirect to dashboard after verification
-          // emailRedirectTo: `${window.location.origin}/dashboard`,
-          emailRedirectTo: `https://seo-project-3.vercel.app/dashboard`,
+          emailRedirectTo: `${import.meta.env.VITE_APP_URL}/dashboard`,
           data: {
             invite_code: inviteCode
           }
@@ -129,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const resetPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${import.meta.env.VITE_APP_URL}/reset-password`,
       });
       return { error: error as Error | null };
     } catch (error) {

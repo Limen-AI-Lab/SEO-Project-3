@@ -90,16 +90,21 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
           const campaignIds = campaignsWithClients.map(c => c.id);
           const { data: articles, error: articlesError } = await supabase
             .from('articles')
-            .select('campaign_id, status')
+            .select('campaign_id, status, outline_content')
             .in('campaign_id', campaignIds);
           
           if (!articlesError && articles) {
-            // Count articles per campaign (excluding PUBLISHED)
+            // Count articles per campaign (excluding PUBLISHED and those without outline)
             const counts: Record<string, number> = {};
             campaignIds.forEach(id => counts[id] = 0);
             let activeTotal = 0;
             let publishedTotal = 0;
             articles.forEach(article => {
+              // Skip articles with empty or null outline_content
+              if (!article.outline_content || article.outline_content.trim() === '') {
+                return;
+              }
+
               const isPublished = !!article.status?.includes('PUBLISHED');
               if (isPublished) {
                 publishedTotal += 1;
@@ -516,7 +521,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
           <div>
              <p className="text-sm font-medium text-slate-500">Articles in Production</p>
              <div className="flex items-baseline gap-2 mt-1">
-               <p className="text-3xl font-bold text-slate-900">{userQuota?.used_count ?? activeArticles}</p>
+               <p className="text-3xl font-bold text-slate-900">{activeArticles}</p>
                <p className="text-lg text-slate-400">/ {userQuota?.max_quota ?? 10}</p>
              </div>
              {userQuota && userQuota.remaining <= 0 && (

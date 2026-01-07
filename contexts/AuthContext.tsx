@@ -92,7 +92,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password,
         options: {
           // Email verification is required - redirect to dashboard after verification
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          // emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `https://seo-project-3.vercel.app/dashboard`,
           data: {
             invite_code: inviteCode
           }

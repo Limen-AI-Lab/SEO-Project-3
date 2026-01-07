@@ -1271,6 +1271,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const isApproved = project.status === ProjectStatus.DRAFT_APPROVED;
   const isPublished = project.status === ProjectStatus.PUBLISHED;
+  
+  // 🔒 CMS 发布功能锁定控制
+  // 当前：全局锁定，防止测试用户误触
+  // 未来：可改为基于用户角色判断，如 !user?.isAdmin 或 !hasPermission('cms_publish')
+  const isCMSPublishLocked = true;
 
   if (isPublished) {
     return (
@@ -2289,12 +2294,20 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                    </div>
 
                    <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
-                      <button 
-                        onClick={handleSaveDraft}
-                        className="w-full py-2.5 text-slate-600 font-medium hover:bg-slate-50 rounded-lg border border-slate-200 transition text-sm hover:text-slate-900"
-                      >
-                        {isApproved ? 'Update Metadata' : 'Save Progress'}
-                      </button>
+                      {/* Update Metadata / Save Progress Button */}
+                      <div title={isApproved && isCMSPublishLocked ? 'Coming soon' : undefined}>
+                        <button 
+                          onClick={handleSaveDraft}
+                          disabled={isApproved && isCMSPublishLocked}
+                          className={`w-full py-2.5 font-medium rounded-lg border transition text-sm ${
+                            isApproved && isCMSPublishLocked
+                              ? 'text-slate-400 border-slate-200 bg-slate-50 cursor-not-allowed'
+                              : 'text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          {isApproved ? 'Update Metadata' : 'Save Progress'}
+                        </button>
+                      </div>
 
                       {!isApproved ? (
                         <button 
@@ -2314,23 +2327,30 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                               <p className="text-xs text-green-600">Client has approved this content.</p>
                            </div>
                            
-                           <button 
-                             onClick={handlePublishToCMS}
-                             disabled={isPublishing}
-                             className="w-full py-2.5 bg-green-600 text-white font-medium hover:bg-green-700 rounded-lg shadow-lg shadow-green-600/20 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                           >
-                             {isPublishing ? (
-                               <>
-                                 <RefreshCw size={16} className="animate-spin" />
-                                 Publishing...
-                               </>
-                             ) : (
-                               <>
-                                 <Globe size={16} />
-                                 Publish to CMS
-                               </>
-                             )}
-                           </button>
+                           {/* Publish to CMS Button */}
+                           <div title={isCMSPublishLocked ? 'Coming soon' : undefined}>
+                             <button 
+                               onClick={handlePublishToCMS}
+                               disabled={isPublishing || isCMSPublishLocked}
+                               className={`w-full py-2.5 font-medium rounded-lg shadow-lg transition flex items-center justify-center gap-2 text-sm disabled:cursor-not-allowed ${
+                                 isCMSPublishLocked
+                                   ? 'bg-slate-300 text-slate-500 shadow-slate-300/20'
+                                   : 'bg-green-600 text-white hover:bg-green-700 shadow-green-600/20 disabled:opacity-50'
+                               }`}
+                             >
+                               {isPublishing ? (
+                                 <>
+                                   <RefreshCw size={16} className="animate-spin" />
+                                   Publishing...
+                                 </>
+                               ) : (
+                                 <>
+                                   <Globe size={16} />
+                                   Publish to CMS
+                                 </>
+                               )}
+                             </button>
+                           </div>
                         </div>
                       )}
                    </div>

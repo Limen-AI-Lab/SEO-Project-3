@@ -13,7 +13,13 @@ export async function createCampaignWithClients(
   clientIds: string[]
 ): Promise<Campaign | null> {
   try {
-    // First create the campaign
+    // Get current user ID for RLS
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // First create the campaign with user_id
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .insert({
@@ -21,7 +27,8 @@ export async function createCampaignWithClients(
         strategy_goals: campaignData.strategyGoals || null,
         target_audience: campaignData.targetAudience || null,
         keywords: campaignData.keywords || [],
-        cms_id: campaignData.cmsId || null
+        cms_id: campaignData.cmsId || null,
+        user_id: user.id
       })
       .select()
       .single();

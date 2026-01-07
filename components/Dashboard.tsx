@@ -6,23 +6,29 @@ import { generateCampaignKeywords } from '../services/geminiService';
 import { generateCampaignReviewLink, copyToClipboard } from '../services/linkService';
 import { createCampaignWithClients, getAllCampaignsWithClients, updateCampaign, deleteCampaign, updateCampaignClients } from '../services/campaignService';
 import { getAllClientsWithContacts } from '../services/clientService';
+import { getUserArticleQuota, UserQuota } from '../services/inviteService';
+import { useAuth } from '../contexts/AuthContext';
 import supabase from '../services/supabaseClient.js';
 import CircularProgress from './CircularProgress';
 import Modal from './Modal';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ArrowRight, Plus, Search, X, Briefcase, Target, Users, Sparkles, Tag, ChevronDown, Check, Trash2, Link2, CheckCircle, Pencil, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Plus, Search, X, Briefcase, Target, Users, Sparkles, Tag, ChevronDown, Check, Trash2, Link2, CheckCircle, Pencil, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface Props {
   onSelectCampaign: (id: string) => void;
 }
 
 const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
+  const { user } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Article counts per campaign (fetched from Supabase)
   const [articleCounts, setArticleCounts] = useState<Record<string, number>>({});
   const [articleTotals, setArticleTotals] = useState<{ active: number; published: number }>({ active: 0, published: 0 });
+  
+  // 用户配额
+  const [userQuota, setUserQuota] = useState<UserQuota | null>(null);
   
   // Toast state for link copy feedback
   const [copyToast, setCopyToast] = useState<{ show: boolean; campaignId: string | null }>({ show: false, campaignId: null });
@@ -122,10 +128,16 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         // Fallback to local clients if Supabase fails
     setAvailableClients(getClients());
       }
+
+      // 获取用户配额
+      if (user?.id) {
+        const quota = await getUserArticleQuota(user.id);
+        setUserQuota(quota);
+      }
     };
 
     fetchData();
-  }, []);
+  }, [user?.id]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -142,14 +154,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
   }, []);
 
   const handleCreateCampaign = async () => {
-    if (!campName || selectedClients.length === 0) return;
+    if (!campName) return;
     
     try {
-      // Validate all selected client IDs are valid UUIDs
+      // Validate selected client IDs are valid UUIDs (only if clients are selected)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const invalidClients = selectedClients.filter(c => !uuidRegex.test(c.id));
       
-      if (invalidClients.length > 0) {
+      if (selectedClients.length > 0 && invalidClients.length > 0) {
         showAlert('Invalid Client ID', 'Some selected client IDs have invalid format. Please ensure client data is synced to the database and create clients in the "Clients" page first.', 'error');
         return;
       }
@@ -503,7 +515,19 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
           <div>
              <p className="text-sm font-medium text-slate-500">Articles in Production</p>
-             <p className="text-3xl font-bold text-slate-900 mt-1">{activeArticles}</p>
+             <div className="flex items-baseline gap-2 mt-1">
+               <p className="text-3xl font-bold text-slate-900">{userQuota?.used_count ?? activeArticles}</p>
+               <p className="text-lg text-slate-400">/ {userQuota?.max_quota ?? 10}</p>
+             </div>
+             {userQuota && userQuota.remaining <= 0 && (
+               <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                 <AlertCircle size={12} />
+                 Quota reached
+               </p>
+             )}
+             {userQuota && userQuota.remaining > 0 && userQuota.remaining <= 3 && (
+               <p className="text-xs text-amber-500 mt-1">{userQuota.remaining} remaining</p>
+             )}
           </div>
           <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
              <div className="text-lg font-bold">Aa</div>
@@ -886,9 +910,8 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               </button>
               <button 
                 onClick={handleCreateCampaign}
-                disabled={!campName || selectedClients.length === 0 || availableClients.length === 0}
+                disabled={!campName}
                 className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:shadow-none transition flex items-center gap-2"
-                title={availableClients.length === 0 ? 'Please create clients in Clients page first' : ''}
               >
                 <Plus size={18} />
                 Start Campaign

@@ -209,7 +209,9 @@ export enum ViewState {
   ARTICLE_WORKSPACE = 'ARTICLE_WORKSPACE',
   KEYWORD_DISCOVERY = 'KEYWORD_DISCOVERY',
   LIBRARY = 'LIBRARY',
-  CLIENTS = 'CLIENTS'
+  CLIENTS = 'CLIENTS',
+  INVITE_CODES = 'INVITE_CODES',
+  USERS = 'USERS'
 }
 
 // CMS Article interface for published content

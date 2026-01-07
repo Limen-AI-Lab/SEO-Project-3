@@ -1,18 +1,39 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import CampaignDetail from './CampaignDetail';
 import ProjectWorkspace from './ProjectWorkspace';
 import KeywordDiscovery from './KeywordDiscovery';
 import ClientManagement from './ClientManagement';
-import { Layout, BookOpen, User } from 'lucide-react';
+import InviteCodeManagement from './InviteCodeManagement';
+import UserManagement from './UserManagement';
+import { Layout, BookOpen, User, LogOut, Ticket, Users } from 'lucide-react';
 import { ViewState } from '../types';
 import { ToastProvider } from './Toast';
 import { ConfirmProvider } from './ConfirmDialog';
+import { useAuth } from '../contexts/AuthContext';
 
 const MainLayout: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, signOut, isAdminUser } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
+
+  // Get user initials from email
+  const getUserInitials = (email: string | undefined) => {
+    if (!email) return 'U';
+    const parts = email.split('@')[0];
+    if (parts.length >= 2) {
+      return parts.substring(0, 2).toUpperCase();
+    }
+    return parts.charAt(0).toUpperCase();
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   const handleSelectCampaign = (id: string) => {
     setSelectedCampaignId(id);
@@ -68,15 +89,50 @@ const MainLayout: React.FC = () => {
             <User size={18} />
             Clients
           </button>
+          
+          {/* 邀请码管理 - 仅管理员可见 */}
+          {isAdminUser && (
+            <button 
+              onClick={() => setCurrentView(ViewState.INVITE_CODES)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.INVITE_CODES ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Ticket size={18} />
+              Invite Codes
+            </button>
+          )}
+          
+          {/* 用户管理 - 仅管理员可见 */}
+          {isAdminUser && (
+            <button 
+              onClick={() => setCurrentView(ViewState.USERS)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.USERS ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Users size={18} />
+              Users
+            </button>
+          )}
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-4 py-2">
-            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">JD</div>
-            <div>
-              <p className="text-sm font-medium text-slate-900">John Doe</p>
-              <p className="text-xs text-slate-400">Agency Admin</p>
+          <div className="flex items-center justify-between px-4 py-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
+                {getUserInitials(user?.email)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate" title={user?.email || ''}>
+                  {user?.email || 'User'}
+                </p>
+                <p className="text-xs text-slate-400">{isAdminUser ? 'Admin' : 'Agency Admin'}</p>
+              </div>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0"
+              title="Sign Out"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
       </aside>
@@ -118,6 +174,18 @@ const MainLayout: React.FC = () => {
             <ClientManagement />
           </div>
         )}
+
+        {currentView === ViewState.INVITE_CODES && isAdminUser && (
+          <div className="h-full overflow-y-auto">
+            <InviteCodeManagement />
+          </div>
+        )}
+
+        {currentView === ViewState.USERS && isAdminUser && (
+          <div className="h-full overflow-y-auto">
+            <UserManagement />
+          </div>
+        )}
       </div>
         </div>
       </ConfirmProvider>
@@ -126,4 +194,3 @@ const MainLayout: React.FC = () => {
 };
 
 export default MainLayout;
-

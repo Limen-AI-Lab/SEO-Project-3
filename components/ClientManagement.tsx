@@ -197,13 +197,20 @@ const ClientManagement: React.FC = () => {
           await refetchClients();
         }
     } else {
-        // Create new client
+        // Create new client - get current user ID for RLS
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          alert('User not authenticated. Please log in again.');
+          return;
+        }
+
         const { data, error } = await supabase
           .from('clients')
           .insert({
             name: formData.name,
             tone_of_voice: formData.defaultTone || null,
-            strict_rules: formData.defaultRules || null
+            strict_rules: formData.defaultRules || null,
+            user_id: user.id
           })
           .select()
           .single();

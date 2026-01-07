@@ -3,11 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Campaign, Article, ProjectStatus, ARTICLE_STATUS, Client } from '../types';
 import supabase from '../services/supabaseClient.js';
 import { generateCampaignReviewLink, copyToClipboard } from '../services/linkService';
-import { getCampaignWithClients, addClientToCampaign, removeClientFromCampaign } from '../services/campaignService';
+import { getCampaignWithClients, addClientToCampaign, removeClientFromCampaign, updateCampaign } from '../services/campaignService';
 import { getAllClientsWithContacts } from '../services/clientService';
+import { canCreateArticle } from '../services/inviteService';
+import { useAuth } from '../contexts/AuthContext';
 import StatusBadge from './StatusBadge';
 import SelectWritingMethodModal from './SelectWritingMethodModal';
-import { ArrowLeft, Plus, Search, Target, Users, Tag, Link2, CheckCircle, Copy, X, Building, Trash2 } from 'lucide-react';
+import Modal from './Modal';
+import { ArrowLeft, Plus, Search, Target, Users, Tag, Link2, CheckCircle, Copy, X, Building, Trash2, AlertCircle, Pencil } from 'lucide-react';
 
 interface Props {
   campaignId: string;
@@ -17,6 +20,7 @@ interface Props {
 }
 
 const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, onKeywordDiscovery }) => {
+  const { user } = useAuth();
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,6 +39,19 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
 
   // Writing Method Modal State
   const [isWritingMethodModalOpen, setIsWritingMethodModalOpen] = useState(false);
+  
+  // 配额超限提示 Modal
+  const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+  const [quotaMessage, setQuotaMessage] = useState('');
+
+  // Inline edit states for Strategy, Audience, Keywords
+  const [isEditingStrategy, setIsEditingStrategy] = useState(false);
+  const [editingStrategyValue, setEditingStrategyValue] = useState('');
+  const [isEditingAudience, setIsEditingAudience] = useState(false);
+  const [editingAudienceValue, setEditingAudienceValue] = useState('');
+  const [isEditingKeywords, setIsEditingKeywords] = useState(false);
+  const [editingKeywordsValue, setEditingKeywordsValue] = useState<string[]>([]);
+  const [keywordInputValue, setKeywordInputValue] = useState('');
 
   // Handle copy campaign review link
   const handleCopyLink = async () => {
@@ -196,6 +213,16 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       // Topic Expansion Writing: Create article and navigate to Title Generation page
       if (isCreatingArticle) return;
       
+      // 检查配额
+      if (user?.id) {
+        const quotaCheck = await canCreateArticle(user.id);
+        if (!quotaCheck.allowed) {
+          setQuotaMessage(quotaCheck.message);
+          setIsQuotaModalOpen(true);
+          return;
+        }
+      }
+      
       setIsCreatingArticle(true);
       try {
         const defaultTopic = campaign?.name || 'New Article';
@@ -235,6 +262,16 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
     
     if (isCreatingArticle) return;
     
+    // 检查配额
+    if (user?.id) {
+      const quotaCheck = await canCreateArticle(user.id);
+      if (!quotaCheck.allowed) {
+        setQuotaMessage(quotaCheck.message);
+        setIsQuotaModalOpen(true);
+        return;
+      }
+    }
+    
     setIsCreatingArticle(true);
 
     try {
@@ -269,6 +306,76 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
     } finally {
       setIsCreatingArticle(false);
     }
+  };
+
+  // Edit handlers for Strategy
+  const handleStartEditStrategy = () => {
+    setEditingStrategyValue(campaign?.strategyGoals || '');
+    setIsEditingStrategy(true);
+  };
+
+  const handleSaveStrategy = async () => {
+    if (!campaign) return;
+    try {
+      const updated = await updateCampaign(campaign.id, { strategyGoals: editingStrategyValue });
+      if (updated) {
+        setCampaign({ ...campaign, strategyGoals: editingStrategyValue });
+      }
+    } catch (err) {
+      console.error('Failed to update strategy:', err);
+    }
+    setIsEditingStrategy(false);
+  };
+
+  // Edit handlers for Audience
+  const handleStartEditAudience = () => {
+    setEditingAudienceValue(campaign?.targetAudience || '');
+    setIsEditingAudience(true);
+  };
+
+  const handleSaveAudience = async () => {
+    if (!campaign) return;
+    try {
+      const updated = await updateCampaign(campaign.id, { targetAudience: editingAudienceValue });
+      if (updated) {
+        setCampaign({ ...campaign, targetAudience: editingAudienceValue });
+      }
+    } catch (err) {
+      console.error('Failed to update audience:', err);
+    }
+    setIsEditingAudience(false);
+  };
+
+  // Edit handlers for Keywords
+  const handleStartEditKeywords = () => {
+    setEditingKeywordsValue(campaign?.keywords || []);
+    setKeywordInputValue('');
+    setIsEditingKeywords(true);
+  };
+
+  const handleAddKeyword = () => {
+    const trimmed = keywordInputValue.trim();
+    if (trimmed && !editingKeywordsValue.includes(trimmed)) {
+      setEditingKeywordsValue([...editingKeywordsValue, trimmed]);
+    }
+    setKeywordInputValue('');
+  };
+
+  const handleRemoveKeyword = (keyword: string) => {
+    setEditingKeywordsValue(editingKeywordsValue.filter(k => k !== keyword));
+  };
+
+  const handleSaveKeywords = async () => {
+    if (!campaign) return;
+    try {
+      const updated = await updateCampaign(campaign.id, { keywords: editingKeywordsValue });
+      if (updated) {
+        setCampaign({ ...campaign, keywords: editingKeywordsValue });
+      }
+    } catch (err) {
+      console.error('Failed to update keywords:', err);
+    }
+    setIsEditingKeywords(false);
   };
 
   if (isLoading) {
@@ -389,31 +496,163 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
 
       {/* Campaign Context Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+         {/* Strategy Card */}
          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-indigo-600 font-bold text-sm uppercase tracking-wide">
-               <Target size={16} /> Strategy
-            </div>
-            <p className="text-slate-700 text-sm leading-relaxed">{campaign.strategyGoals || "No strategy defined."}</p>
-         </div>
-         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-indigo-600 font-bold text-sm uppercase tracking-wide">
-               <Users size={16} /> Audience
-            </div>
-            <p className="text-slate-700 text-sm leading-relaxed">{campaign.targetAudience || "General Audience"}</p>
-         </div>
-         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-3 text-indigo-600 font-bold text-sm uppercase tracking-wide">
-               <Tag size={16} /> Keywords
-            </div>
-            <div className="flex flex-wrap gap-2">
-               {campaign.keywords.length > 0 ? (
-                 campaign.keywords.map((k, i) => (
-                   <span key={i} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">{k}</span>
-                 ))
-               ) : (
-                 <span className="text-slate-400 text-sm italic">No keywords set.</span>
+            <div className="flex items-center justify-between mb-3">
+               <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide">
+                  <Target size={16} /> Strategy
+               </div>
+               {!isEditingStrategy && (
+                 <button
+                   onClick={handleStartEditStrategy}
+                   className="p-1 text-slate-400 hover:text-indigo-600 transition rounded"
+                   title="Edit strategy"
+                 >
+                   <Pencil size={14} />
+                 </button>
                )}
             </div>
+            {isEditingStrategy ? (
+              <textarea
+                autoFocus
+                value={editingStrategyValue}
+                onChange={(e) => setEditingStrategyValue(e.target.value)}
+                onBlur={handleSaveStrategy}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSaveStrategy();
+                  }
+                }}
+                className="w-full text-sm text-slate-700 border border-indigo-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                rows={3}
+                placeholder="Define your strategy goals..."
+              />
+            ) : (
+              <p className="text-slate-700 text-sm leading-relaxed">{campaign.strategyGoals || "No strategy defined."}</p>
+            )}
+         </div>
+
+         {/* Audience Card */}
+         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+               <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide">
+                  <Users size={16} /> Audience
+               </div>
+               {!isEditingAudience && (
+                 <button
+                   onClick={handleStartEditAudience}
+                   className="p-1 text-slate-400 hover:text-indigo-600 transition rounded"
+                   title="Edit audience"
+                 >
+                   <Pencil size={14} />
+                 </button>
+               )}
+            </div>
+            {isEditingAudience ? (
+              <textarea
+                autoFocus
+                value={editingAudienceValue}
+                onChange={(e) => setEditingAudienceValue(e.target.value)}
+                onBlur={handleSaveAudience}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSaveAudience();
+                  }
+                }}
+                className="w-full text-sm text-slate-700 border border-indigo-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                rows={3}
+                placeholder="Define your target audience..."
+              />
+            ) : (
+              <p className="text-slate-700 text-sm leading-relaxed">{campaign.targetAudience || "General Audience"}</p>
+            )}
+         </div>
+
+         {/* Keywords Card */}
+         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+               <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide">
+                  <Tag size={16} /> Keywords
+               </div>
+               {!isEditingKeywords && (
+                 <button
+                   onClick={handleStartEditKeywords}
+                   className="p-1 text-slate-400 hover:text-indigo-600 transition rounded"
+                   title="Edit keywords"
+                 >
+                   <Pencil size={14} />
+                 </button>
+               )}
+            </div>
+            {isEditingKeywords ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {editingKeywordsValue.map((k, i) => (
+                    <span key={i} className="px-2 py-1 bg-indigo-50 text-indigo-600 text-xs rounded-md flex items-center gap-1">
+                      {k}
+                      <button
+                        onClick={() => handleRemoveKeyword(k)}
+                        className="text-indigo-400 hover:text-red-500 transition"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={keywordInputValue}
+                  onChange={(e) => setKeywordInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddKeyword();
+                    }
+                  }}
+                  onBlur={() => {
+                    // Add the current input as keyword if not empty, then save
+                    if (keywordInputValue.trim()) {
+                      const trimmed = keywordInputValue.trim();
+                      if (!editingKeywordsValue.includes(trimmed)) {
+                        const newKeywords = [...editingKeywordsValue, trimmed];
+                        setEditingKeywordsValue(newKeywords);
+                        // Save with new keywords
+                        (async () => {
+                          if (!campaign) return;
+                          try {
+                            const updated = await updateCampaign(campaign.id, { keywords: newKeywords });
+                            if (updated) {
+                              setCampaign({ ...campaign, keywords: newKeywords });
+                            }
+                          } catch (err) {
+                            console.error('Failed to update keywords:', err);
+                          }
+                          setIsEditingKeywords(false);
+                        })();
+                        setKeywordInputValue('');
+                        return;
+                      }
+                    }
+                    handleSaveKeywords();
+                  }}
+                  className="w-full text-sm text-slate-700 border border-indigo-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Type keyword & press Enter..."
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                 {campaign.keywords.length > 0 ? (
+                   campaign.keywords.map((k, i) => (
+                     <span key={i} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">{k}</span>
+                   ))
+                 ) : (
+                   <span className="text-slate-400 text-sm italic">No keywords set.</span>
+                 )}
+              </div>
+            )}
          </div>
       </div>
 
@@ -609,6 +848,33 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
         onConfirm={handleMethodConfirm}
         onBlogWizard={handleBlogWizard}
       />
+
+      {/* 配额超限提示 Modal */}
+      <Modal
+        isOpen={isQuotaModalOpen}
+        onClose={() => setIsQuotaModalOpen(false)}
+        title="Article Limit Reached"
+        type="warning"
+        size="sm"
+        footer={
+          <button
+            onClick={() => setIsQuotaModalOpen(false)}
+            className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition"
+          >
+            OK
+          </button>
+        }
+      >
+        <div className="flex items-start gap-3">
+          <AlertCircle size={24} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-slate-700">{quotaMessage}</p>
+            <p className="text-sm text-slate-500 mt-2">
+              Contact support if you need to increase your article limit.
+            </p>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

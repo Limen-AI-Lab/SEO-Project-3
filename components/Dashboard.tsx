@@ -12,7 +12,7 @@ import supabase from '../services/supabaseClient.js';
 import CircularProgress from './CircularProgress';
 import Modal from './Modal';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ArrowRight, Plus, Search, X, Briefcase, Target, Users, Sparkles, Tag, ChevronDown, Check, Trash2, Link2, CheckCircle, Pencil, AlertTriangle, AlertCircle } from 'lucide-react';
+import { ArrowRight, Plus, Search, X, Briefcase, Target, Users, Sparkles, Tag, ChevronDown, Check, Trash2, Link2, CheckCircle, Pencil, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 
 interface Props {
   onSelectCampaign: (id: string) => void;
@@ -526,6 +526,13 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
              <div className="flex items-baseline gap-2 mt-1">
                <p className="text-3xl font-bold text-slate-900">{activeArticles}</p>
                <p className="text-lg text-slate-400">/ {userQuota?.max_quota ?? 10}</p>
+               <div className="relative group">
+                 <Info size={16} className="text-blue-500 cursor-help" />
+                 <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                   Counting rule: Article counting begins from the time the outline is generated.
+                   <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+                 </div>
+               </div>
              </div>
              {userQuota && calculatedRemaining <= 0 && (
                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">

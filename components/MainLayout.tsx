@@ -7,7 +7,7 @@ import KeywordDiscovery from './KeywordDiscovery';
 import ClientManagement from './ClientManagement';
 import InviteCodeManagement from './InviteCodeManagement';
 import UserManagement from './UserManagement';
-import { Layout, BookOpen, User, LogOut, Ticket, Users } from 'lucide-react';
+import { Layout, BookOpen, User, LogOut, Ticket, Users, Menu, X as CloseIcon } from 'lucide-react';
 import { ViewState } from '../types';
 import { ToastProvider } from './Toast';
 import { ConfirmProvider } from './ConfirmDialog';
@@ -19,6 +19,7 @@ const MainLayout: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Get user initials from email
   const getUserInitials = (email: string | undefined) => {
@@ -33,6 +34,15 @@ const MainLayout: React.FC = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const handleNavClick = (view: ViewState) => {
+    setCurrentView(view);
+    setIsMobileMenuOpen(false);
   };
 
   const handleSelectCampaign = (id: string) => {
@@ -62,9 +72,101 @@ const MainLayout: React.FC = () => {
   return (
     <ToastProvider>
       <ConfirmProvider>
-        <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
-          {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex-col hidden md:flex z-20">
+        <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-900 flex-col md:flex-row">
+          {/* Mobile Header */}
+          <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between z-30">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">I</div>
+              <span className="font-bold text-lg tracking-tight">Imprintly</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleSignOut}
+                className="p-2 text-slate-400 hover:text-slate-600"
+                title="Sign Out"
+              >
+                <LogOut size={20} />
+              </button>
+              <button 
+                onClick={toggleMobileMenu}
+                className="p-2 text-slate-600"
+              >
+                {isMobileMenuOpen ? <CloseIcon size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
+          </header>
+
+          {/* Mobile Menu Overlay */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden fixed inset-0 bg-slate-900/50 z-40 transition-opacity" onClick={() => setIsMobileMenuOpen(false)}>
+              <div 
+                className="absolute right-0 top-0 h-full w-64 bg-white shadow-xl flex flex-col p-6 animate-in slide-in-from-right duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-8">
+                  <span className="font-bold text-xl">Menu</span>
+                  <button onClick={() => setIsMobileMenuOpen(false)}>
+                    <CloseIcon size={24} className="text-slate-400" />
+                  </button>
+                </div>
+                <nav className="flex-1 space-y-2">
+                  <button 
+                    onClick={() => handleNavClick(ViewState.DASHBOARD)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.DASHBOARD || currentView === ViewState.CAMPAIGN_DETAIL || currentView === ViewState.ARTICLE_WORKSPACE ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <Layout size={18} />
+                    Dashboard
+                  </button>
+                  <button 
+                    onClick={() => handleNavClick(ViewState.CLIENTS)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.CLIENTS ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <User size={18} />
+                    Clients
+                  </button>
+                  {isAdminUser && (
+                    <button 
+                      onClick={() => handleNavClick(ViewState.INVITE_CODES)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.INVITE_CODES ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <Ticket size={18} />
+                      Invite Codes
+                    </button>
+                  )}
+                  {isAdminUser && (
+                    <button 
+                      onClick={() => handleNavClick(ViewState.USERS)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.USERS ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <Users size={18} />
+                      Users
+                    </button>
+                  )}
+                </nav>
+                <div className="pt-6 border-t border-slate-100">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
+                      {getUserInitials(user?.email)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{user?.email}</p>
+                      <p className="text-xs text-slate-400">{isAdminUser ? 'Admin' : 'Agency Admin'}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleSignOut}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-all"
+                  >
+                    <LogOut size={18} />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sidebar (Desktop) */}
+          <aside className="w-64 bg-white border-r border-slate-200 flex-col hidden md:flex z-20 flex-shrink-0">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">I</div>
           <span className="font-bold text-xl tracking-tight">Imprintly</span>

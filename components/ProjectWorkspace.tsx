@@ -2,13 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, Campaign, ARTICLE_STATUS, Comment, ContentBlock, ClientEdit, RevisionHistoryEntry } from '../types';
 import supabase from '../services/supabaseClient.js';
-import { ArrowLeft, Check, Lock, PlayCircle, ChevronRight, Home, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Check, Lock, PlayCircle, ChevronRight, Home, CheckCircle, Trash2 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import StageTitles from './StageTitles';
 import StageOutline from './StageOutline';
 import StageDraft from './StageDraft';
 import Modal from './Modal';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 
 /**
  * Parse client_comments from database (object format from Client Portal)
@@ -222,6 +223,7 @@ interface Props {
 
 const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
   const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [article, setArticle] = useState<Article | undefined>(undefined);
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -485,6 +487,39 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     } catch (err) {
       console.error('Unexpected error updating article:', err);
       showToast(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const handleDeleteArticle = async () => {
+    if (!article) return;
+
+    const confirmed = await confirm({
+      title: 'Delete Article',
+      message: `Are you sure you want to delete "${article.selectedTitle || article.title}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+
+    if (confirmed) {
+      try {
+        const { error } = await supabase
+          .from('articles')
+          .delete()
+          .eq('id', article.id);
+
+        if (error) {
+          console.error('Error deleting article:', error);
+          showToast(`Failed to delete article: ${error.message}`, 'error');
+          return;
+        }
+
+        showToast('Article deleted successfully', 'success');
+        onBack(); // Go back to campaign page
+      } catch (err) {
+        console.error('Unexpected error deleting article:', err);
+        showToast('An unexpected error occurred', 'error');
+      }
     }
   };
 
@@ -805,6 +840,13 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
                  </button>
                </>
             )}
+            <button 
+              onClick={handleDeleteArticle}
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"
+              title="Delete Article"
+            >
+              <Trash2 size={20} />
+            </button>
           </div>
         </div>
       </header>

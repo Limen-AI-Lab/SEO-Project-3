@@ -130,7 +130,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
             id: article.id,
             campaignId: article.campaign_id,
             title: article.title,
-            status: (article.status as ProjectStatus) || ARTICLE_STATUS.NEEDS_TITLES,
+            status: (article.status as unknown as ProjectStatus) || (ARTICLE_STATUS.NEEDS_TITLES as unknown as ProjectStatus),
             lastUpdated: article.last_updated ? new Date(article.last_updated) : new Date(article.created_at),
             proposedTitles: article.proposed_titles || [],
             selectedTitle: article.selected_title || undefined,
@@ -741,7 +741,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                     )}
                     <button 
                       onClick={(e) => handleDeleteArticle(e, article.id, article.selectedTitle || article.title)}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition opacity-0 group-hover:opacity-100"
+                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                       title="Delete Article"
                     >
                       <Trash2 size={18} />

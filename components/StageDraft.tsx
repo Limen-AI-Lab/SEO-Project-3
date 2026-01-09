@@ -1470,7 +1470,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
           <div className="flex-1 overflow-hidden relative bg-slate-50/30">
              {isLeftCollapsed ? (
                <div className="h-full w-full flex flex-col items-center py-6 gap-8">
-                 <div className="writing-vertical-rl text-slate-400 font-medium tracking-wide uppercase text-xs">Project Context</div>
+                 {/* Empty state when collapsed */}
                </div>
              ) : (
                <div className="h-full overflow-y-auto p-4 custom-scrollbar">

@@ -427,8 +427,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
         
         // Add markdown formatting based on type
         if (block.type === 'header') {
-          // Determine header level (simplified - assume H1 for now)
-          textContent = `# ${block.content}`;
+          // Determine header level from block.level, default to 1
+          const level = block.level || 1;
+          const prefix = '#'.repeat(level);
+          textContent = `${prefix} ${block.content}`;
         } else if (block.type === 'quote') {
           textContent = `> ${block.content}`;
         }
@@ -1030,13 +1032,15 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
             result.push({
               id: blockId,
               type: 'header',
-              content: line.replace(/^## /, '')
+              content: line.replace(/^## /, ''),
+              level: 2
             });
           } else if (line.startsWith('### ')) {
             result.push({
-              id: blockId,
+              id: blockId,  
               type: 'header',
-              content: line.replace(/^### /, '')
+              content: line.replace(/^### /, ''),
+              level: 3
             });
           } else if (line.startsWith('> ')) {
             result.push({
@@ -1063,7 +1067,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
         });
       }
     });
-    
     return result;
   };
 
@@ -1247,7 +1250,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     });
 
     return (
-      <div className="flex flex-col gap-4 max-w-2xl mx-auto py-8">
+      <div className="flex flex-col gap-3 max-w-2xl mx-auto pb-6">
         <div className="text-center mb-8">
           <h3 className="text-slate-400 uppercase tracking-widest text-xs font-bold">Article Flow</h3>
         </div>
@@ -1260,8 +1263,8 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                </div>
                {i < headers.length - 1 && <div className="w-0.5 h-6 bg-slate-200 group-hover:bg-indigo-200 transition"></div>}
              </div>
-             <div className={`flex-1 p-3 rounded-lg border ${h.level === 1 ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-slate-200'} shadow-sm`}>
-               <p className={`font-medium ${h.level === 1 ? 'text-indigo-900 text-lg' : 'text-slate-700'}`}>{h.text}</p>
+             <div className={`flex-1 px-3 py-2 rounded-lg border ${h.level === 1 ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-slate-200'} shadow-sm`}>
+               <p className={`font-medium ${h.level === 1 ? 'text-indigo-900 text-base' : 'text-slate-700 text-sm'}`}>{h.text}</p>
              </div>
           </div>
         ))}
@@ -2059,7 +2062,13 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                     >
                       {/* Header rendering */}
                       {block.type === 'header' && (
-                        <h2 className="text-2xl md:text-3xl font-bold font-sans text-slate-900 mb-2 mt-4">{block.content}</h2>
+                        block.level === 1 ? (
+                          <h1 className="text-3xl md:text-4xl font-bold font-sans text-slate-900 mb-2 mt-4">{block.content}</h1>
+                        ) : block.level === 3 ? (
+                          <h3 className="text-xl md:text-2xl font-bold font-sans text-slate-800 mb-2 mt-4">{block.content}</h3>
+                        ) : (
+                          <h2 className="text-2xl md:text-3xl font-bold font-sans text-slate-900 mb-2 mt-4">{block.content}</h2>
+                        )
                       )}
                       {/* Paragraph rendering */}
                       {block.type === 'paragraph' && (

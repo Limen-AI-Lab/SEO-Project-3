@@ -179,6 +179,7 @@ function applyClientEdits(originalBlocks: ContentBlock[] | undefined, edits: Cli
         id: edit.target_id,
         type: edit.suggested_content.type || modifiedBlocks[blockIndex].type,
         content: edit.suggested_content.content || edit.suggested_content.title || '',
+        level: edit.suggested_content.level,
         src: edit.suggested_content.src,
         caption: edit.suggested_content.caption
       };
@@ -195,6 +196,7 @@ function applyClientEdits(originalBlocks: ContentBlock[] | undefined, edits: Cli
         id: edit.target_id || `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         type: edit.suggested_content.type || 'paragraph',
         content: edit.suggested_content.content || edit.suggested_content.title || '',
+        level: edit.suggested_content.level,
         src: edit.suggested_content.src,
         caption: edit.suggested_content.caption
       };

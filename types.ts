@@ -141,6 +141,7 @@ export interface ContentBlock {
   id: string;
   type: 'header' | 'paragraph' | 'quote' | 'image';
   content: string;
+  level?: number;    // Added for headers: 1, 2, 3...
   src?: string;      // For images: URL or data URL
   caption?: string;  // For images: caption text
 }

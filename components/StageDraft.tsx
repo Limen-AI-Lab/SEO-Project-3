@@ -2228,7 +2228,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              <div className="flex-1 overflow-hidden relative bg-slate-50/30">
                {isRightCollapsed ? (
                   <div className="h-full w-full flex flex-col items-center py-6 gap-8">
-                    <div className="writing-vertical-rl text-slate-400 font-medium tracking-wide uppercase text-xs">CMS Settings</div>
+                    {/* <div className="writing-vertical-rl text-slate-400 font-medium tracking-wide uppercase text-xs">CMS Settings</div> */}
                   </div>
                ) : (
                  <div className="p-5 overflow-y-auto h-full flex flex-col custom-scrollbar">

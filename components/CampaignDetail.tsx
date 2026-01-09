@@ -7,6 +7,7 @@ import { getCampaignWithClients, addClientToCampaign, removeClientFromCampaign, 
 import { getAllClientsWithContacts } from '../services/clientService';
 import { canCreateArticle } from '../services/inviteService';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from './ConfirmDialog';
 import StatusBadge from './StatusBadge';
 import SelectWritingMethodModal from './SelectWritingMethodModal';
 import Modal from './Modal';
@@ -21,6 +22,7 @@ interface Props {
 
 const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, onKeywordDiscovery }) => {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -305,6 +307,39 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsCreatingArticle(false);
+    }
+  };
+
+  const handleDeleteArticle = async (e: React.MouseEvent, articleId: string, articleTitle: string) => {
+    e.stopPropagation(); // Prevent navigating to article
+
+    const confirmed = await confirm({
+      title: 'Delete Article',
+      message: `Are you sure you want to delete "${articleTitle}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+
+    if (confirmed) {
+      try {
+        const { error } = await supabase
+          .from('articles')
+          .delete()
+          .eq('id', articleId);
+
+        if (error) {
+          console.error('Error deleting article:', error);
+          alert(`Failed to delete article: ${error.message}`);
+          return;
+        }
+
+        // Update local state
+        setArticles(prev => prev.filter(a => a.id !== articleId));
+      } catch (err) {
+        console.error('Unexpected error deleting article:', err);
+        alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
     }
   };
 
@@ -704,6 +739,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                          {article.clientComments.length} Comments
                       </div>
                     )}
+                    <button 
+                      onClick={(e) => handleDeleteArticle(e, article.id, article.selectedTitle || article.title)}
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition opacity-0 group-hover:opacity-100"
+                      title="Delete Article"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                  </div>
                </div>
              ))

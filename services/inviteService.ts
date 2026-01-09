@@ -116,18 +116,27 @@ export const redeemInviteCode = async (
 export const getUserArticleQuota = async (userId: string): Promise<UserQuota | null> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_user_article_quota', { user_id: userId });
+      .from('user_quotas')
+      .select('used_articles_count, total_quota')
+      .eq('user_id', userId)
+      .single();
     
     if (error) {
       console.error('Error getting user quota:', error);
+      // If no quota record found, return default
+      if (error.code === 'PGRST116') {
+        return { used_count: 0, max_quota: 10, remaining: 10 };
+      }
       return null;
     }
-    
-    if (data && data.length > 0) {
+
+    if (data) {
+      const used = Number(data.used_articles_count || 0);
+      const total = Number(data.total_quota || 0);
       return {
-        used_count: Number(data[0].used_count),
-        max_quota: Number(data[0].max_quota),
-        remaining: Number(data[0].remaining)
+        used_count: used,
+        max_quota: total,
+        remaining: Math.max(0, total - used)
       };
     }
     
@@ -416,12 +425,15 @@ export const getAllUsersWithQuota = async (): Promise<UserWithQuota[]> => {
     const { data, error } = await supabase
       .rpc('get_all_users_with_quota');
     
-    if (error) {
-      console.error('Error fetching users with quota:', error);
-      return [];
+    if (data) {
+      return data.map((u: any) => ({
+        ...u,
+        used_count: Number(u.used_count || 0),
+        remaining: Number(u.remaining || 0)
+      }));
     }
     
-    return data || [];
+    return [];
   } catch (err) {
     console.error('Error fetching users with quota:', err);
     return [];
@@ -455,6 +467,27 @@ export const updateUserQuota = async (
   } catch (err) {
     console.error('Error updating user quota:', err);
     return { success: false, error_message: 'An error occurred' };
+  }
+};
+
+/**
+ * 增加用户已使用的文章数量
+ */
+export const incrementUserUsedCount = async (userId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // 调用数据库函数增加计数
+    const { error } = await supabase
+      .rpc('increment_user_used_count', { target_user_id: userId });
+    
+    if (error) {
+      console.error('Error incrementing user used count:', error);
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true };
+  } catch (err) {
+    console.error('Error incrementing user used count:', err);
+    return { success: false, error: 'An error occurred' };
   }
 };
 

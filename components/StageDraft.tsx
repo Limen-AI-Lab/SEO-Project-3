@@ -15,6 +15,8 @@ import { publishToCMS } from '../services/cmsService';
 import supabase from '../services/supabaseClient.js';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
+import { useAuth } from '../contexts/AuthContext';
+import { incrementUserUsedCount } from '../services/inviteService';
 
 /**
  * Parse revision history edits to Comment[] format for display
@@ -222,6 +224,7 @@ const MOCK_REFERENCES = [
 ];
 
 const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   // We maintain 'blocks' as internal state, sync to 'content' (markdown) on save
@@ -859,6 +862,13 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     if (draft) {
       setBlocks(parseMarkdownToBlocks(draft));
       onUpdate({ draftContent: draft });
+      
+      // Increment user used count after successful generation
+      if (user?.id) {
+        incrementUserUsedCount(user.id).catch(err => {
+          console.error('Failed to increment user used count:', err);
+        });
+      }
     }
     setIsGenerating(false);
   };

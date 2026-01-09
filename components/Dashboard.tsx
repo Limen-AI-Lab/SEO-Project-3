@@ -524,7 +524,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
           <div>
              <p className="text-sm font-medium text-slate-500">Articles in Production</p>
              <div className="flex items-baseline gap-2 mt-1">
-               <p className="text-3xl font-bold text-slate-900">{activeArticles}</p>
+               <p className="text-3xl font-bold text-slate-900">{userQuota?.used_count ?? 0}</p>
                <p className="text-lg text-slate-400">/ {userQuota?.max_quota ?? 10}</p>
                <div className="relative group">
                  <Info size={16} className="text-blue-500 cursor-help" />

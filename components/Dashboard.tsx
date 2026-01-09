@@ -392,68 +392,62 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
     }
   };
 
-  const executeDeleteCampaign = async () => {
-    if (!editingCampaign) return;
+  const handleListDeleteCampaign = (e: React.MouseEvent, camp: Campaign) => {
+    e.stopPropagation();
     
-    setIsDeletingCampaign(true);
-    try {
-      await deleteCampaign(editingCampaign.id);
-      
-      // Refetch all campaigns
-      const campaignsWithClients = await getAllCampaignsWithClients();
-      setCampaigns(campaignsWithClients);
-      
-      // Also refresh article counts
-      if (campaignsWithClients.length > 0) {
-        const campaignIds = campaignsWithClients.map(c => c.id);
-        const { data: articles, error: articlesError } = await supabase
-          .from('articles')
-          .select('campaign_id, status')
-          .in('campaign_id', campaignIds);
-        
-        if (!articlesError && articles) {
-          const counts: Record<string, number> = {};
-          campaignIds.forEach(id => counts[id] = 0);
-          let activeTotal = 0;
-          let publishedTotal = 0;
-          articles.forEach(article => {
-            const isPublished = !!article.status?.includes('PUBLISHED');
-            if (isPublished) {
-              publishedTotal += 1;
-            } else {
-              activeTotal += 1;
-              counts[article.campaign_id] = (counts[article.campaign_id] || 0) + 1;
-            }
-          });
-          setArticleCounts(counts);
-          setArticleTotals({ active: activeTotal, published: publishedTotal });
-        }
-      } else {
-        setArticleCounts({});
-        setArticleTotals({ active: 0, published: 0 });
-      }
-      
-      closeEditModal();
-    } catch (err) {
-      console.error('Error deleting campaign:', err);
-      showAlert('Delete Failed', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-    } finally {
-      setIsDeletingCampaign(false);
-    }
-  };
-
-  const handleDeleteCampaign = () => {
-    if (!editingCampaign) return;
-    
-    const articleCount = articleCounts[editingCampaign.id] || 0;
+    const articleCount = articleCounts[camp.id] || 0;
     const confirmMsg = articleCount > 0 
       ? `This will also delete ${articleCount} articles under this Campaign, and cannot be recovered!`
       : 'This action cannot be undone!';
     
     showConfirm(
-      `Delete "${editingCampaign.name}"`,
+      `Delete "${camp.name}"`,
       confirmMsg,
-      executeDeleteCampaign,
+      async () => {
+        setIsDeletingCampaign(true);
+        try {
+          await deleteCampaign(camp.id);
+          
+          // Refetch all campaigns
+          const campaignsWithClients = await getAllCampaignsWithClients();
+          setCampaigns(campaignsWithClients);
+          
+          // Also refresh article counts
+          if (campaignsWithClients.length > 0) {
+            const campaignIds = campaignsWithClients.map(c => c.id);
+            const { data: articles, error: articlesError } = await supabase
+              .from('articles')
+              .select('campaign_id, status')
+              .in('campaign_id', campaignIds);
+            
+            if (!articlesError && articles) {
+              const counts: Record<string, number> = {};
+              campaignIds.forEach(id => counts[id] = 0);
+              let activeTotal = 0;
+              let publishedTotal = 0;
+              articles.forEach(article => {
+                const isPublished = !!article.status?.includes('PUBLISHED');
+                if (isPublished) {
+                  publishedTotal += 1;
+                } else {
+                  activeTotal += 1;
+                  counts[article.campaign_id] = (counts[article.campaign_id] || 0) + 1;
+                }
+              });
+              setArticleCounts(counts);
+              setArticleTotals({ active: activeTotal, published: publishedTotal });
+            }
+          } else {
+            setArticleCounts({});
+            setArticleTotals({ active: 0, published: 0 });
+          }
+        } catch (err) {
+          console.error('Error deleting campaign:', err);
+          showAlert('Delete Failed', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+        } finally {
+          setIsDeletingCampaign(false);
+        }
+      },
       'error'
     );
   };
@@ -668,6 +662,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                          Link copied!
                        </span>
                      )}
+                   </button>
+
+                   <button
+                     onClick={(e) => handleListDeleteCampaign(e, camp)}
+                     className="p-2 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
+                     title="Delete Campaign"
+                   >
+                     <Trash2 size={18} />
                    </button>
                    
                    <ArrowRight className="text-slate-300 group-hover:text-indigo-600 transition" size={20} />
@@ -1148,43 +1150,27 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between">
-              {/* Delete Button on the left */}
-              <button 
-                onClick={handleDeleteCampaign}
-                disabled={isDeletingCampaign || isSavingEdit}
-                className="px-4 py-2 text-red-600 font-medium hover:bg-red-50 hover:shadow-sm rounded-lg border border-red-200 hover:border-red-300 transition flex items-center gap-2 disabled:opacity-50"
-              >
-                {isDeletingCampaign ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-red-600 rounded-full border-t-transparent"></div>
-                ) : (
-                  <Trash2 size={16} />
-                )}
-                Delete Campaign
-              </button>
-
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
               {/* Cancel and Save on the right */}
-              <div className="flex gap-3">
-                <button 
-                  onClick={closeEditModal}
-                  disabled={isSavingEdit || isDeletingCampaign}
-                  className="px-4 py-2 text-slate-600 font-medium hover:bg-white hover:shadow-sm rounded-lg border border-transparent hover:border-slate-200 transition disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleSaveEdit}
-                  disabled={!editCampName || editSelectedClients.length === 0 || isSavingEdit || isDeletingCampaign}
-                  className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:shadow-none transition flex items-center gap-2"
-                >
-                  {isSavingEdit ? (
-                    <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-                  ) : (
-                    <Check size={18} />
-                  )}
-                  Save
-                </button>
-              </div>
+              <button 
+                onClick={closeEditModal}
+                disabled={isSavingEdit || isDeletingCampaign}
+                className="px-4 py-2 text-slate-600 font-medium hover:bg-white hover:shadow-sm rounded-lg border border-transparent hover:border-slate-200 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveEdit}
+                disabled={!editCampName || editSelectedClients.length === 0 || isSavingEdit || isDeletingCampaign}
+                className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:shadow-none transition flex items-center gap-2"
+              >
+                {isSavingEdit ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
+                ) : (
+                  <Check size={18} />
+                )}
+                Save
+              </button>
             </div>
           </div>
         </div>

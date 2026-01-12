@@ -7,7 +7,7 @@ import { useToast } from './Toast';
 interface Props {
   project: Article;
   campaign?: Campaign; 
-  onUpdate: (updates: Partial<Article>) => void;
+  onUpdate: (updates: Partial<Article>) => Promise<void> | void;
 }
 
 interface KeywordTag {
@@ -130,12 +130,17 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
     setIsGenerating(false);
   };
 
-  const handleSaveDraft = () => {
-    onUpdate({ 
-      proposedTitles: titles.filter(t => t.trim() !== ''),
-      language: language,
-      tone: tone
-    });
+  const handleSaveDraft = async () => {
+    try {
+      await onUpdate({ 
+        proposedTitles: titles.filter(t => t.trim() !== ''),
+        language: language,
+        tone: tone
+      });
+      showToast("Progress saved successfully!", 'success');
+    } catch (error) {
+      console.error('Failed to save titles:', error);
+    }
   };
 
   const handleSubmit = async () => {
@@ -150,7 +155,7 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
       proposedTitles: validTitles,
       language: language,
       tone: tone,
-      status: ARTICLE_STATUS.AWAITING_REVIEW_TITLES // Use new status constant
+      status: ARTICLE_STATUS.AWAITING_REVIEW_TITLES as unknown as ProjectStatus // Use new status constant
     });
   };
 

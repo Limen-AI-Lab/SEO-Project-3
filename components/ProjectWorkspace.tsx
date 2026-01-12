@@ -248,8 +248,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     setError(null);
 
     try {
@@ -313,14 +313,10 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         coverImage: articleData.cover_image || undefined
       };
       
-      console.log('📝 Applied client edits:', {
-        originalBlocks: originalDraftBlocks?.length || 0,
-        editsCount: clientEdits.length,
-        modifiedBlocks: draftBlocksToUse?.length || 0
-      });
-      
       setArticle(mappedArticle);
 
+      // Only fetch campaign if we don't have it yet or it's a full refresh
+      if (!campaign || showLoading) {
       // Fetch campaign from Supabase (without client relationship)
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
@@ -365,11 +361,12 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         cmsId: campaignData.cms_id
       };
       setCampaign(mappedCampaign);
+      }
     } catch (err) {
       console.error('Unexpected error loading data:', err);
       setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
@@ -402,7 +399,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
             <p className="text-red-600 font-medium mb-2">Failed to Load</p>
             <p className="text-red-500 text-sm mb-4">{error || 'Data does not exist'}</p>
             <button 
-              onClick={loadData} 
+              onClick={() => loadData()} 
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
             >
               Retry
@@ -482,8 +479,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         return;
       }
 
-      // Reload data to get the latest state
-      await loadData();
+      // Reload data to get the latest state without full-page loading flash
+      await loadData(false);
     } catch (err) {
       console.error('Unexpected error updating article:', err);
       showToast(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -648,10 +645,10 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
    * Check if current status is title review stage
    */
   const isTitleReviewStage = () => {
-    const statusStr = typeof article?.status === 'string' ? article.status : '';
-    return statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES || 
-           statusStr === ProjectStatus.AWAITING_TITLE_APPROVAL ||
-           statusStr === 'AWAITING_REVIEW_TITLES';
+    const currentStatus = article?.status as unknown as string;
+    return currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_TITLES as string) || 
+           currentStatus === (ProjectStatus.AWAITING_TITLE_APPROVAL as unknown as string) ||
+           currentStatus === 'AWAITING_REVIEW_TITLES';
   };
 
   /**
@@ -661,24 +658,24 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     if (!article) return;
 
     try {
-      const statusStr = typeof article.status === 'string' ? article.status : article.status;
+      const currentStatus = article.status as unknown as string;
       
       // For title approval, use the forking function
-      if (statusStr === ProjectStatus.AWAITING_TITLE_APPROVAL || 
-          statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES ||
-          statusStr === 'AWAITING_REVIEW_TITLES') {
+      if (currentStatus === (ProjectStatus.AWAITING_TITLE_APPROVAL as unknown as string) || 
+          currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_TITLES as string) ||
+          currentStatus === 'AWAITING_REVIEW_TITLES') {
         await handleClientApprovedTitles();
         return;
       }
 
-      let nextStatus = statusStr;
+      let nextStatus = currentStatus;
 
       // DIRECT TRANSITION: From Outline Review to Drafting
-      if (statusStr === ProjectStatus.AWAITING_OUTLINE_APPROVAL || 
-          statusStr === ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE) {
+      if (currentStatus === (ProjectStatus.AWAITING_OUTLINE_APPROVAL as unknown as string) || 
+          currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE as string)) {
         nextStatus = ARTICLE_STATUS.OUTLINE_APPROVED;
-      } else if (statusStr === ProjectStatus.AWAITING_DRAFT_APPROVAL || 
-                 statusStr === ARTICLE_STATUS.AWAITING_REVIEW_DRAFT) {
+      } else if (currentStatus === (ProjectStatus.AWAITING_DRAFT_APPROVAL as unknown as string) || 
+                 currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_DRAFT as string)) {
         nextStatus = ARTICLE_STATUS.DRAFT_APPROVED;
       }
 
@@ -702,13 +699,13 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
   };
 
   const renderStage = () => {
-    const statusStr = typeof article.status === 'string' ? article.status : article.status;
+    const statusStr = article.status as unknown as string;
     
     // Stage 1: Titles (including title revision)
     if (
-      statusStr === ARTICLE_STATUS.NEEDS_TITLES ||
-      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES ||
-      statusStr === ARTICLE_STATUS.NEEDS_TITLES_REVISION ||
+      statusStr === (ARTICLE_STATUS.NEEDS_TITLES as string) ||
+      statusStr === (ARTICLE_STATUS.AWAITING_REVIEW_TITLES as string) ||
+      statusStr === (ARTICLE_STATUS.NEEDS_TITLES_REVISION as string) ||
       statusStr === 'NEEDS_TITLES' ||
       statusStr === 'AWAITING_REVIEW_TITLES' ||
       statusStr === 'NEEDS_TITLES_REVISION'
@@ -726,10 +723,10 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
     // Stage 2: Outline (after titles approved, including outline revision)
     if (
-      statusStr === ARTICLE_STATUS.TITLES_APPROVED ||
-      statusStr === ARTICLE_STATUS.NEEDS_OUTLINE ||
-      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE ||
-      statusStr === ARTICLE_STATUS.NEEDS_OUTLINE_REVISION ||
+      statusStr === (ARTICLE_STATUS.TITLES_APPROVED as string) ||
+      statusStr === (ARTICLE_STATUS.NEEDS_OUTLINE as string) ||
+      statusStr === (ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE as string) ||
+      statusStr === (ARTICLE_STATUS.NEEDS_OUTLINE_REVISION as string) ||
       statusStr === 'TITLES_APPROVED' ||
       statusStr === 'NEEDS_OUTLINE' ||
       statusStr === 'AWAITING_REVIEW_OUTLINE' ||
@@ -748,12 +745,12 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     // Stage 3: Draft (after outline approved, including draft revision)
     // Note: NEEDS_REVISION (deprecated) is kept for backward compatibility and treated as draft revision
     if (
-      statusStr === ARTICLE_STATUS.OUTLINE_APPROVED ||
-      statusStr === ARTICLE_STATUS.NEEDS_DRAFT ||
-      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_DRAFT ||
-      statusStr === ARTICLE_STATUS.DRAFT_APPROVED ||
-      statusStr === ARTICLE_STATUS.NEEDS_DRAFT_REVISION ||
-      statusStr === ARTICLE_STATUS.NEEDS_REVISION || // Deprecated, kept for backward compatibility
+      statusStr === (ARTICLE_STATUS.OUTLINE_APPROVED as string) ||
+      statusStr === (ARTICLE_STATUS.NEEDS_DRAFT as string) ||
+      statusStr === (ARTICLE_STATUS.AWAITING_REVIEW_DRAFT as string) ||
+      statusStr === (ARTICLE_STATUS.DRAFT_APPROVED as string) ||
+      statusStr === (ARTICLE_STATUS.NEEDS_DRAFT_REVISION as string) ||
+      statusStr === (ARTICLE_STATUS.NEEDS_REVISION as string) || // Deprecated, kept for backward compatibility
       statusStr === 'OUTLINE_APPROVED' ||
       statusStr === 'NEEDS_DRAFT' ||
       statusStr === 'AWAITING_REVIEW_DRAFT' ||
@@ -785,9 +782,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     );
   };
 
-  const isLocked = typeof article.status === 'string' 
-    ? article.status.includes('AWAITING') || article.status.includes('REVIEW')
-    : article.status.toString().includes('AWAITING');
+  const isLocked = (article.status as unknown as string).includes('AWAITING') || 
+                   (article.status as unknown as string).includes('REVIEW');
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">

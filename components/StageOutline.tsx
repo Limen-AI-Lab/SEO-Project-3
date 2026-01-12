@@ -15,7 +15,7 @@ import { useConfirm } from './ConfirmDialog';
 
 interface Props {
   project: Article;
-  onUpdate: (updates: Partial<Article>) => void;
+  onUpdate: (updates: Partial<Article>) => Promise<void> | void;
 }
 
 const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
@@ -154,17 +154,22 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
     onUpdate({ 
       outlineContent: outline,
       outlineSections: sections, // Structured data for Client Portal
-      status: ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE
+      status: ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE as unknown as ProjectStatus
     });
   };
 
-  const handleSaveDraft = () => {
-    // Save both markdown and structured data
-    const sections = parseMarkdownOutline(outline);
-    onUpdate({ 
-      outlineContent: outline,
-      outlineSections: sections 
-    });
+  const handleSaveDraft = async () => {
+    try {
+      // Save both markdown and structured data
+      const sections = parseMarkdownOutline(outline);
+      await onUpdate({ 
+        outlineContent: outline,
+        outlineSections: sections 
+      });
+      showToast("Progress saved successfully!", 'success');
+    } catch (error) {
+      console.error('Failed to save outline:', error);
+    }
   };
 
   const handleAiGenerate = async () => {

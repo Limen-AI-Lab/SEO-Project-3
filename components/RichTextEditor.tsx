@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+// @ts-ignore
 import { BubbleMenu } from '@tiptap/react/menus';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
@@ -36,10 +37,9 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
   ({ content, onChange, placeholder, className, hideCopy = false, fullWidth = false, editable = true }, ref) => {
   const BubbleMenuAny = BubbleMenu as any;
   const editorScrollRef = React.useRef<HTMLDivElement>(null);
-  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success'>('idle');
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{ top: number, left: number } | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top?: number, bottom?: number, left: number } | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -75,7 +75,22 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
           
           plusBtn.addEventListener('click', (e) => {
             const rect = plusBtn.getBoundingClientRect();
-            setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX });
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const threshold = 400; // Increased threshold
+            
+            if (spaceBelow < threshold) {
+              // Position above the button if space below is limited
+              setMenuPosition({ 
+                bottom: window.innerHeight - rect.top + 8, 
+                left: rect.left,
+              });
+            } else {
+              // Position below the button normally
+              setMenuPosition({ 
+                top: rect.bottom + 8, 
+                left: rect.left,
+              });
+            }
             setIsMenuExpanded(true);
           });
 
@@ -180,27 +195,6 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
     };
   }, [editor]);
 
-  // Handle Copy Actions
-  const handleCopy = async (type: 'md' | 'txt') => {
-    if (!editor) return;
-    
-    let textToCopy = '';
-    if (type === 'md') {
-      textToCopy = (editor.storage as any).markdown.getMarkdown();
-    } else {
-      textToCopy = editor.getText();
-    }
-
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      setCopyStatus('success');
-      setCopyMenuOpen(false);
-      setTimeout(() => setCopyStatus('idle'), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
   const addTable = () => {
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
@@ -242,12 +236,6 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
           </button>
           <div className="w-px h-4 bg-slate-700 mx-1" />
           <button 
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
-            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('heading', { level: 2 }) ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
-          >
-            <Heading2 size={14} />
-          </button>
-          <button 
             onClick={() => editor.chain().focus().toggleBulletList().run()} 
             className={`p-1.5 rounded-lg transition-colors ${editor.isActive('bulletList') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
           >
@@ -275,7 +263,8 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
           <div 
             className="fixed z-50 bg-white rounded-xl shadow-2xl border border-slate-200 w-56 py-2 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5 overflow-hidden"
             style={{ 
-              top: menuPosition.top + 8, 
+              top: menuPosition.top !== undefined ? menuPosition.top : 'auto',
+              bottom: menuPosition.bottom !== undefined ? menuPosition.bottom : 'auto',
               left: menuPosition.left,
               maxHeight: '400px',
               overflowY: 'auto'
@@ -370,18 +359,6 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
           <EditorContent editor={editor} />
         </div>
       </div>
-      
-      {/* Table Helper (visible when in a table) */}
-      {editor.isActive('table') && (
-        <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 flex items-center gap-4 animate-in slide-in-from-bottom-2">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Table Tools</span>
-          <div className="flex gap-2">
-            <button onClick={() => editor.chain().focus().addColumnAfter().run()} className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded hover:border-indigo-300 transition-colors">+ Column</button>
-            <button onClick={() => editor.chain().focus().addRowAfter().run()} className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded hover:border-indigo-300 transition-colors">+ Row</button>
-            <button onClick={() => editor.chain().focus().deleteTable().run()} className="text-[10px] bg-red-50 text-red-600 border border-red-100 px-2 py-1 rounded hover:bg-red-100 transition-colors">Delete Table</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 });

@@ -130,6 +130,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const [activeTab, setActiveTab] = useState<'outline' | 'feedback' | 'configuration'>('outline');
   const [showHistory, setShowHistory] = useState(false);
   const [showReferencePopup, setShowReferencePopup] = useState(false);
+  const [isRefineBarExpanded, setIsRefineBarExpanded] = useState(false);
 
   // --- Configuration State (Local UI only) ---
   const [articleRequirements, setArticleRequirements] = useState('');
@@ -1297,9 +1298,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
             
             {/* --- AI REFINE BAR (Multi-Modal) --- */}
             {!isApproved && (
-              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-xl px-4 z-20">
+              <div className={`absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 transition-all duration-300 ${isRefineBarExpanded ? 'w-full max-w-xl px-4' : 'w-12'}`}>
                 {/* AI Suggestion Card */}
-                {aiSuggestion && (
+                {aiSuggestion && isRefineBarExpanded && (
                   <div className="bg-white rounded-xl shadow-xl border border-indigo-200 p-4 mb-3 animate-in slide-in-from-bottom-5">
                     <div className="flex items-start gap-3">
                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700"><Sparkles size={18}/></div>
@@ -1318,51 +1319,78 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                   </div>
                 )}
 
-                <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-200 ring-1 ring-black/5 transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 relative">
-                   {/* Attached File Preview */}
-                   {attachedFile && (
-                     <div className="absolute -top-10 left-0 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-xs text-slate-700 animate-in slide-in-from-bottom-2">
-                        <ImageIcon size={12} className="text-indigo-600" />
-                        <span className="max-w-[150px] truncate font-medium">{attachedFile.name}</span>
-                        <button onClick={() => setAttachedFile(null)} className="hover:text-red-500 transition"><X size={12} /></button>
-                     </div>
-                   )}
+                {!isRefineBarExpanded ? (
+                  <button 
+                    onClick={() => setIsRefineBarExpanded(true)}
+                    className="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-indigo-600 hover:scale-110 transition-all group relative"
+                    title="Ask AI to refine"
+                  >
+                    <Sparkles size={20} className="group-hover:animate-pulse" />
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      Ask AI
+                    </div>
+                  </button>
+                ) : (
+                  <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-200 ring-1 ring-black/5 transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 relative">
+                     {/* Attached File Preview */}
+                     {attachedFile && (
+                       <div className="absolute -top-10 left-0 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-xs text-slate-700 animate-in slide-in-from-bottom-2">
+                          <ImageIcon size={12} className="text-indigo-600" />
+                          <span className="max-w-[150px] truncate font-medium">{attachedFile.name}</span>
+                          <button onClick={() => setAttachedFile(null)} className="hover:text-red-500 transition"><X size={12} /></button>
+                       </div>
+                     )}
 
-                   <div className="flex items-center gap-3">
-                      <div className="relative">
-                         <input 
-                            type="file" 
-                            hidden 
-                            ref={fileInputRef} 
-                            onChange={handleAiAttachment}
-                            accept="image/*,.pdf" 
-                         />
-                         <button 
-                            onClick={() => fileInputRef.current?.click()}
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${attachedFile ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200'}`}
-                            title="Attach File"
-                         >
-                            <Paperclip size={16} />
-                         </button>
-                      </div>
-                      
-                      <input 
-                         type="text" 
-                         value={refineInstruction}
-                         onChange={(e) => setRefineInstruction(e.target.value)}
-                         placeholder={attachedFile ? "Ask AI what to do with this file..." : "Ask AI to refine text..."}
-                         className="flex-1 text-sm bg-transparent border-none focus:ring-0 outline-none placeholder:text-slate-400 px-1"
-                         onKeyDown={(e) => e.key === 'Enter' && handleRefine()}
-                      />
-                      <button 
-                        onClick={handleRefine}
-                        disabled={isRefining || (!refineInstruction && !attachedFile)}
-                        className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
-                      >
-                        {isRefining ? 'Refining...' : 'Refine'}
-                      </button>
-                   </div>
-                </div>
+                     <div className="flex items-center gap-3">
+                        <div className="relative">
+                           <input 
+                              type="file" 
+                              hidden 
+                              ref={fileInputRef} 
+                              onChange={handleAiAttachment}
+                              accept="image/*,.pdf" 
+                           />
+                           <button 
+                              onClick={() => fileInputRef.current?.click()}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${attachedFile ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200'}`}
+                              title="Attach File"
+                           >
+                              <Paperclip size={16} />
+                           </button>
+                        </div>
+                        
+                        <input 
+                           type="text" 
+                           autoFocus
+                           value={refineInstruction}
+                           onChange={(e) => setRefineInstruction(e.target.value)}
+                           placeholder={attachedFile ? "Ask AI what to do with this file..." : "Ask AI to refine text..."}
+                           className="flex-1 text-sm bg-transparent border-none focus:ring-0 outline-none placeholder:text-slate-400 px-1"
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter') handleRefine();
+                             if (e.key === 'Escape') setIsRefineBarExpanded(false);
+                           }}
+                        />
+                        
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={handleRefine}
+                            disabled={isRefining || (!refineInstruction && !attachedFile)}
+                            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+                          >
+                            {isRefining ? 'Refining...' : 'Refine'}
+                          </button>
+                          <button 
+                            onClick={() => setIsRefineBarExpanded(false)}
+                            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+                            title="Collapse"
+                          >
+                            <ChevronDown size={18} />
+                          </button>
+                        </div>
+                     </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

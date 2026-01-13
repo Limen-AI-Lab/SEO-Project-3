@@ -18,7 +18,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { useAuth } from '../contexts/AuthContext';
 import { incrementUserUsedCount } from '../services/inviteService';
-import RichTextEditor from './RichTextEditor';
+import RichTextEditor, { RichTextEditorRef } from './RichTextEditor';
 
 /**
  * Parse revision history edits to Comment[] format for display
@@ -146,6 +146,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   // --- Draft Content State ---
   const [localDraftContent, setLocalDraftContent] = useState(project.draftContent || '');
+  const editorRef = useRef<RichTextEditorRef>(null);
+
+  // Copy Menu State
+  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'success'>('idle');
 
   // Update local content when project changes (from parent/database)
   useEffect(() => {
@@ -505,13 +510,23 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     }
   };
 
-  const handleCopyContent = async () => {
-    const md = project.draftContent || '';
+  const handleCopy = async (type: 'md' | 'txt') => {
+    let textToCopy = '';
+    
+    if (type === 'md') {
+      textToCopy = localDraftContent;
+          } else {
+      textToCopy = editorRef.current?.getPlainText() || localDraftContent.replace(/[#*`_~\[\]()]/g, ''); // Fallback strip
+    }
+
     try {
-      await navigator.clipboard.writeText(md);
-      showToast("Content copied to clipboard (Markdown format)", 'success');
+      await navigator.clipboard.writeText(textToCopy);
+      setCopyStatus('success');
+      setCopyMenuOpen(false);
+      showToast(`Content copied as ${type === 'md' ? 'Markdown' : 'Plain Text'}`, 'success');
+      setTimeout(() => setCopyStatus('idle'), 2000);
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      console.error('Failed to copy:', err);
       showToast("Copy failed", 'error');
     }
   };
@@ -537,10 +552,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     try {
       await onUpdate({ 
         draftContent: localDraftContent,
-        category: cmsId || '',
-        seoSummary: summary,
-        coverImage
-      });
+      category: cmsId || '',
+      seoSummary: summary,
+      coverImage
+    });
       showToast("Progress saved successfully!", 'success');
     } catch (error) {
       console.error('Failed to save draft:', error);
@@ -1104,13 +1119,49 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              
              <div className="flex items-center gap-2">
                
+               {/* Copy Content Dropdown moved from RichTextEditor */}
+               <div className="relative">
                <button 
-                 onClick={handleCopyContent} 
+                   onClick={() => setCopyMenuOpen(!copyMenuOpen)}
                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-indigo-600 transition"
-                 title="Copy Markdown"
                >
-                  <Copy size={14} /> Copy
+                    {copyStatus === 'success' ? <CheckCircle size={14} className="text-green-500" /> : <Copy size={14} />}
+                    {copyStatus === 'success' ? 'Copied!' : 'Copy'}
+                    <ChevronDown size={12} className={`transition-transform duration-200 ${copyMenuOpen ? 'rotate-180' : ''}`} />
                </button>
+                 
+                 {copyMenuOpen && (
+                   <>
+                     <div className="fixed inset-0 z-30" onClick={() => setCopyMenuOpen(false)} />
+                     <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-2xl border border-slate-100 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5">
+                       <button 
+                         onClick={() => handleCopy('md')} 
+                         className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors group text-left"
+                       >
+                         <div className="p-1 rounded bg-slate-100 group-hover:bg-indigo-100 transition-colors">
+                           <FileText size={14} />
+                         </div>
+                         <div className="flex flex-col items-start">
+                           <span className="font-medium">Markdown</span>
+                           <span className="text-[10px] text-slate-400 text-left">Preserve formatting</span>
+                         </div>
+                       </button>
+                       <button 
+                         onClick={() => handleCopy('txt')} 
+                         className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors group text-left"
+                       >
+                         <div className="p-1 rounded bg-slate-100 group-hover:bg-indigo-100 transition-colors">
+                           <Type size={14} />
+                         </div>
+                         <div className="flex flex-col items-start">
+                           <span className="font-medium">Plain Text</span>
+                           <span className="text-[10px] text-slate-400 text-left">Text only</span>
+                         </div>
+                       </button>
+                     </div>
+                   </>
+                 )}
+               </div>
                
                <button 
                  onClick={handleDownloadContent} 
@@ -1193,7 +1244,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
             {(viewMode === 'markdown' || !isFocusMode) ? (
               <div ref={editorScrollRef} className="flex-1 flex flex-col p-4 md:p-6 bg-slate-50/50 overflow-hidden">
                 <RichTextEditor 
+                  ref={editorRef}
                   content={localDraftContent} 
+                  hideCopy={true}
+                  fullWidth={isLeftCollapsed}
                   onChange={(markdown) => {
                     setLocalDraftContent(markdown);
                     // Debounce the update to database to avoid excessive network calls
@@ -1210,7 +1264,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
               /* Simplified Preview - still using TipTap for editing but with preview styling */
               <div className="flex-1 min-h-0 w-full p-4 md:p-8 bg-slate-50 overflow-y-auto">
                 <RichTextEditor 
+                  ref={editorRef}
                   content={localDraftContent} 
+                  hideCopy={true}
+                  fullWidth={true}
                   onChange={(markdown) => {
                     setLocalDraftContent(markdown);
                     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -1218,7 +1275,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                       onUpdate({ draftContent: markdown });
                     }, 1000);
                   }}
-                  className="mx-auto max-w-4xl shadow-lg border-slate-100 min-h-[800px]"
+                  className="mx-auto max-w-6xl shadow-lg border-slate-100 min-h-[800px]"
                   placeholder="Start writing..."
                 />
               </div>

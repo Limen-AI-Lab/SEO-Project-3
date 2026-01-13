@@ -22,9 +22,17 @@ interface RichTextEditorProps {
   onChange: (markdown: string) => void;
   placeholder?: string;
   className?: string;
+  hideCopy?: boolean;
+  fullWidth?: boolean;
 }
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, placeholder, className }) => {
+export interface RichTextEditorRef {
+  getMarkdown: () => string;
+  getPlainText: () => string;
+}
+
+const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
+  ({ content, onChange, placeholder, className, hideCopy = false, fullWidth = false }, ref) => {
   const BubbleMenuAny = BubbleMenu as any;
   const editorScrollRef = React.useRef<HTMLDivElement>(null);
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
@@ -120,6 +128,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
     },
   });
 
+  // Expose methods to parent
+  React.useImperativeHandle(ref, () => ({
+    getMarkdown: () => editor ? (editor.storage as any).markdown.getMarkdown() : '',
+    getPlainText: () => editor ? editor.getText() : ''
+  }));
+
   // Update editor content when prop changes (e.g., after AI generation)
   useEffect(() => {
     if (editor && content !== (editor.storage as any).markdown.getMarkdown()) {
@@ -193,120 +207,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
 
   return (
     <div className={`flex flex-col bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden group/editor ${className || 'h-full'}`}>
-      {/* Main Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-white sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 mr-2">
-            <button 
-              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} 
-              className={`p-1.5 rounded-md transition ${editor.isActive('heading', { level: 1 }) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              title="Heading 1"
-            >
-              <Heading1 size={16} />
-            </button>
-            <button 
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
-              className={`p-1.5 rounded-md transition ${editor.isActive('heading', { level: 2 }) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              title="Heading 2"
-            >
-              <Heading2 size={16} />
-            </button>
-            <button 
-              onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} 
-              className={`p-1.5 rounded-md transition ${editor.isActive('heading', { level: 3 }) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              title="Heading 3"
-            >
-              <Heading3 size={16} />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-0.5 mr-2">
-            <button 
-              onClick={() => editor.chain().focus().toggleBold().run()} 
-              className={`p-1.5 rounded-md hover:bg-slate-100 transition ${editor.isActive('bold') ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500'}`}
-              title="Bold"
-            >
-              <Bold size={16} />
-            </button>
-            <button 
-              onClick={() => editor.chain().focus().toggleItalic().run()} 
-              className={`p-1.5 rounded-md hover:bg-slate-100 transition ${editor.isActive('italic') ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500'}`}
-              title="Italic"
-            >
-              <Italic size={16} />
-            </button>
-            <button 
-              onClick={() => editor.chain().focus().toggleBulletList().run()} 
-              className={`p-1.5 rounded-md hover:bg-slate-100 transition ${editor.isActive('bulletList') ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500'}`}
-              title="Bullet List"
-            >
-              <List size={16} />
-            </button>
-          </div>
-
-          <div className="w-px h-4 bg-slate-200 mx-1" />
-          
-          <button 
-            onClick={addImage} 
-            className="p-1.5 rounded-md hover:bg-slate-100 transition text-slate-500 hover:text-indigo-600"
-            title="Insert Image"
-          >
-            <ImageIcon size={16} />
-          </button>
-          <button 
-            onClick={addTable} 
-            className="p-1.5 rounded-md hover:bg-slate-100 transition text-slate-500 hover:text-indigo-600"
-            title="Insert Table"
-          >
-            <TableIcon size={16} />
-          </button>
-        </div>
-
-        {/* Improved Copy Menu */}
-        <div className="relative">
-          <button 
-            onClick={() => setCopyMenuOpen(!copyMenuOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm"
-          >
-            {copyStatus === 'success' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-            {copyStatus === 'success' ? 'Copied!' : 'Copy Content'}
-            <ChevronDown size={12} className={`transition-transform duration-200 ${copyMenuOpen ? 'rotate-180' : ''}`} />
-          </button>
-          
-          {copyMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setCopyMenuOpen(false)} />
-              <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-2xl border border-slate-100 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5">
-                <button 
-                  onClick={() => handleCopy('md')} 
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors group"
-                >
-                  <div className="p-1 rounded bg-slate-100 group-hover:bg-indigo-100 transition-colors">
-                    <FileText size={14} />
-                  </div>
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Markdown</span>
-                    <span className="text-[10px] text-slate-400">Preserve formatting</span>
-                  </div>
-                </button>
-                <button 
-                  onClick={() => handleCopy('txt')} 
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors group"
-                >
-                  <div className="p-1 rounded bg-slate-100 group-hover:bg-indigo-100 transition-colors">
-                    <Type size={14} />
-                  </div>
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">Plain Text</span>
-                    <span className="text-[10px] text-slate-400">Text only</span>
-                  </div>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* Bubble Menu (appears on selection) */}
       <BubbleMenuAny editor={editor} tippyOptions={{ duration: 150 }}>
         <div className="flex items-center gap-0.5 bg-slate-900 text-white rounded-xl shadow-2xl p-1.5 border border-slate-700/50 backdrop-blur-md ring-1 ring-white/10">
@@ -330,6 +230,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
             <Heading2 size={14} />
           </button>
           <button 
+            onClick={() => editor.chain().focus().toggleBulletList().run()} 
+            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('bulletList') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
+          >
+            <List size={14} />
+          </button>
+          <button 
+            onClick={() => editor.chain().focus().toggleOrderedList().run()} 
+            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('orderedList') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
+          >
+            <ListOrdered size={14} />
+          </button>
+          <button 
             onClick={() => editor.chain().focus().toggleBlockquote().run()} 
             className={`p-1.5 rounded-lg transition-colors ${editor.isActive('blockquote') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
           >
@@ -338,49 +250,97 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
         </div>
       </BubbleMenuAny>
 
-      {/* Notion-style Block Insertion Menu */}
+      {/* Notion-style Block Insertion Menu (Dropdown UI) */}
       {isMenuExpanded && menuPosition && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsMenuExpanded(false)} />
           <div 
-            className="fixed z-50 bg-white rounded-xl shadow-2xl border border-slate-100 p-1.5 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5 flex items-center gap-1"
-            style={{ top: menuPosition.top + 8, left: menuPosition.left }}
+            className="fixed z-50 bg-white rounded-xl shadow-2xl border border-slate-200 w-56 py-2 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5 overflow-hidden"
+            style={{ 
+              top: menuPosition.top + 8, 
+              left: menuPosition.left,
+              maxHeight: '400px',
+              overflowY: 'auto'
+            }}
           >
+            <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 mb-1">
+              Basic Blocks
+            </div>
+            
             <button 
               onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); setIsMenuExpanded(false); }}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-indigo-600 transition"
-              title="Heading 1"
+              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
             >
-              <Heading1 size={16} />
+              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                <Heading1 size={14} />
+              </div>
+              <span className="font-medium">Heading 1</span>
             </button>
+
             <button 
               onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); setIsMenuExpanded(false); }}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-indigo-600 transition"
-              title="Heading 2"
+              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
             >
-              <Heading2 size={16} />
+              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                <Heading2 size={14} />
+              </div>
+              <span className="font-medium">Heading 2</span>
             </button>
+
+            <button 
+              onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
+            >
+              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                <Heading3 size={14} />
+              </div>
+              <span className="font-medium">Heading 3</span>
+            </button>
+
+            <div className="my-1 border-t border-slate-100 mx-2" />
+
             <button 
               onClick={() => { editor.chain().focus().toggleBulletList().run(); setIsMenuExpanded(false); }}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-indigo-600 transition"
-              title="Bullet List"
+              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
             >
-              <List size={16} />
+              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                <List size={14} />
+              </div>
+              <span className="font-medium">Bullet List</span>
             </button>
-            <div className="w-px h-4 bg-slate-200 mx-1" />
+
+            <button 
+              onClick={() => { editor.chain().focus().toggleOrderedList().run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
+            >
+              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                <ListOrdered size={14} />
+              </div>
+              <span className="font-medium">Numbered List</span>
+            </button>
+
+            <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 my-1">
+              Media & Advanced
+            </div>
+
             <button 
               onClick={() => { addTable(); setIsMenuExpanded(false); }}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-indigo-600 transition"
-              title="Insert Table"
+              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
             >
-              <TableIcon size={16} />
+              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                <TableIcon size={14} />
+              </div>
+              <span className="font-medium">Table</span>
             </button>
+
             <button 
               onClick={() => { addImage(); setIsMenuExpanded(false); }}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-indigo-600 transition"
-              title="Insert Image"
+              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
             >
-              <ImageIcon size={16} />
+              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                <ImageIcon size={14} />
+              </div>
+              <span className="font-medium">Image</span>
             </button>
           </div>
         </>
@@ -388,7 +348,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
 
       {/* Editable Area */}
       <div ref={editorScrollRef} className="flex-1 overflow-y-auto bg-white scroll-smooth custom-scrollbar">
-        <div className="max-w-4xl mx-auto min-h-full">
+        <div className={`${fullWidth ? 'max-w-7xl' : 'max-w-5xl'} mx-auto min-h-full transition-all duration-300`}>
           <EditorContent editor={editor} />
         </div>
       </div>
@@ -406,6 +366,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
       )}
     </div>
   );
-};
+});
 
 export default RichTextEditor;

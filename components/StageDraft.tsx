@@ -101,7 +101,7 @@ const MOCK_REFERENCES = [
 ];
 
 const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
-  const { user } = useAuth();
+  const { user, isAdminUser } = useAuth();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   // We maintain 'blocks' as internal state, sync to 'content' (markdown) on save
@@ -1413,16 +1413,18 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                ) : (
                  <div className="p-5 overflow-y-auto h-full flex flex-col custom-scrollbar">
                    <div className="space-y-5 flex-1">
-                     <div className="group">
-                       <label className="block text-xs font-bold text-slate-500 mb-1.5 transition">Category</label>
-                       <input 
-                         type="text" 
-                         value={cmsId || 'No CMS ID Linked'}
-                         readOnly
-                         disabled
-                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 cursor-not-allowed transition shadow-sm font-medium"
-                       />
-                     </div>
+                     {isAdminUser && (
+                       <div className="group">
+                         <label className="block text-xs font-bold text-slate-500 mb-1.5 transition">Category</label>
+                         <input 
+                           type="text" 
+                           value={cmsId || 'No CMS ID Linked'}
+                           readOnly
+                           disabled
+                           className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 cursor-not-allowed transition shadow-sm font-medium"
+                         />
+                       </div>
+                     )}
 
                      <div className="group">
                        <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Short Text</label>

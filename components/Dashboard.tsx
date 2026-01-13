@@ -19,7 +19,7 @@ interface Props {
 }
 
 const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
-  const { user } = useAuth();
+  const { user, isAdminUser } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -372,7 +372,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         strategyGoals: editStrategy,
         targetAudience: editAudience,
         keywords: editKeywords,
-        cmsId: editCmsId || undefined
+        cmsId: (editCmsId as any) || undefined
       });
 
       // Update associated clients
@@ -599,35 +599,45 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                       <Pencil size={12} />
                       Edit
                     </button>
-                    <div onClick={(e) => e.stopPropagation()} className="ml-2">
-                       <select
-                         value={camp.cmsId || ''}
-                         onChange={async (e) => {
-                           const newId = e.target.value || null;
-                           // Optimistic update
-                           const updatedCampaigns = campaigns.map(c => 
-                             c.id === camp.id ? { ...c, cmsId: newId as any } : c
-                           );
-                           setCampaigns(updatedCampaigns);
-                           
-                           // Actual update
-                           try {
-                             await updateCampaign(camp.id, { cmsId: newId as any });
-                           } catch (err) {
-                             console.error('Failed to update CMS ID', err);
-                             // Revert on error (could refetch or just let user know)
-                             showAlert('Update Failed', 'Unable to update CMS ID. Please check console for more information.', 'error');
-                           }
-                         }}
-                         className="px-2 py-1 rounded border border-slate-300 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50 bg-white shadow-sm"
-                       >
-                         <option value="">No CMS ID</option>
-                         <option value="advisories">advisories</option>
-                         <option value="bam">bam</option>
-                         <option value="fbpsnews">fbpsnews</option>
-                         <option value="solutions">solutions</option>
-                       </select>
-                    </div>
+                    {isAdminUser && (
+                      <div onClick={(e) => e.stopPropagation()} className="ml-2 relative inline-flex items-center">
+                         <div className="invisible px-2 pr-8 py-1 text-xs font-medium whitespace-nowrap">
+                           {(() => {
+                             const options: Record<string, string> = {
+                               '': 'No CMS ID',
+                               'advisories': 'advisories',
+                               'bam': 'bam',
+                               'fbpsnews': 'fbpsnews',
+                               'solutions': 'solutions'
+                             };
+                             return options[camp.cmsId || ''] || 'No CMS ID';
+                           })()}
+                         </div>
+                         <select
+                           value={camp.cmsId || ''}
+                           onChange={async (e) => {
+                             const newId = e.target.value || null;
+                             const updatedCampaigns = campaigns.map(c => 
+                               c.id === camp.id ? { ...c, cmsId: newId as any } : c
+                             );
+                             setCampaigns(updatedCampaigns);
+                             try {
+                               await updateCampaign(camp.id, { cmsId: newId as any });
+                             } catch (err) {
+                               console.error('Failed to update CMS ID', err);
+                               showAlert('Update Failed', 'Unable to update CMS ID.', 'error');
+                             }
+                           }}
+                           className="absolute inset-0 w-full h-full px-2 pr-8 py-1 rounded border border-slate-300 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50 bg-white shadow-sm transition-all"
+                         >
+                           <option value="">No CMS ID</option>
+                           <option value="advisories">advisories</option>
+                           <option value="bam">bam</option>
+                           <option value="fbpsnews">fbpsnews</option>
+                           <option value="solutions">solutions</option>
+                         </select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
                     <Briefcase size={14} />
@@ -852,22 +862,24 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  CMS ID
-                </label>
-                <select
-                  value={cmsId}
-                  onChange={(e) => setCmsId(e.target.value)}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
-                >
-                  <option value="">Select CMS ID...</option>
-                  <option value="advisories">advisories</option>
-                  <option value="bam">bam</option>
-                  <option value="fbpsnews">fbpsnews</option>
-                  <option value="solutions">solutions</option>
-                </select>
-              </div>
+              {isAdminUser && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    CMS ID
+                  </label>
+                  <select
+                    value={cmsId}
+                    onChange={(e) => setCmsId(e.target.value)}
+                    className="w-full px-4 pr-10 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Select CMS ID...</option>
+                    <option value="advisories">advisories</option>
+                    <option value="bam">bam</option>
+                    <option value="fbpsnews">fbpsnews</option>
+                    <option value="solutions">solutions</option>
+                  </select>
+                </div>
+              )}
 
               {/* AI-Powered Keyword Module */}
               <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 transition-all">
@@ -1084,22 +1096,24 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  CMS ID
-                </label>
-                <select
-                  value={editCmsId}
-                  onChange={(e) => setEditCmsId(e.target.value)}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
-                >
-                  <option value="">Select CMS ID...</option>
-                  <option value="advisories">advisories</option>
-                  <option value="bam">bam</option>
-                  <option value="fbpsnews">fbpsnews</option>
-                  <option value="solution">solution</option>
-                </select>
-              </div>
+              {isAdminUser && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    CMS ID
+                  </label>
+                  <select
+                    value={editCmsId}
+                    onChange={(e) => setEditCmsId(e.target.value)}
+                    className="w-full px-4 pr-10 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Select CMS ID...</option>
+                    <option value="advisories">advisories</option>
+                    <option value="bam">bam</option>
+                    <option value="fbpsnews">fbpsnews</option>
+                    <option value="solution">solution</option>
+                  </select>
+                </div>
+              )}
 
               {/* AI-Powered Keyword Module for Edit */}
               <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 transition-all">

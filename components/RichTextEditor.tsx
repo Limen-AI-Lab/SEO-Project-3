@@ -15,7 +15,7 @@ import { DragHandle } from '@tiptap/extension-drag-handle';
 import { 
   Bold, Italic, List, ListOrdered, Quote, Heading1, Heading2, Heading3, 
   Image as ImageIcon, Table as TableIcon, Copy, FileText, Type, Check,
-  Link2, Trash2, Plus, CornerDownLeft, ChevronDown, GripVertical
+  Link2, Trash2, Plus, CornerDownLeft, ChevronDown, GripVertical, MoreHorizontal
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -39,6 +39,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
   const editorScrollRef = React.useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success'>('idle');
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
+  const [isTableMenuOpen, setIsTableMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top?: number, bottom?: number, left: number } | null>(null);
 
   const editor = useEditor({
@@ -74,6 +75,8 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
           element.appendChild(handle);
           
           plusBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             const rect = plusBtn.getBoundingClientRect();
             const spaceBelow = window.innerHeight - rect.bottom;
             const threshold = 400; // Increased threshold
@@ -219,6 +222,80 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
           pointer-events: none !important;
         }
       `}</style>
+
+      {/* Floating Insertion Menu (from + button) */}
+      {isMenuExpanded && menuPosition && (
+        <div 
+          className="fixed z-[10000] w-48 bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-200 py-1.5 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/5"
+          style={{ 
+            top: menuPosition.top, 
+            bottom: menuPosition.bottom,
+            left: menuPosition.left 
+          }}
+        >
+          <div className="flex flex-col">
+            <button 
+              onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Heading1 size={14} /></div>
+              <span className="font-medium">Heading 1</span>
+            </button>
+            <button 
+              onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Heading3 size={14} /></div>
+              <span className="font-medium">Heading 3</span>
+            </button>
+            <button 
+              onClick={() => { editor.chain().focus().setParagraph().run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Type size={14} /></div>
+              <span className="font-medium">Text</span>
+            </button>
+            <button 
+              onClick={() => { editor.chain().focus().toggleBulletList().run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><List size={14} /></div>
+              <span className="font-medium">Bullet List</span>
+            </button>
+            <button 
+              onClick={() => { editor.chain().focus().toggleOrderedList().run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><ListOrdered size={14} /></div>
+              <span className="font-medium">Numbered List</span>
+            </button>
+            <div className="my-1 border-t border-slate-100" />
+            <button 
+              onClick={() => { addTable(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><TableIcon size={14} /></div>
+              <span className="font-medium">Table</span>
+            </button>
+            <button 
+              onClick={() => { addImage(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><ImageIcon size={14} /></div>
+              <span className="font-medium">Image</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Backdrop for closing menu */}
+      {isMenuExpanded && (
+        <div 
+          className="fixed inset-0 z-[9999]" 
+          onClick={() => setIsMenuExpanded(false)}
+        />
+      )}
+
       {/* Bubble Menu (appears on selection) */}
       <BubbleMenuAny editor={editor} tippyOptions={{ duration: 150 }}>
         <div className="flex items-center gap-0.5 bg-slate-900 text-white rounded-xl shadow-2xl p-1.5 border border-slate-700/50 backdrop-blur-md ring-1 ring-white/10">
@@ -256,102 +333,114 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
         </div>
       </BubbleMenuAny>
 
-      {/* Notion-style Block Insertion Menu (Dropdown UI) */}
-      {isMenuExpanded && menuPosition && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsMenuExpanded(false)} />
-          <div 
-            className="fixed z-50 bg-white rounded-xl shadow-2xl border border-slate-200 w-56 py-2 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5 overflow-hidden"
-            style={{ 
-              top: menuPosition.top !== undefined ? menuPosition.top : 'auto',
-              bottom: menuPosition.bottom !== undefined ? menuPosition.bottom : 'auto',
-              left: menuPosition.left,
-              maxHeight: '400px',
-              overflowY: 'auto'
-            }}
+      {/* Table Action Trigger (appears near focused cell) */}
+      <BubbleMenuAny 
+        pluginKey="tableMoreMenu"
+        editor={editor} 
+        tippyOptions={{ 
+          duration: 150,
+          placement: 'bottom-start',
+          offset: [0, 8],
+          zIndex: 9999,
+          interactive: true,
+          appendTo: () => document.body,
+          onHidden: () => setIsTableMenuOpen(false)
+        }} 
+        shouldShow={({ editor }: any) => editor.isActive('table')}
+      >
+        <div className="flex flex-col items-start">
+          <button 
+            onClick={() => setIsTableMenuOpen(!isTableMenuOpen)}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 text-white rounded-lg shadow-2xl border border-slate-700 hover:bg-slate-800 transition-all group pointer-events-auto"
           >
-            <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 mb-1">
-              Basic Blocks
+            <TableIcon size={14} className="text-slate-400 group-hover:text-white transition-colors" />
+            <MoreHorizontal size={14} />
+          </button>
+
+          {isTableMenuOpen && (
+            <div className="mt-1.5 w-52 bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5 overflow-hidden pointer-events-auto">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 mb-1">
+                Column Actions
+              </div>
+              <button 
+                onClick={() => { editor.chain().focus().addColumnBefore().run(); setIsTableMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <Plus size={14} className="text-slate-400" />
+                <span>Insert Before</span>
+              </button>
+              <button 
+                onClick={() => { editor.chain().focus().addColumnAfter().run(); setIsTableMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <Plus size={14} className="text-slate-400 rotate-45" />
+                <span>Insert After</span>
+              </button>
+              <button 
+                onClick={() => { editor.chain().focus().deleteColumn().run(); setIsTableMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 size={14} className="text-red-400" />
+                <span>Delete Column</span>
+              </button>
+
+              <div className="my-1 border-t border-slate-100" />
+              
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 mb-1">
+                Row Actions
+              </div>
+              <button 
+                onClick={() => { editor.chain().focus().addRowBefore().run(); setIsTableMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <Plus size={14} className="text-slate-400" />
+                <span>Insert Above</span>
+              </button>
+              <button 
+                onClick={() => { editor.chain().focus().addRowAfter().run(); setIsTableMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <Plus size={14} className="text-slate-400 rotate-45" />
+                <span>Insert Below</span>
+              </button>
+              <button 
+                onClick={() => { editor.chain().focus().deleteRow().run(); setIsTableMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 size={14} className="text-red-400" />
+                <span>Delete Row</span>
+              </button>
+
+              <div className="my-1 border-t border-slate-100" />
+
+              <button 
+                onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setIsTableMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${editor.isActive('table', { headerRow: true }) ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`}
+              >
+                <span>Header Row</span>
+                {editor.isActive('table', { headerRow: true }) && <Check size={14} />}
+              </button>
+              <button 
+                onClick={() => { editor.chain().focus().toggleHeaderColumn().run(); setIsTableMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${editor.isActive('table', { headerColumn: true }) ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`}
+              >
+                <span>Header Column</span>
+                {editor.isActive('table', { headerColumn: true }) && <Check size={14} />}
+              </button>
+
+              <div className="my-1 border-t border-slate-100" />
+
+              <button 
+                onClick={() => { editor.chain().focus().deleteTable().run(); setIsTableMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors mt-1"
+              >
+                <Trash2 size={14} />
+                <span>Delete Entire Table</span>
+              </button>
             </div>
-            
-            <button 
-              onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); setIsMenuExpanded(false); }}
-              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
-            >
-              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                <Heading1 size={14} />
-              </div>
-              <span className="font-medium">Heading 1</span>
-            </button>
-
-            <button 
-              onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); setIsMenuExpanded(false); }}
-              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
-            >
-              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                <Heading2 size={14} />
-              </div>
-              <span className="font-medium">Heading 2</span>
-            </button>
-
-            <button 
-              onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); setIsMenuExpanded(false); }}
-              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
-            >
-              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                <Heading3 size={14} />
-              </div>
-              <span className="font-medium">Heading 3</span>
-            </button>
-
-            <div className="my-1 border-t border-slate-100 mx-2" />
-
-            <button 
-              onClick={() => { editor.chain().focus().toggleBulletList().run(); setIsMenuExpanded(false); }}
-              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
-            >
-              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                <List size={14} />
-              </div>
-              <span className="font-medium">Bullet List</span>
-            </button>
-
-            <button 
-              onClick={() => { editor.chain().focus().toggleOrderedList().run(); setIsMenuExpanded(false); }}
-              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
-            >
-              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                <ListOrdered size={14} />
-              </div>
-              <span className="font-medium">Numbered List</span>
-            </button>
-
-            <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 my-1">
-              Media & Advanced
-            </div>
-
-            <button 
-              onClick={() => { addTable(); setIsMenuExpanded(false); }}
-              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
-            >
-              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                <TableIcon size={14} />
-              </div>
-              <span className="font-medium">Table</span>
-            </button>
-
-            <button 
-              onClick={() => { addImage(); setIsMenuExpanded(false); }}
-              className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors group"
-            >
-              <div className="w-6 h-6 rounded border border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                <ImageIcon size={14} />
-              </div>
-              <span className="font-medium">Image</span>
-            </button>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+      </BubbleMenuAny>
 
       {/* Editable Area */}
       <div ref={editorScrollRef} className="flex-1 overflow-y-auto bg-white scroll-smooth custom-scrollbar">

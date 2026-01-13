@@ -681,7 +681,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     );
   };
 
-  const isApproved = project.status === ProjectStatus.DRAFT_APPROVED;
+  const isApproved = project.status === ProjectStatus.DRAFT_APPROVED || project.status === ProjectStatus.PUBLISHED;
   const isPublished = project.status === ProjectStatus.PUBLISHED;
   
   // 🔒 CMS 发布功能锁定控制
@@ -842,7 +842,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                       <textarea
                         value={editableOutline}
                         onChange={(e) => handleOutlineChange(e.target.value)}
-                        className="flex-1 w-full resize-none outline-none bg-white border border-slate-200 rounded-xl p-4 text-slate-700 font-mono text-xs leading-relaxed focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition custom-scrollbar shadow-sm hover:border-slate-300"
+                        readOnly={isApproved}
+                        className={`flex-1 w-full resize-none outline-none border rounded-xl p-4 text-slate-700 font-mono text-xs leading-relaxed transition custom-scrollbar shadow-sm ${
+                          isApproved 
+                            ? 'bg-slate-50 border-slate-100 cursor-not-allowed text-slate-400' 
+                            : 'bg-white border-slate-200 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 hover:border-slate-300'
+                        }`}
                         placeholder="Edit outline content here...&#10;&#10;# Heading&#10;## Subheading&#10;### Sub-subheading"
                         style={{ minHeight: '300px' }}
                       />
@@ -1064,8 +1069,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
             <div className="p-4 border-t border-slate-100 bg-white z-10 relative">
                <button 
                 onClick={handleGenerateDraft} 
-                disabled={isGenerating}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold bg-indigo-600 text-white shadow-md shadow-indigo-200 hover:bg-indigo-700 hover:shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-95"
+                disabled={isGenerating || isApproved}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all transform active:scale-95 ${
+                  isApproved 
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none' 
+                    : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700 hover:shadow-lg'
+                }`}
               >
                 {isGenerating ? (
                   <>
@@ -1107,6 +1116,55 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                 <span className="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100">
                   {localDraftContent.split(/\s+/).filter(Boolean).length} words
                 </span>
+                <div className="h-4 w-px bg-slate-200 ml-1"></div>
+                
+                {/* Reference Menu in Main Toolbar */}
+                <div className="relative">
+                  <button
+                     onClick={() => localDraftContent.trim() && setShowReferencePopup(!showReferencePopup)}
+                     disabled={!localDraftContent.trim()}
+                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                       localDraftContent.trim() 
+                         ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-100' 
+                         : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                     }`}
+                  >
+                     <BookOpen size={14} />
+                     Reference
+                  </button>
+                  
+                  {/* Reference Popup */}
+                  {showReferencePopup && (
+                    <div className="absolute top-full left-0 mt-2 w-80 md:w-96 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-left z-50">
+                       <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <img src="https://www.google.com/favicon.ico" alt="G" className="w-4 h-4" />
+                            <span className="text-xs font-bold text-slate-700">References ({MOCK_REFERENCES.length})</span>
+                          </div>
+                          <button onClick={() => setShowReferencePopup(false)} className="text-slate-400 hover:text-slate-600">
+                            <X size={14} />
+                          </button>
+                       </div>
+                       <div className="p-2 bg-slate-50/30">
+                          <p className="text-[10px] text-slate-500 px-2 py-1">Select articles from search results that match your chosen idea type.</p>
+                          <div className="space-y-2 mt-1 max-h-80 overflow-y-auto">
+                             {MOCK_REFERENCES.map(ref => (
+                               <div key={ref.id} className="p-3 bg-white rounded-lg border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition cursor-pointer group">
+                                  <a href={ref.url} className="block group-hover:text-indigo-700 transition">
+                                    <h4 className="text-sm font-medium text-slate-800 mb-1 group-hover:text-indigo-700 line-clamp-1">{ref.title}</h4>
+                                  </a>
+                                  <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">{ref.snippet}</p>
+                                  <div className="flex items-center gap-2">
+                                     <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Recommended</span>
+                                     <span className="text-[10px] text-slate-400">| {ref.date}</span>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                       </div>
+                    </div>
+                  )}
+                </div>
              </div>
              
              {isFocusMode && (
@@ -1177,56 +1235,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              </div>
           </div>
 
-          {/* Reference Toolbar */}
-          <div className="h-10 border-b border-slate-100 flex items-center px-4 bg-slate-50/50 shrink-0 relative z-30">
-             <div className="relative">
-               <button
-                  onClick={() => localDraftContent.trim() && setShowReferencePopup(!showReferencePopup)}
-                  disabled={!localDraftContent.trim()}
-                  className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    localDraftContent.trim() 
-                      ? 'bg-indigo-700 text-white hover:bg-indigo-800 shadow-sm' 
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-               >
-                  <BookOpen size={14} />
-                  Reference
-               </button>
-               
-               {/* Reference Popup */}
-               {showReferencePopup && (
-                 <div className="absolute top-full left-0 mt-2 w-80 md:w-96 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-left z-50">
-                    <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                       <div className="flex items-center gap-2">
-                         <img src="https://www.google.com/favicon.ico" alt="G" className="w-4 h-4" />
-                         <span className="text-xs font-bold text-slate-700">References ({MOCK_REFERENCES.length})</span>
-                       </div>
-                       <button onClick={() => setShowReferencePopup(false)} className="text-slate-400 hover:text-slate-600">
-                         <X size={14} />
-                       </button>
-                    </div>
-                    <div className="p-2 bg-slate-50/30">
-                       <p className="text-[10px] text-slate-500 px-2 py-1">Select articles from search results that match your chosen idea type.</p>
-                       <div className="space-y-2 mt-1 max-h-80 overflow-y-auto">
-                          {MOCK_REFERENCES.map(ref => (
-                            <div key={ref.id} className="p-3 bg-white rounded-lg border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition cursor-pointer group">
-                               <a href={ref.url} className="block group-hover:text-indigo-700 transition">
-                                 <h4 className="text-sm font-medium text-slate-800 mb-1 group-hover:text-indigo-700 line-clamp-1">{ref.title}</h4>
-                               </a>
-                               <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">{ref.snippet}</p>
-                               <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Recommended</span>
-                                  <span className="text-[10px] text-slate-400">| {ref.date}</span>
-                               </div>
-                            </div>
-                          ))}
-                       </div>
-                    </div>
-                 </div>
-               )}
-             </div>
-          </div>
-
           {/* Editor Area */}
           <div 
              className="flex-1 relative bg-slate-50/30 overflow-hidden flex flex-col" 
@@ -1248,6 +1256,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                   content={localDraftContent} 
                   hideCopy={true}
                   fullWidth={isLeftCollapsed}
+                  editable={!isApproved}
                   onChange={(markdown) => {
                     setLocalDraftContent(markdown);
                     // Debounce the update to database to avoid excessive network calls
@@ -1268,6 +1277,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                   content={localDraftContent} 
                   hideCopy={true}
                   fullWidth={true}
+                  editable={!isApproved}
                   onChange={(markdown) => {
                     setLocalDraftContent(markdown);
                     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);

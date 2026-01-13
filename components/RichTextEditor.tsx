@@ -24,6 +24,7 @@ interface RichTextEditorProps {
   className?: string;
   hideCopy?: boolean;
   fullWidth?: boolean;
+  editable?: boolean;
 }
 
 export interface RichTextEditorRef {
@@ -32,7 +33,7 @@ export interface RichTextEditorRef {
 }
 
 const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
-  ({ content, onChange, placeholder, className, hideCopy = false, fullWidth = false }, ref) => {
+  ({ content, onChange, placeholder, className, hideCopy = false, fullWidth = false, editable = true }, ref) => {
   const BubbleMenuAny = BubbleMenu as any;
   const editorScrollRef = React.useRef<HTMLDivElement>(null);
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
@@ -115,6 +116,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
       }),
     ],
     content: content,
+    editable: editable,
     onUpdate: ({ editor }) => {
       onChange((editor.storage as any).markdown.getMarkdown());
     },
@@ -123,7 +125,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-slate max-w-none focus:outline-none min-h-[500px] p-8 font-serif text-lg leading-relaxed text-slate-800',
+        class: `prose prose-slate max-w-none focus:outline-none min-h-[500px] p-8 font-serif text-lg leading-relaxed text-slate-800 ${!editable ? 'readonly-editor' : ''}`,
       },
     },
   });
@@ -140,6 +142,13 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
       editor.commands.setContent(content);
     }
   }, [content, editor]);
+
+  // Sync editable state
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(editable);
+    }
+  }, [editable, editor]);
 
   // Hide drag handle on scroll
   useEffect(() => {
@@ -207,6 +216,15 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
 
   return (
     <div className={`flex flex-col bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden group/editor ${className || 'h-full'}`}>
+      <style>{`
+        .readonly-editor + .drag-handle-notion,
+        .readonly-editor ~ .drag-handle-notion,
+        [contenteditable="false"] + .drag-handle-notion {
+          display: none !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+      `}</style>
       {/* Bubble Menu (appears on selection) */}
       <BubbleMenuAny editor={editor} tippyOptions={{ duration: 150 }}>
         <div className="flex items-center gap-0.5 bg-slate-900 text-white rounded-xl shadow-2xl p-1.5 border border-slate-700/50 backdrop-blur-md ring-1 ring-white/10">

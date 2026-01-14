@@ -751,7 +751,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       statusStr === ARTICLE_STATUS.PUBLISHED
     ) {
       return (
-        <div className="h-full w-full overflow-hidden p-4 bg-slate-100">
+        <div className="h-full w-full overflow-hidden bg-slate-50">
           <StageDraft 
             project={article} 
             onUpdate={handleUpdate} 

@@ -154,7 +154,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
     onUpdate({ 
       outlineContent: outline,
       outlineSections: sections, // Structured data for Client Portal
-      status: ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE as unknown as ProjectStatus
+      status: ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE 
     });
   };
 

@@ -155,7 +155,7 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
       proposedTitles: validTitles,
       language: language,
       tone: tone,
-      status: ARTICLE_STATUS.AWAITING_REVIEW_TITLES as unknown as ProjectStatus // Use new status constant
+      status: ARTICLE_STATUS.AWAITING_REVIEW_TITLES // Use new status constant
     });
   };
 

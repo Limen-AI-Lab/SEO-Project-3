@@ -591,7 +591,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       category: cmsId || '',
       seoSummary: summary,
       coverImage,
-      status: ARTICLE_STATUS.AWAITING_REVIEW_DRAFT as unknown as ProjectStatus 
+      status: ARTICLE_STATUS.AWAITING_REVIEW_DRAFT 
     });
     showToast("Submitted for review successfully!", 'success');
   };

@@ -649,9 +649,9 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
    * Check if current status is title review stage
    */
   const isTitleReviewStage = () => {
-    const currentStatus = article?.status as unknown as string;
+    const currentStatus = article?.status;
     return currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_TITLES as string) || 
-           currentStatus === (ProjectStatus.AWAITING_TITLE_APPROVAL as unknown as string) ||
+           currentStatus === (ProjectStatus.AWAITING_TITLE_APPROVAL as string) ||
            currentStatus === 'AWAITING_REVIEW_TITLES';
   };
 
@@ -662,23 +662,23 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     if (!article) return;
 
     try {
-      const currentStatus = article.status as unknown as string;
+      const currentStatus = article.status;
       
       // For title approval, use the forking function
-      if (currentStatus === (ProjectStatus.AWAITING_TITLE_APPROVAL as unknown as string) || 
+      if (currentStatus === (ProjectStatus.AWAITING_TITLE_APPROVAL as string) || 
           currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_TITLES as string) ||
           currentStatus === 'AWAITING_REVIEW_TITLES') {
         await handleClientApprovedTitles();
         return;
       }
 
-      let nextStatus = currentStatus;
+      let nextStatus: ProjectStatus = currentStatus;
 
       // DIRECT TRANSITION: From Outline Review to Drafting
-      if (currentStatus === (ProjectStatus.AWAITING_OUTLINE_APPROVAL as unknown as string) || 
+      if (currentStatus === (ProjectStatus.AWAITING_OUTLINE_APPROVAL) || 
           currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE as string)) {
         nextStatus = ARTICLE_STATUS.OUTLINE_APPROVED;
-      } else if (currentStatus === (ProjectStatus.AWAITING_DRAFT_APPROVAL as unknown as string) || 
+      } else if (currentStatus === (ProjectStatus.AWAITING_DRAFT_APPROVAL) || 
                  currentStatus === (ARTICLE_STATUS.AWAITING_REVIEW_DRAFT as string)) {
         nextStatus = ARTICLE_STATUS.DRAFT_APPROVED;
       }
@@ -703,16 +703,13 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
   };
 
   const renderStage = () => {
-    const statusStr = article.status as unknown as string;
+    const statusStr = article.status;
     
     // Stage 1: Titles (including title revision)
     if (
-      statusStr === (ARTICLE_STATUS.NEEDS_TITLES as string) ||
-      statusStr === (ARTICLE_STATUS.AWAITING_REVIEW_TITLES as string) ||
-      statusStr === (ARTICLE_STATUS.NEEDS_TITLES_REVISION as string) ||
-      statusStr === 'NEEDS_TITLES' ||
-      statusStr === 'AWAITING_REVIEW_TITLES' ||
-      statusStr === 'NEEDS_TITLES_REVISION'
+      statusStr === ARTICLE_STATUS.NEEDS_TITLES ||
+      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_TITLES ||
+      statusStr === ARTICLE_STATUS.NEEDS_TITLES_REVISION
     ) {
       return (
         <div className="h-full overflow-y-auto p-8">
@@ -727,14 +724,10 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
 
     // Stage 2: Outline (after titles approved, including outline revision)
     if (
-      statusStr === (ARTICLE_STATUS.TITLES_APPROVED as string) ||
-      statusStr === (ARTICLE_STATUS.NEEDS_OUTLINE as string) ||
-      statusStr === (ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE as string) ||
-      statusStr === (ARTICLE_STATUS.NEEDS_OUTLINE_REVISION as string) ||
-      statusStr === 'TITLES_APPROVED' ||
-      statusStr === 'NEEDS_OUTLINE' ||
-      statusStr === 'AWAITING_REVIEW_OUTLINE' ||
-      statusStr === 'NEEDS_OUTLINE_REVISION'
+      statusStr === ARTICLE_STATUS.TITLES_APPROVED ||
+      statusStr === ARTICLE_STATUS.NEEDS_OUTLINE ||
+      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_OUTLINE ||
+      statusStr === ARTICLE_STATUS.NEEDS_OUTLINE_REVISION
     ) {
       return (
         <div className="h-full overflow-y-auto p-8">
@@ -749,19 +742,13 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     // Stage 3: Draft (after outline approved, including draft revision)
     // Note: NEEDS_REVISION (deprecated) is kept for backward compatibility and treated as draft revision
     if (
-      statusStr === (ARTICLE_STATUS.OUTLINE_APPROVED as string) ||
-      statusStr === (ARTICLE_STATUS.NEEDS_DRAFT as string) ||
-      statusStr === (ARTICLE_STATUS.AWAITING_REVIEW_DRAFT as string) ||
-      statusStr === (ARTICLE_STATUS.DRAFT_APPROVED as string) ||
-      statusStr === (ARTICLE_STATUS.NEEDS_DRAFT_REVISION as string) ||
-      statusStr === (ARTICLE_STATUS.NEEDS_REVISION as string) || // Deprecated, kept for backward compatibility
-      statusStr === 'OUTLINE_APPROVED' ||
-      statusStr === 'NEEDS_DRAFT' ||
-      statusStr === 'AWAITING_REVIEW_DRAFT' ||
-      statusStr === 'DRAFT_APPROVED' ||
-      statusStr === 'NEEDS_DRAFT_REVISION' ||
-      statusStr === 'NEEDS_REVISION' || // Deprecated
-      statusStr === 'PUBLISHED'
+      statusStr === ARTICLE_STATUS.OUTLINE_APPROVED ||
+      statusStr === ARTICLE_STATUS.NEEDS_DRAFT ||
+      statusStr === ARTICLE_STATUS.AWAITING_REVIEW_DRAFT ||
+      statusStr === ARTICLE_STATUS.DRAFT_APPROVED ||
+      statusStr === ARTICLE_STATUS.NEEDS_DRAFT_REVISION ||
+      statusStr === ARTICLE_STATUS.NEEDS_REVISION || // Deprecated, kept for backward compatibility
+      statusStr === ARTICLE_STATUS.PUBLISHED
     ) {
       return (
         <div className="h-full w-full overflow-hidden p-4 bg-slate-100">
@@ -786,8 +773,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     );
   };
 
-  const isLocked = (article.status as unknown as string).includes('AWAITING') || 
-                   (article.status as unknown as string).includes('REVIEW');
+  const isLocked = (article.status).includes('AWAITING') || 
+                   (article.status).includes('REVIEW');
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">

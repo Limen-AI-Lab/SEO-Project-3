@@ -356,6 +356,13 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       return;
     }
     
+    // Check generation limit (max 3)
+    const currentCount = project.generationCount || 0;
+    if (currentCount >= 3) {
+      showToast("Maximum draft generations (3) reached for this article.", 'error');
+      return;
+    }
+    
     // Auto-save the edited outline before generating
     if (hasOutlineChanges) {
       onUpdate({ outlineContent: editableOutline });
@@ -373,15 +380,21 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       perspective: project.perspective,
       language: project.language
     });
+
     if (draft) {
-      onUpdate({ draftContent: draft });
+      const updates: Partial<Article> = { 
+        draftContent: draft,
+        generationCount: currentCount + 1
+      };
       
-      // Increment user used count after successful generation
-      if (user?.id) {
+      // Increment user used count ONLY on first successful generation
+      if (currentCount === 0 && user?.id) {
         incrementUserUsedCount(user.id).catch(err => {
           console.error('Failed to increment user used count:', err);
         });
       }
+      
+      onUpdate(updates);
     }
     setIsGenerating(false);
   };
@@ -1070,9 +1083,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
             <div className="p-4 border-t border-slate-100 bg-white z-10 relative">
                <button 
                 onClick={handleGenerateDraft} 
-                disabled={isGenerating || isApproved}
+                disabled={isGenerating || isApproved || (project.generationCount || 0) >= 3}
                 className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all transform active:scale-95 ${
-                  isApproved 
+                  isApproved || (project.generationCount || 0) >= 3
                     ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none' 
                     : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700 hover:shadow-lg'
                 }`}
@@ -1085,7 +1098,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                 ) : (
                   <>
                     <Sparkles size={16} /> 
-                    Generate Draft
+                    {(project.generationCount || 0) >= 3 
+                      ? 'Limit Reached' 
+                      : (project.generationCount || 0) === 0 
+                        ? 'Generate Draft' 
+                        : `Regenerate (${3 - (project.generationCount || 0)} left)`}
                   </>
                 )}
               </button>

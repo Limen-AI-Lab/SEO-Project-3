@@ -181,6 +181,9 @@ export interface Article {
   wordCountRange?: WordCountRange;      // Target word count range (affects H2 count)
   perspective?: ArticlePerspective;     // Writing perspective (first/second/third person)
   
+  // Draft & Generation Tracking
+  generationCount?: number;                 // Number of times draft has been generated (max 3)
+  
   // Data for stages
   proposedTitles: string[];
   selectedTitle?: string;

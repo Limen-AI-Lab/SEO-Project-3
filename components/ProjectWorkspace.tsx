@@ -310,7 +310,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         // Revision tracking
         revisionRound: articleData.revision_round || 1,
         revisionHistory: articleData.revision_history || [],
-        coverImage: articleData.cover_image || undefined
+        coverImage: articleData.cover_image || undefined,
+        generationCount: articleData.generation_count || 0
       };
       
       setArticle(mappedArticle);
@@ -464,6 +465,9 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       }
       if (updates.tone !== undefined) {
         dbUpdates.tone = updates.tone;
+      }
+      if (updates.generationCount !== undefined) {
+        dbUpdates.generation_count = updates.generationCount;
       }
       
       // last_updated will be automatically updated by trigger

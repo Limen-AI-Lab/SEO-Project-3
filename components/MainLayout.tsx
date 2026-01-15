@@ -7,7 +7,7 @@ import KeywordDiscovery from './KeywordDiscovery';
 import ClientManagement from './ClientManagement';
 import InviteCodeManagement from './InviteCodeManagement';
 import UserManagement from './UserManagement';
-import { Layout, BookOpen, User, LogOut, Ticket, Users, Menu, X as CloseIcon } from 'lucide-react';
+import { Layout, User, LogOut, Ticket, Users, Menu, X as CloseIcon } from 'lucide-react';
 import { ViewState } from '../types';
 import { ToastProvider } from './Toast';
 import { ConfirmProvider } from './ConfirmDialog';
@@ -179,10 +179,6 @@ const MainLayout: React.FC = () => {
           >
             <Layout size={18} />
             Dashboard
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
-            <BookOpen size={18} />
-            Asset Library
           </button>
           <button 
             onClick={() => setCurrentView(ViewState.CLIENTS)}

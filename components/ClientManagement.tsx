@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { Client, ClientFeedbackHistory, Contact } from '../types';
-import { getClientFeedbackHistory } from '../services/store';
+import { Client, Contact } from '../types';
 import { getAllClientsWithContacts, createContact, deleteContact as deleteContactService, updateContact } from '../services/clientService';
 import supabase from '../services/supabaseClient.js';
-import { Search, Plus, Trash2, Edit2, User, Building, Mail, Phone, Globe, Mic, AlertCircle, X, Save, Sparkles, History, ChevronDown, ChevronUp, Quote, MessageCircle, Users } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, User, Building, Mail, Phone, Globe, Mic, AlertCircle, X, Save, Sparkles, ChevronDown, ChevronUp, Users } from 'lucide-react';
 
 const ClientManagement: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -12,10 +11,6 @@ const ClientManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   
-  // Feedback History State
-  const [historyExpanded, setHistoryExpanded] = useState(false);
-  const [historyData, setHistoryData] = useState<ClientFeedbackHistory[]>([]);
-
   // Form State
   const [formData, setFormData] = useState<Partial<Client>>({});
   
@@ -49,15 +44,6 @@ const ClientManagement: React.FC = () => {
 
     fetchClients();
   }, []);
-
-  // Load history when opening edit modal
-  useEffect(() => {
-    if (editingClient) {
-      setHistoryData(getClientFeedbackHistory(editingClient.id));
-    } else {
-      setHistoryData([]);
-    }
-  }, [editingClient]);
 
   // Handle adding a new contact
   const handleAddContact = async () => {
@@ -118,7 +104,6 @@ const ClientManagement: React.FC = () => {
   };
 
   const openModal = (client?: Client) => {
-    setHistoryExpanded(false); // Reset collapse state
     setContactsExpanded(true); // Expand contacts section by default
     setNewContactName('');
     setNewContactEmail('');
@@ -553,58 +538,6 @@ const ClientManagement: React.FC = () => {
                           <p className="text-xs text-slate-500 mt-1">These rules will persist across all campaigns for this client.</p>
                        </div>
                     </div>
-                 </section>
-
-                 {/* NEW SECTION: Historical Feedback Log */}
-                 <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <button 
-                       onClick={() => setHistoryExpanded(!historyExpanded)} 
-                       className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 transition focus:outline-none"
-                    >
-                       <div className="flex items-center gap-2 font-bold text-slate-700">
-                          <History size={18} className="text-indigo-600" />
-                          Historical Feedback Log (Learning Data)
-                          {historyData.length > 0 && (
-                            <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full ml-2">
-                               {historyData.length} Records
-                            </span>
-                          )}
-                       </div>
-                       {historyExpanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
-                    </button>
-                    
-                    {historyExpanded && (
-                       <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar">
-                          {historyData.length === 0 ? (
-                             <p className="text-center text-slate-400 text-sm italic py-4">No historical feedback recorded for this client.</p>
-                          ) : (
-                             historyData.map(item => (
-                                <div key={item.id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition">
-                                   <div className="flex items-start gap-3 mb-3">
-                                      <Quote size={16} className="text-slate-300 flex-shrink-0 mt-1" />
-                                      <p className="text-sm text-slate-500 italic border-l-2 border-slate-200 pl-3 leading-relaxed">
-                                         "{item.quotedContext}"
-                                      </p>
-                                   </div>
-                                   <div className="flex items-start gap-3 mb-3">
-                                      <MessageCircle size={16} className="text-amber-500 flex-shrink-0 mt-1" />
-                                      <p className="text-sm font-semibold text-slate-800 leading-snug">
-                                         {item.commentText}
-                                      </p>
-                                   </div>
-                                   <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-3 pt-3 border-t border-slate-50">
-                                      <span className="bg-slate-100 px-2 py-1 rounded text-slate-600 font-medium">{item.campaignName}</span>
-                                      <span className="text-slate-300">•</span>
-                                      <span className="text-indigo-600 hover:underline cursor-pointer flex items-center gap-1">
-                                         {item.articleTitle}
-                                      </span>
-                                      <span className="ml-auto flex-shrink-0">{item.timestamp.toLocaleDateString()}</span>
-                                   </div>
-                                </div>
-                             ))
-                          )}
-                       </div>
-                    )}
                  </section>
 
               </div>

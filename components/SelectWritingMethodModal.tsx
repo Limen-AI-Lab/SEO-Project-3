@@ -114,14 +114,9 @@ const SelectWritingMethodModal: React.FC<Props> = ({ isOpen, onClose, onConfirm,
         <div className="p-8 overflow-y-auto flex-1 bg-slate-50">
           {/* Featured Section */}
           <div className="mb-10">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Featured</h3>
-                <p className="text-sm text-slate-500">Focus on functional writing modes tailored to your selected topics or keywords.</p>
-              </div>
-              <button className="text-indigo-600 text-sm font-medium hover:underline flex items-center gap-1">
-                <PlusIcon size={16} /> Create Blank Blog
-              </button>
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Featured</h3>
+              <p className="text-sm text-slate-500">Focus on functional writing modes tailored to your selected topics or keywords.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -215,14 +210,7 @@ const SelectWritingMethodModal: React.FC<Props> = ({ isOpen, onClose, onConfirm,
   );
 };
 
-// Helper components for local use
-const PlusIcon = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19"></line>
-    <line x1="5" y1="12" x2="19" y2="12"></line>
-  </svg>
-);
-
+// Helper component for local use
 const CheckIcon = ({ size }: { size: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12"></polyline>

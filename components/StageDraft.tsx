@@ -1386,17 +1386,39 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                        </div>
                      )}
 
-                     <div className="group">
-                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Short Text</label>
-                       <textarea 
-                         rows={5}
-                         value={summary}
-                         onChange={(e) => setSummary(e.target.value)}
-                         placeholder="Brief description (max 160 chars)..."
-                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 outline-none resize-none transition shadow-sm hover:border-slate-300"
-                       />
-                       <p className={`text-[10px] text-right mt-1 transition ${summary.length > 160 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>{summary.length}/160</p>
-                     </div>
+                    <div className="group">
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Short Text</label>
+                      <textarea 
+                        rows={5}
+                        value={summary}
+                        onChange={(e) => setSummary(e.target.value)}
+                        placeholder="Brief description..."
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 outline-none resize-none transition shadow-sm hover:border-slate-300"
+                      />
+                      {(() => {
+                        // 计算字数：英文按单词，中文按字（不含标点）
+                        const countWords = (text: string): number => {
+                          if (!text.trim()) return 0;
+                          
+                          // 中文字符正则（不含标点）
+                          const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+                          
+                          // 移除中文字符后，按空格分割计算英文单词
+                          const textWithoutChinese = text.replace(/[\u4e00-\u9fa5]/g, ' ');
+                          const englishWords = textWithoutChinese.split(/\s+/).filter(word => word.length > 0);
+                          
+                          return chineseChars.length + englishWords.length;
+                        };
+                        
+                        const wordCount = countWords(summary);
+                        
+                        return wordCount > 300 ? (
+                          <p className="text-[10px] text-right mt-1 text-amber-500 font-medium">
+                            The word count might be too high.
+                          </p>
+                        ) : null;
+                      })()}
+                    </div>
 
                      <div className="group">
                        <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Photo</label>

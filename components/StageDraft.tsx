@@ -157,9 +157,13 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success'>('idle');
 
   // Update local content when project changes (from parent/database)
+  // Only sync if local content is different AND we are not currently debouncing a local change
   useEffect(() => {
-    if (project.draftContent !== undefined) {
-      setLocalDraftContent(project.draftContent);
+    if (project.draftContent !== undefined && project.draftContent !== localDraftContent) {
+      // If we have a pending save, don't overwrite local content with potentially stale data from parent
+      if (!saveTimeoutRef.current) {
+        setLocalDraftContent(project.draftContent);
+      }
     }
   }, [project.draftContent]);
 
@@ -1284,6 +1288,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     saveTimeoutRef.current = setTimeout(() => {
                       onUpdate({ draftContent: markdown });
+                      saveTimeoutRef.current = null;
                     }, 1000); // 1 second debounce
                   }}
                   className="flex-1"
@@ -1304,6 +1309,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
                     saveTimeoutRef.current = setTimeout(() => {
                       onUpdate({ draftContent: markdown });
+                      saveTimeoutRef.current = null;
                     }, 1000);
                   }}
                   className="mx-auto max-w-6xl shadow-lg border-slate-100 min-h-[800px]"

@@ -242,6 +242,13 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
               <span className="font-medium">Heading 1</span>
             </button>
             <button 
+              onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); setIsMenuExpanded(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Heading2 size={14} /></div>
+              <span className="font-medium">Heading 2</span>
+            </button>
+            <button 
               onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); setIsMenuExpanded(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >

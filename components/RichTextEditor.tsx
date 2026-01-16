@@ -22,7 +22,7 @@ import {
 interface RichTextEditorProps {
   content: string; // Initial Markdown content
   onChange: (markdown: string) => void;
-  onAiRefine?: (selectedText: string, instruction: string) => Promise<void>;
+  onAiRefine?: (selectedText: string, instruction: string) => Promise<string | null | void>;
   placeholder?: string;
   className?: string;
   hideCopy?: boolean;
@@ -419,7 +419,10 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
                     const { from, to } = editor.state.selection;
                     const selectedText = editor.state.doc.textBetween(from, to, ' ');
                     if (onAiRefine) {
-                      await onAiRefine(selectedText, aiInstruction);
+                      const refinedSnippet = await onAiRefine(selectedText, aiInstruction);
+                      if (refinedSnippet && typeof refinedSnippet === 'string') {
+                        editor.chain().focus().insertContentAt({ from, to }, refinedSnippet).run();
+                      }
                       setAiInstruction('');
                     }
                     setIsAiRefining(false);
@@ -433,7 +436,10 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
                   const { from, to } = editor.state.selection;
                   const selectedText = editor.state.doc.textBetween(from, to, ' ');
                   if (onAiRefine) {
-                    await onAiRefine(selectedText, aiInstruction);
+                    const refinedSnippet = await onAiRefine(selectedText, aiInstruction);
+                    if (refinedSnippet && typeof refinedSnippet === 'string') {
+                      editor.chain().focus().insertContentAt({ from, to }, refinedSnippet).run();
+                    }
                     setAiInstruction('');
                   }
                   setIsAiRefining(false);

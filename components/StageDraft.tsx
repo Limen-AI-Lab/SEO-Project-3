@@ -403,33 +403,31 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     setIsGenerating(false);
   };
 
-  const handleRefine = async (selectedText?: string, instruction?: string) => {
+  const handleRefine = async (selectedText?: string, instruction?: string): Promise<string | null> => {
     const targetInstruction = instruction;
-    if (!targetInstruction?.trim()) return;
+    if (!targetInstruction?.trim()) return null;
     
     // Standard Text Refinement with selection support
     setIsRefining(true);
     const currentMd = project.draftContent || '';
+    let result: string | null = null;
     
     if (selectedText) {
       // Partial refinement
       const refinedSnippet = await refineSection(selectedText, targetInstruction);
       if (refinedSnippet && refinedSnippet !== selectedText) {
-        // Replace the selection in the full content
-        // Note: Simple string replace might be risky if selectedText appears multiple times,
-        // but for a blog post edit it's usually acceptable if the snippet is long enough.
-        // A better way would be using the editor's command if we were inside the editor.
-        const newMd = currentMd.replace(selectedText, refinedSnippet);
-        onUpdate({ draftContent: newMd });
+        result = refinedSnippet;
       }
     } else {
       // Full content refinement (fallback if no selection)
       const refined = await refineBlogContent(currentMd, targetInstruction);
       if (refined) {
         onUpdate({ draftContent: refined });
+        result = refined;
       }
     }
     setIsRefining(false);
+    return result;
   };
 
   const confirmImageInsertion = () => {

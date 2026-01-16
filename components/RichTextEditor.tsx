@@ -46,6 +46,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
   const [isAiInputVisible, setIsAiInputVisible] = useState(false);
   const [aiInstruction, setAiInstruction] = useState('');
   const [isAiRefining, setIsAiRefining] = useState(false);
+  const [activeType, setActiveType] = useState('P');
 
   const editor = useEditor({
     extensions: [
@@ -143,8 +144,14 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
     onUpdate: ({ editor }) => {
       onChange((editor.storage as any).markdown.getMarkdown());
     },
-    onSelectionUpdate: () => {
+    onSelectionUpdate: ({ editor }) => {
       setIsMenuExpanded(false);
+      const level = editor.getAttributes('heading').level;
+      setActiveType(editor.isActive('heading') ? `H${level}` : 'P');
+    },
+    onTransaction: ({ editor }) => {
+      const level = editor.getAttributes('heading').level;
+      setActiveType(editor.isActive('heading') ? `H${level}` : 'P');
     },
     editorProps: {
       attributes: {
@@ -323,11 +330,24 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
           {/* Top Toolbar */}
           <div className="flex items-center gap-0.5 p-2 border-b border-slate-100 bg-slate-50/50">
             <button 
-              onClick={() => editor.chain().focus().setParagraph().run()}
+              onClick={() => {
+                if (editor.isActive('heading', { level: 1 })) {
+                  editor.chain().focus().toggleHeading({ level: 2 }).run();
+                } else if (editor.isActive('heading', { level: 2 })) {
+                  editor.chain().focus().toggleHeading({ level: 3 }).run();
+                } else if (editor.isActive('heading', { level: 3 })) {
+                  editor.chain().focus().setParagraph().run();
+                } else {
+                  editor.chain().focus().toggleHeading({ level: 1 }).run();
+                }
+              }}
               className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white hover:shadow-sm transition-all text-slate-600"
+              title="Toggle Text Type (H1 -> H2 -> H3 -> P)"
             >
               <Type size={14} />
-              <span className="text-[10px] font-bold bg-slate-200 text-slate-500 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center">P</span>
+              <span className="text-[10px] font-bold bg-slate-200 text-slate-500 w-5 h-4 px-1 rounded-full flex-shrink-0 flex items-center justify-center transition-all">
+                {activeType}
+              </span>
             </button>
             
             <div className="w-px h-4 bg-slate-200 mx-1" />

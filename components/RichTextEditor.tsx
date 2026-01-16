@@ -15,12 +15,14 @@ import { DragHandle } from '@tiptap/extension-drag-handle';
 import { 
   Bold, Italic, List, ListOrdered, Quote, Heading1, Heading2, Heading3, 
   Image as ImageIcon, Table as TableIcon, Copy, FileText, Type, Check,
-  Link2, Trash2, Plus, CornerDownLeft, ChevronDown, GripVertical, MoreHorizontal
+  Link2, Trash2, Plus, CornerDownLeft, ChevronDown, GripVertical, MoreHorizontal,
+  Sparkles, Send, X as CloseIcon, Underline, Strikethrough, Eraser
 } from 'lucide-react';
 
 interface RichTextEditorProps {
   content: string; // Initial Markdown content
   onChange: (markdown: string) => void;
+  onAiRefine?: (selectedText: string, instruction: string) => Promise<void>;
   placeholder?: string;
   className?: string;
   hideCopy?: boolean;
@@ -34,13 +36,16 @@ export interface RichTextEditorRef {
 }
 
 const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
-  ({ content, onChange, placeholder, className, hideCopy = false, fullWidth = false, editable = true }, ref) => {
+  ({ content, onChange, onAiRefine, placeholder, className, hideCopy = false, fullWidth = false, editable = true }, ref) => {
   const BubbleMenuAny = BubbleMenu as any;
   const editorScrollRef = React.useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success'>('idle');
   const [isMenuExpanded, setIsMenuExpanded] = useState(false);
   const [isTableMenuOpen, setIsTableMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top?: number, bottom?: number, left: number } | null>(null);
+  const [isAiInputVisible, setIsAiInputVisible] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [isAiRefining, setIsAiRefining] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -304,39 +309,142 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
       )}
 
       {/* Bubble Menu (appears on selection) */}
-      <BubbleMenuAny editor={editor} tippyOptions={{ duration: 150 }}>
-        <div className="flex items-center gap-0.5 bg-slate-900 text-white rounded-xl shadow-2xl p-1.5 border border-slate-700/50 backdrop-blur-md ring-1 ring-white/10">
-          <button 
-            onClick={() => editor.chain().focus().toggleBold().run()} 
-            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('bold') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
-          >
-            <Bold size={14} />
-          </button>
-          <button 
-            onClick={() => editor.chain().focus().toggleItalic().run()} 
-            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('italic') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
-          >
-            <Italic size={14} />
-          </button>
-          <div className="w-px h-4 bg-slate-700 mx-1" />
-          <button 
-            onClick={() => editor.chain().focus().toggleBulletList().run()} 
-            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('bulletList') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
-          >
-            <List size={14} />
-          </button>
-          <button 
-            onClick={() => editor.chain().focus().toggleOrderedList().run()} 
-            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('orderedList') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
-          >
-            <ListOrdered size={14} />
-          </button>
-          <button 
-            onClick={() => editor.chain().focus().toggleBlockquote().run()} 
-            className={`p-1.5 rounded-lg transition-colors ${editor.isActive('blockquote') ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-300'}`}
-          >
-            <Quote size={14} />
-          </button>
+      <BubbleMenuAny 
+        editor={editor} 
+        tippyOptions={{ 
+          duration: 150,
+          onHidden: () => {
+            setIsAiInputVisible(false);
+            setAiInstruction('');
+          }
+        }}
+      >
+        <div className="flex flex-col bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] border border-slate-200 overflow-hidden min-w-[350px] animate-in fade-in zoom-in-95 duration-200">
+          {/* Top Toolbar */}
+          <div className="flex items-center gap-0.5 p-2 border-b border-slate-100 bg-slate-50/50">
+            <button 
+              onClick={() => editor.chain().focus().setParagraph().run()}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white hover:shadow-sm transition-all text-slate-600"
+            >
+              <Type size={14} />
+              <span className="text-[10px] font-bold bg-slate-200 text-slate-500 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center">P</span>
+            </button>
+            
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            
+            <button 
+              onClick={() => editor.chain().focus().toggleBold().run()} 
+              className={`p-1.5 rounded-lg transition-all ${editor.isActive('bold') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}
+            >
+              <Bold size={15} />
+            </button>
+            <button 
+              onClick={() => editor.chain().focus().toggleItalic().run()} 
+              className={`p-1.5 rounded-lg transition-all ${editor.isActive('italic') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}
+            >
+              <Italic size={15} />
+            </button>
+            <button 
+              className="p-1.5 rounded-lg transition-all text-slate-300 cursor-not-allowed"
+              title="Underline (Not supported)"
+            >
+              <Underline size={15} />
+            </button>
+            <button 
+              onClick={() => editor.chain().focus().toggleStrike().run()} 
+              className={`p-1.5 rounded-lg transition-all ${editor.isActive('strike') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}
+            >
+              <Strikethrough size={15} />
+            </button>
+            
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            
+            <button 
+              onClick={() => {
+                const url = window.prompt('Enter Link URL:');
+                if (url) editor.chain().focus().setLink({ href: url }).run();
+              }}
+              className={`p-1.5 rounded-lg transition-all ${editor.isActive('link') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}
+            >
+              <Link2 size={15} />
+            </button>
+            
+            <button 
+              onClick={() => editor.chain().focus().toggleBlockquote().run()} 
+              className={`p-1.5 rounded-lg transition-all ${editor.isActive('blockquote') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}
+            >
+              <Quote size={15} />
+            </button>
+            
+            <button 
+              onClick={() => editor.chain().focus().toggleBulletList().run()} 
+              className={`p-1.5 rounded-lg transition-all ${editor.isActive('bulletList') ? 'bg-indigo-600 text-white shadow-sm' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}
+            >
+              <List size={15} />
+            </button>
+            
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            
+            <button 
+              onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+              className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition-all"
+              title="Clear formatting"
+            >
+              <Eraser size={15} />
+            </button>
+            
+            <button 
+              onClick={() => (editor as any).commands.blur()}
+              className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-red-500 transition-all ml-auto"
+            >
+              <CloseIcon size={15} />
+            </button>
+          </div>
+          
+          {/* AI Refine Bar */}
+          <div className="p-3 bg-white">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-1.5 focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-300 transition-all">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                <Sparkles size={16} className="animate-pulse" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Ask AI to refine this selection..."
+                className="flex-1 bg-transparent border-none focus:ring-0 text-sm placeholder:text-slate-400 py-1"
+                value={aiInstruction}
+                onChange={(e) => setAiInstruction(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && aiInstruction.trim() && !isAiRefining) {
+                    setIsAiRefining(true);
+                    const { from, to } = editor.state.selection;
+                    const selectedText = editor.state.doc.textBetween(from, to, ' ');
+                    if (onAiRefine) {
+                      await onAiRefine(selectedText, aiInstruction);
+                      setAiInstruction('');
+                    }
+                    setIsAiRefining(false);
+                  }
+                }}
+              />
+              <button 
+                onClick={async () => {
+                  if (!aiInstruction.trim() || isAiRefining) return;
+                  setIsAiRefining(true);
+                  const { from, to } = editor.state.selection;
+                  const selectedText = editor.state.doc.textBetween(from, to, ' ');
+                  if (onAiRefine) {
+                    await onAiRefine(selectedText, aiInstruction);
+                    setAiInstruction('');
+                  }
+                  setIsAiRefining(false);
+                }}
+                disabled={isAiRefining || !aiInstruction.trim()}
+                className="px-4 py-1.5 bg-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:bg-slate-300 transition-all shadow-sm"
+              >
+                {isAiRefining ? 'Refining...' : 'Refine'}
+              </button>
+            </div>
+          </div>
         </div>
       </BubbleMenuAny>
 

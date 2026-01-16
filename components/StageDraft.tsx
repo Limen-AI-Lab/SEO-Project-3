@@ -19,7 +19,6 @@ import { useConfirm } from './ConfirmDialog';
 import { useAuth } from '../contexts/AuthContext';
 import { incrementUserUsedCount } from '../services/inviteService';
 import RichTextEditor, { RichTextEditorRef } from './RichTextEditor';
-import DraggableAiBar from './DraggableAiBar';
 
 /**
  * Parse revision history edits to Comment[] format for display
@@ -121,7 +120,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isMetaGenerating, setIsMetaGenerating] = useState(false);
-  const [refineInstruction, setRefineInstruction] = useState('');
   
   // Multi-Modal AI State
   const [attachedFile, setAttachedFile] = useState<{ name: string, data: string, type: string } | null>(null);
@@ -131,7 +129,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const [activeTab, setActiveTab] = useState<'outline' | 'feedback' | 'configuration'>('outline');
   const [showHistory, setShowHistory] = useState(false);
   const [showReferencePopup, setShowReferencePopup] = useState(false);
-  const [isRefineBarExpanded, setIsRefineBarExpanded] = useState(false);
 
   const middleColumnRef = React.useRef<HTMLDivElement>(null);
 
@@ -406,35 +403,31 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     setIsGenerating(false);
   };
 
-  const handleRefine = async () => {
-    if (!refineInstruction.trim()) return;
+  const handleRefine = async (selectedText?: string, instruction?: string) => {
+    const targetInstruction = instruction;
+    if (!targetInstruction?.trim()) return;
     
-    // Multi-modal check
-    if (attachedFile && attachedFile.type.startsWith('image/')) {
-        setIsRefining(true);
-        // Smart Insertion Logic
-        const currentMd = project.draftContent || '';
-        const suggestion = await suggestImagePlacement(currentMd, attachedFile.data, refineInstruction);
-        
-        if (suggestion && suggestion.suggestedTextAnchor) {
-           setAiSuggestion({
-             anchor: suggestion.suggestedTextAnchor,
-             reason: suggestion.reason
-           });
-        } else {
-           showToast("Could not determine placement. " + suggestion.reason, 'error');
-        }
-        setIsRefining(false);
-        return;
-    }
-
-    // Standard Text Refinement
+    // Standard Text Refinement with selection support
     setIsRefining(true);
     const currentMd = project.draftContent || '';
-    const refined = await refineBlogContent(currentMd, refineInstruction);
-    if (refined) {
-      onUpdate({ draftContent: refined });
-      setRefineInstruction('');
+    
+    if (selectedText) {
+      // Partial refinement
+      const refinedSnippet = await refineSection(selectedText, targetInstruction);
+      if (refinedSnippet && refinedSnippet !== selectedText) {
+        // Replace the selection in the full content
+        // Note: Simple string replace might be risky if selectedText appears multiple times,
+        // but for a blog post edit it's usually acceptable if the snippet is long enough.
+        // A better way would be using the editor's command if we were inside the editor.
+        const newMd = currentMd.replace(selectedText, refinedSnippet);
+        onUpdate({ draftContent: newMd });
+      }
+    } else {
+      // Full content refinement (fallback if no selection)
+      const refined = await refineBlogContent(currentMd, targetInstruction);
+      if (refined) {
+        onUpdate({ draftContent: refined });
+      }
     }
     setIsRefining(false);
   };
@@ -1282,6 +1275,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                   hideCopy={true}
                   fullWidth={isLeftCollapsed}
                   editable={!isApproved}
+                  onAiRefine={handleRefine}
                   onChange={(markdown) => {
                     setLocalDraftContent(markdown);
                     // Debounce the update to database to avoid excessive network calls
@@ -1304,6 +1298,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                   hideCopy={true}
                   fullWidth={true}
                   editable={!isApproved}
+                  onAiRefine={handleRefine}
                   onChange={(markdown) => {
                     setLocalDraftContent(markdown);
                     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -1552,27 +1547,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
         >
           <div className={`w-1 h-12 rounded-full transition-colors ${isResizingRight ? 'bg-indigo-500' : 'bg-slate-200 group-hover:bg-indigo-400'} ${isRightCollapsed ? 'opacity-0' : ''}`} />
         </div>
-      )}
-
-      {/* --- AI REFINE BAR (Multi-Modal) --- */}
-      {/* Placed at root level to allow free dragging across the entire workspace */}
-      {!isApproved && (
-        <DraggableAiBar 
-          expanded={isRefineBarExpanded}
-          setExpanded={setIsRefineBarExpanded}
-          onRefine={handleRefine}
-          isRefining={isRefining}
-          instruction={refineInstruction}
-          setInstruction={setRefineInstruction}
-          attachedFile={attachedFile}
-          setAttachedFile={setAttachedFile}
-          aiSuggestion={aiSuggestion}
-          setAiSuggestion={setAiSuggestion}
-          confirmImage={confirmImageInsertion}
-          fileInputRef={fileInputRef}
-          handleAiAttachment={handleAiAttachment}
-          boundaryRef={middleColumnRef}
-        />
       )}
     </div>
   );

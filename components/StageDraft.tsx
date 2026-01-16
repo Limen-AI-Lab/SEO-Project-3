@@ -69,6 +69,22 @@ function parseHistoryEdits(historyEntry: RevisionHistoryEntry): Comment[] {
   return comments;
 }
 
+/**
+ * Robust word count for both English and Chinese
+ */
+const countWords = (text: string): number => {
+  if (!text) return 0;
+  // Remove markdown symbols for more accurate count
+  const cleanText = text.replace(/[#*`_~\[\]()]/g, ' ');
+  // Count Chinese characters
+  const chineseChars = cleanText.match(/[\u4e00-\u9fa5]/g) || [];
+  // Count English words (after removing Chinese characters)
+  const englishText = cleanText.replace(/[\u4e00-\u9fa5]/g, ' ');
+  const englishWords = englishText.split(/\s+/).filter(word => word.length > 0);
+  
+  return chineseChars.length + englishWords.length;
+};
+
 interface Props {
   project: Article;
   onUpdate: (updates: Partial<Article>) => Promise<void> | void;
@@ -447,7 +463,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     
       setAiSuggestion(null);
       setAttachedFile(null);
-    setRefineInstruction('');
   };
 
   const handleGenerateMetadata = async () => {
@@ -1130,7 +1145,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                 </div>
                 <div className="h-4 w-px bg-slate-200"></div>
                 <span className="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                  {localDraftContent.split(/\s+/).filter(Boolean).length} words
+                  {countWords(localDraftContent)} words
                 </span>
                 <div className="h-4 w-px bg-slate-200 ml-1"></div>
                 

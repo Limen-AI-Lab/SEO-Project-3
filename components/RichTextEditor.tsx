@@ -344,12 +344,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
             >
               <Italic size={15} />
             </button>
-            <button 
-              className="p-1.5 rounded-lg transition-all text-slate-300 cursor-not-allowed"
-              title="Underline (Not supported)"
-            >
-              <Underline size={15} />
-            </button>
+           
             <button 
               onClick={() => editor.chain().focus().toggleStrike().run()} 
               className={`p-1.5 rounded-lg transition-all ${editor.isActive('strike') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'hover:bg-white hover:shadow-sm text-slate-600'}`}

@@ -63,6 +63,57 @@ export const countH2Sections = (outline: string): number => {
 };
 
 /**
+ * Count H3 sections in markdown outline
+ */
+export const countH3Sections = (outline: string): number => {
+  const h3Regex = /^###\s+[^#]/gm;
+  const matches = outline.match(h3Regex);
+  return matches ? matches.length : 0;
+};
+
+/**
+ * Parse outline and calculate suggested word count per section
+ * Returns a breakdown of how words should be distributed
+ */
+export const calculateSectionWordCounts = (
+  outline: string,
+  targetMin: number,
+  targetMax: number
+): { h2Count: number; h3Count: number; wordsPerH2: number; totalSections: number; targetAvg: number } => {
+  const h2Count = countH2Sections(outline);
+  const h3Count = countH3Sections(outline);
+  
+  // Total content sections (H2 + H3)
+  const totalSections = h2Count + h3Count;
+  
+  // Calculate target average (middle of range)
+  const targetAvg = Math.floor((targetMin + targetMax) / 2);
+  
+  // H2 sections typically have more content than H3
+  // Allocate ~60% of words to H2s and ~40% to H3s (if H3s exist)
+  let wordsPerH2: number;
+  if (h3Count > 0 && h2Count > 0) {
+    // Weighted distribution: H2 gets more words
+    const h2Share = 0.6;
+    const wordsForH2s = targetAvg * h2Share;
+    wordsPerH2 = Math.floor(wordsForH2s / h2Count);
+  } else if (h2Count > 0) {
+    // Only H2s, distribute evenly
+    wordsPerH2 = Math.floor(targetAvg / h2Count);
+  } else {
+    wordsPerH2 = targetAvg;
+  }
+  
+  return {
+    h2Count,
+    h3Count,
+    wordsPerH2,
+    totalSections,
+    targetAvg
+  };
+};
+
+/**
  * Detect perspective usage in text and return ratio of target perspective
  * Returns a number between 0 and 1
  */
@@ -624,6 +675,13 @@ const buildDraftPrompt = (
   const targetLanguage = params.language || "English";
   const isEnglish = targetLanguage.toLowerCase() === "english";
 
+  // Calculate section word counts based on outline structure
+  const sectionCounts = calculateSectionWordCounts(
+    params.outline,
+    wordCountConfig.min,
+    wordCountConfig.max
+  );
+
   let commentsContext = "";
   if (params.comments.length > 0) {
     if (isEnglish) {
@@ -671,6 +729,26 @@ ${params.comments.map((c) => `- "${c.text}" (来自 ${c.author})`).join("\n")}
         perspectiveInstruction =
           '⚠️ 关键要求：全文必须使用第三人称视角，保持客观、专业的叙述方式。使用"该公司"、"企业"、"用户"、"人们"。绝不使用"我们"、"您"、"你"。';
     }
+  }
+
+  // Build word count distribution instruction based on outline analysis
+  let wordCountDistribution: string;
+  if (isEnglish) {
+    wordCountDistribution = `
+📊 WORD COUNT DISTRIBUTION (based on your outline with ${sectionCounts.h2Count} H2 sections${sectionCounts.h3Count > 0 ? ` and ${sectionCounts.h3Count} H3 subsections` : ''}):
+- Target total: ${sectionCounts.targetAvg} words (range: ${wordCountConfig.min}-${wordCountConfig.max})
+- Suggested per H2 section: ~${sectionCounts.wordsPerH2} words (including any H3 subsections)
+- IMPORTANT: Keep each section CONCISE and FOCUSED. Cover the key points briefly.
+- If the outline has many sections, you MUST write shorter content for each section to stay within the total word limit.
+- Prioritize QUALITY over QUANTITY - it's better to be concise than to exceed the word limit.`;
+  } else {
+    wordCountDistribution = `
+📊 字数分配方案（基于您的大纲，共 ${sectionCounts.h2Count} 个 H2 章节${sectionCounts.h3Count > 0 ? `和 ${sectionCounts.h3Count} 个 H3 子章节` : ''}）：
+- 目标总字数：${sectionCounts.targetAvg} 字（范围：${wordCountConfig.min}-${wordCountConfig.max}）
+- 每个 H2 章节建议字数：约 ${sectionCounts.wordsPerH2} 字（包含其下的 H3 子章节）
+- 重要：每个章节必须简洁精炼，只讲核心要点
+- 如果大纲章节较多，每个章节的内容必须更加精简，以确保总字数不超标
+- 质量优先于数量 - 宁可精简也不要超出字数限制`;
   }
 
   // Build retry feedback section
@@ -727,10 +805,18 @@ ${commentsContext}
 1. PERSPECTIVE (MANDATORY):
 ${perspectiveInstruction}
 
-2. WORD COUNT (MANDATORY):
-- The article MUST be between ${wordCountConfig.min}-${wordCountConfig.max} words.
-- This is a HARD REQUIREMENT. Count your words before finishing.
-- If too short, add more detail. If too long, be more concise.
+2. WORD COUNT (MANDATORY - THIS IS THE MOST IMPORTANT REQUIREMENT):
+- The article MUST be between ${wordCountConfig.min}-${wordCountConfig.max} words. NO EXCEPTIONS.
+- This is a HARD LIMIT. You MUST stay within this range.
+- Count your words carefully before finishing.
+${wordCountDistribution}
+
+⚠️ WORD COUNT STRATEGY:
+- Write SHORT, CONCISE paragraphs (2-3 sentences max per paragraph)
+- Use bullet points to convey information efficiently
+- Focus on KEY POINTS only, skip unnecessary details
+- Each H2 section should be brief but complete
+- If you find yourself writing too much, STOP and condense
 
 3. FORMAT:
 - Tone: Professional, Authoritative, yet Accessible.
@@ -739,7 +825,7 @@ ${perspectiveInstruction}
 
 ${customRequirementsSection}
 ⚠️ FINAL CHECK BEFORE SUBMITTING:
-1. Count your words - MUST be ${wordCountConfig.min}-${wordCountConfig.max} words
+1. COUNT YOUR WORDS - You MUST be within ${wordCountConfig.min}-${wordCountConfig.max} words. If over, DELETE content until you're within range.
 2. Check perspective - MUST consistently use ${perspectiveConfig.label}
 
 Do not include preambles like "Here is the draft". Do not include word count statistics like "Word Count: XXX words". Just start with the content.`;
@@ -759,10 +845,18 @@ ${commentsContext}
 1. 人称视角（强制要求）：
 ${perspectiveInstruction}
 
-2. 字数要求（强制要求）：
-- 文章字数必须在 ${wordCountConfig.min}-${wordCountConfig.max} 字之间
-- 这是硬性要求，完成前请数一数字数
-- 如果太短，请添加更多细节；如果太长，请更简洁
+2. 字数要求（强制要求 - 这是最重要的要求）：
+- 文章字数必须在 ${wordCountConfig.min}-${wordCountConfig.max} 字之间，没有例外
+- 这是硬性限制，必须严格遵守
+- 完成前请仔细数一数字数
+${wordCountDistribution}
+
+⚠️ 字数控制策略：
+- 每个段落要简短精炼（每段最多2-3句话）
+- 善用列表来高效传达信息
+- 只讲核心要点，省略不必要的细节
+- 每个 H2 章节要简洁但完整
+- 如果发现写得太多，立即停下来精简内容
 
 3. 格式要求：
 - 语气：专业、权威，同时保持亲和力
@@ -771,7 +865,7 @@ ${perspectiveInstruction}
 
 ${customRequirementsSection}
 ⚠️ 提交前最终检查：
-1. 数一数字数 - 必须是 ${wordCountConfig.min}-${wordCountConfig.max} 字
+1. 数一数字数 - 必须在 ${wordCountConfig.min}-${wordCountConfig.max} 字之间。如果超出，请删减内容直到符合要求。
 2. 检查人称 - 必须全文统一使用${perspectiveConfig.label}
 
 不要包含"以下是草稿"之类的开场白，不要包含"字数统计"或"Word Count"等信息，直接开始正文内容。`;
@@ -823,10 +917,35 @@ export const generateBlogDraft = async (
         retryFeedback = {};
         
         if (currentWordCount < wordCountConfig.min || currentWordCount > wordCountConfig.max) {
-          if (isEnglish) {
-            retryFeedback.wordCount = `Your previous draft had ${currentWordCount} words, but the requirement is ${wordCountConfig.min}-${wordCountConfig.max}. Please ${currentWordCount < wordCountConfig.min ? 'add more content' : 'reduce content'}.`;
+          const overBy = currentWordCount - wordCountConfig.max;
+          const underBy = wordCountConfig.min - currentWordCount;
+          
+          if (currentWordCount > wordCountConfig.max) {
+            // Over word limit - provide detailed reduction instructions
+            if (isEnglish) {
+              retryFeedback.wordCount = `🚨 CRITICAL: Your previous draft had ${currentWordCount} words, which is ${overBy} words OVER the maximum of ${wordCountConfig.max}. 
+You MUST reduce by at least ${overBy} words. Strategies:
+- Shorten each paragraph to 2-3 sentences maximum
+- Remove redundant explanations and examples
+- Use bullet points instead of long paragraphs
+- Keep only the most essential information in each section
+- Combine similar points into single concise statements`;
+            } else {
+              retryFeedback.wordCount = `🚨 严重问题：你上次的草稿有 ${currentWordCount} 字，超出上限 ${wordCountConfig.max} 字达 ${overBy} 字。
+你必须至少减少 ${overBy} 字。精简策略：
+- 每个段落最多2-3句话
+- 删除冗余的解释和举例
+- 用列表代替长段落
+- 每个章节只保留最核心的信息
+- 将相似的观点合并为一句简洁的陈述`;
+            }
           } else {
-            retryFeedback.wordCount = `你上次的草稿有 ${currentWordCount} 字，但要求是 ${wordCountConfig.min}-${wordCountConfig.max} 字。请${currentWordCount < wordCountConfig.min ? '添加更多内容' : '精简内容'}。`;
+            // Under word limit
+            if (isEnglish) {
+              retryFeedback.wordCount = `Your previous draft had ${currentWordCount} words, which is ${underBy} words under the minimum of ${wordCountConfig.min}. Please add more detail while staying within ${wordCountConfig.min}-${wordCountConfig.max} words.`;
+            } else {
+              retryFeedback.wordCount = `你上次的草稿有 ${currentWordCount} 字，比最低要求 ${wordCountConfig.min} 字少了 ${underBy} 字。请添加更多细节，但确保总字数在 ${wordCountConfig.min}-${wordCountConfig.max} 字之间。`;
+            }
           }
         }
         
@@ -1167,15 +1286,29 @@ export const generateCompleteArticle = async (
     }
     
     // Step 4: Combine all sections
-    // Order: Key Points (if any) + Body + FAQ (if any)
+    // Order: H1 Title -> Key Points (if any) -> Body sections -> FAQ (if any)
     console.log("🔗 Step 4: Combining sections...");
     let finalContent = "";
     
     if (keyPointsSection) {
-      finalContent += keyPointsSection + "\n\n";
+      // Try to insert Key Points after H1 title, before first H2 section
+      const bodyContent = bodyResult.content;
+      
+      // Find the position of the first H2 heading
+      const h2Match = bodyContent.match(/^##\s+[^#]/m);
+      
+      if (h2Match && h2Match.index !== undefined) {
+        // Insert Key Points between H1 and first H2
+        const beforeH2 = bodyContent.substring(0, h2Match.index).trimEnd();
+        const fromH2 = bodyContent.substring(h2Match.index);
+        finalContent = beforeH2 + "\n\n" + keyPointsSection + "\n\n" + fromH2;
+      } else {
+        // Fallback: put Key Points at the beginning
+        finalContent = keyPointsSection + "\n\n" + bodyContent;
+      }
+    } else {
+      finalContent = bodyResult.content;
     }
-    
-    finalContent += bodyResult.content;
     
     if (faqSection) {
       finalContent += "\n\n" + faqSection;

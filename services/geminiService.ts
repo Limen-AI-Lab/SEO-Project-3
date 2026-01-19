@@ -599,6 +599,10 @@ interface DraftGenerationParams {
   wordCountRange?: WordCountRange;
   perspective?: ArticlePerspective;
   language?: string;
+  // New config options
+  articleRequirements?: string;    // Custom requirements (brand name, forbidden words, etc.)
+  includeFaq?: boolean;            // Whether to generate FAQ section
+  includeKeyPoints?: boolean;      // Whether to generate Key Points section
 }
 
 /**
@@ -689,6 +693,22 @@ ${params.comments.map((c) => `- "${c.text}" (来自 ${c.author})`).join("\n")}
     }
   }
 
+  // Build custom requirements section
+  let customRequirementsSection = "";
+  if (params.articleRequirements && params.articleRequirements.trim()) {
+    if (isEnglish) {
+      customRequirementsSection = `
+4. CUSTOM REQUIREMENTS (MUST FOLLOW):
+${params.articleRequirements}
+`;
+    } else {
+      customRequirementsSection = `
+4. 自定义要求（必须遵守）：
+${params.articleRequirements}
+`;
+    }
+  }
+
   let prompt: string;
 
   if (isEnglish) {
@@ -717,11 +737,12 @@ ${perspectiveInstruction}
 - Format: Markdown. Use bold (**text**) for emphasis.
 - Do NOT use single asterisks (*) for italics. Use asterisks ONLY for bullet points.
 
+${customRequirementsSection}
 ⚠️ FINAL CHECK BEFORE SUBMITTING:
 1. Count your words - MUST be ${wordCountConfig.min}-${wordCountConfig.max} words
 2. Check perspective - MUST consistently use ${perspectiveConfig.label}
 
-Do not include preambles like "Here is the draft". Just start with the content.`;
+Do not include preambles like "Here is the draft". Do not include word count statistics like "Word Count: XXX words". Just start with the content.`;
   } else {
     prompt = `为"${params.clientName}"撰写一篇完整的博客文章。
 ${retrySection}
@@ -748,11 +769,12 @@ ${perspectiveInstruction}
 - 格式：Markdown。可以使用粗体（**文字**）进行强调
 - 不要使用单星号 (*) 进行斜体强调。星号仅用于列表项
 
+${customRequirementsSection}
 ⚠️ 提交前最终检查：
 1. 数一数字数 - 必须是 ${wordCountConfig.min}-${wordCountConfig.max} 字
 2. 检查人称 - 必须全文统一使用${perspectiveConfig.label}
 
-不要包含"以下是草稿"之类的开场白，直接开始正文内容。`;
+不要包含"以下是草稿"之类的开场白，不要包含"字数统计"或"Word Count"等信息，直接开始正文内容。`;
   }
 
   return { prompt, wordCountConfig, perspectiveConfig, isEnglish };
@@ -899,6 +921,275 @@ export const generateBlogDraft = async (
   } catch (error) {
     console.error("Failed to generate draft:", error);
     return { content: "", warnings: ["Failed to generate draft"] };
+  }
+};
+
+/**
+ * Generate Key Points (核心要点) section based on article content
+ * Target: ~150 words/characters
+ */
+export const generateKeyPoints = async (
+  articleContent: string,
+  language: string,
+  articleRequirements?: string
+): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const isEnglish = language.toLowerCase() === "english";
+    
+    let customRequirementsNote = "";
+    if (articleRequirements && articleRequirements.trim()) {
+      customRequirementsNote = isEnglish 
+        ? `\nAdditional requirements to follow: ${articleRequirements}`
+        : `\n需要遵守的额外要求：${articleRequirements}`;
+    }
+
+    let prompt: string;
+    if (isEnglish) {
+      prompt = `Based on the following article content, generate a "Key Takeaways" section.
+
+Requirements:
+- Create 4-6 bullet points summarizing the most important points
+- Each bullet point should be concise (1-2 sentences)
+- Total length should be around 150 words
+- Format as a bullet list using "-" for each point
+- Do NOT include any heading (no "## Key Takeaways" etc.)
+- Just return the bullet points directly
+${customRequirementsNote}
+
+Article Content:
+${articleContent}
+
+Return ONLY the bullet points, nothing else.`;
+    } else {
+      prompt = `根据以下文章内容，生成"核心要点"部分。
+
+要求：
+- 创建4-6个要点，总结文章最重要的内容
+- 每个要点简洁明了（1-2句话）
+- 总长度约150字
+- 使用"-"作为列表符号
+- 不要包含任何标题（不要写"## 核心要点"等）
+- 直接返回要点列表
+${customRequirementsNote}
+
+文章内容：
+${articleContent}
+
+只返回要点列表，不要其他内容。`;
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+
+    const keyPoints = response.text?.trim() || "";
+    
+    // Format with heading
+    const heading = isEnglish ? "## Key Takeaways" : "## 核心要点";
+    return `${heading}\n\n${keyPoints}`;
+  } catch (error) {
+    console.error("Failed to generate key points:", error);
+    return "";
+  }
+};
+
+/**
+ * Generate FAQ section based on article content
+ * Target: ~350 words/characters, 3-5 questions
+ */
+export const generateFaq = async (
+  articleContent: string,
+  language: string,
+  articleRequirements?: string
+): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const isEnglish = language.toLowerCase() === "english";
+    
+    let customRequirementsNote = "";
+    if (articleRequirements && articleRequirements.trim()) {
+      customRequirementsNote = isEnglish 
+        ? `\nAdditional requirements to follow: ${articleRequirements}`
+        : `\n需要遵守的额外要求：${articleRequirements}`;
+    }
+
+    let prompt: string;
+    if (isEnglish) {
+      prompt = `Based on the following article content, generate a FAQ section.
+
+Requirements:
+- Create 3-5 frequently asked questions related to the article topic
+- Each question should be formatted as an H3 heading (### Question?)
+- Each answer should be 2-3 sentences, clear and helpful
+- Total length should be around 350 words
+- Questions should address common concerns readers might have
+- Do NOT include the main "## FAQ" heading
+- Format each Q&A as:
+### Question here?
+Answer paragraph here.
+${customRequirementsNote}
+
+Article Content:
+${articleContent}
+
+Return ONLY the Q&A pairs formatted as specified, nothing else.`;
+    } else {
+      prompt = `根据以下文章内容，生成FAQ（常见问题）部分。
+
+要求：
+- 创建3-5个与文章主题相关的常见问题
+- 每个问题使用H3标题格式（### 问题？）
+- 每个回答2-3句话，清晰有帮助
+- 总长度约350字
+- 问题应该解答读者可能关心的常见疑问
+- 不要包含主标题"## FAQ"
+- 格式如下：
+### 问题内容？
+回答段落。
+${customRequirementsNote}
+
+文章内容：
+${articleContent}
+
+只返回按指定格式的问答对，不要其他内容。`;
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+
+    const faqContent = response.text?.trim() || "";
+    
+    // Format with heading
+    return `## FAQ\n\n${faqContent}`;
+  } catch (error) {
+    console.error("Failed to generate FAQ:", error);
+    return "";
+  }
+};
+
+/**
+ * Detect if text contains Chinese characters
+ * Used to determine the language of content based on actual text
+ */
+const detectLanguageFromText = (text: string): string => {
+  // Count Chinese characters (CJK Unified Ideographs)
+  const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+  // If more than 10 Chinese characters, consider it Chinese
+  return chineseChars.length > 10 ? "Chinese" : "English";
+};
+
+/**
+ * Generate complete article with optional Key Points and FAQ sections
+ * Flow: Generate body -> Generate Key Points (if enabled) -> Generate FAQ (if enabled) -> Combine
+ */
+export const generateCompleteArticle = async (
+  params: DraftGenerationParams
+): Promise<GenerationResult> => {
+  const warnings: string[] = [];
+  
+  // Detect language from outline content instead of relying on params.language
+  const detectedLanguage = detectLanguageFromText(params.outline);
+  const language = detectedLanguage;
+  const isEnglish = language.toLowerCase() === "english";
+  
+  console.log(`🌐 Detected language from outline: ${language}`);
+  
+  try {
+    // Step 1: Generate main body content
+    console.log("📝 Step 1: Generating main article body...");
+    const bodyResult = await generateBlogDraft(params);
+    
+    if (!bodyResult.content) {
+      return { 
+        content: "", 
+        warnings: bodyResult.warnings || [isEnglish ? "Failed to generate article body" : "生成文章正文失败"] 
+      };
+    }
+    
+    // Collect warnings from body generation
+    if (bodyResult.warnings) {
+      warnings.push(...bodyResult.warnings);
+    }
+    
+    let keyPointsSection = "";
+    let faqSection = "";
+    
+    // Step 2: Generate Key Points (if enabled)
+    if (params.includeKeyPoints) {
+      console.log("📌 Step 2: Generating Key Points...");
+      try {
+        keyPointsSection = await generateKeyPoints(
+          bodyResult.content, 
+          language, 
+          params.articleRequirements
+        );
+        if (!keyPointsSection) {
+          warnings.push(isEnglish 
+            ? "Failed to generate Key Points section" 
+            : "生成核心要点部分失败"
+          );
+        }
+      } catch (error) {
+        console.error("Key Points generation failed:", error);
+        warnings.push(isEnglish 
+          ? "Failed to generate Key Points section" 
+          : "生成核心要点部分失败"
+        );
+      }
+    }
+    
+    // Step 3: Generate FAQ (if enabled)
+    if (params.includeFaq) {
+      console.log("❓ Step 3: Generating FAQ...");
+      try {
+        faqSection = await generateFaq(
+          bodyResult.content, 
+          language, 
+          params.articleRequirements
+        );
+        if (!faqSection) {
+          warnings.push(isEnglish 
+            ? "Failed to generate FAQ section" 
+            : "生成FAQ部分失败"
+          );
+        }
+      } catch (error) {
+        console.error("FAQ generation failed:", error);
+        warnings.push(isEnglish 
+          ? "Failed to generate FAQ section" 
+          : "生成FAQ部分失败"
+        );
+      }
+    }
+    
+    // Step 4: Combine all sections
+    // Order: Key Points (if any) + Body + FAQ (if any)
+    console.log("🔗 Step 4: Combining sections...");
+    let finalContent = "";
+    
+    if (keyPointsSection) {
+      finalContent += keyPointsSection + "\n\n";
+    }
+    
+    finalContent += bodyResult.content;
+    
+    if (faqSection) {
+      finalContent += "\n\n" + faqSection;
+    }
+    
+    console.log("✅ Article generation complete!");
+    return { content: finalContent.trim(), warnings };
+    
+  } catch (error) {
+    console.error("Failed to generate complete article:", error);
+    return { 
+      content: "", 
+      warnings: [isEnglish ? "Failed to generate article" : "生成文章失败"] 
+    };
   }
 };
 

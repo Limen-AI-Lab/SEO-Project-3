@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Article, ProjectStatus, ARTICLE_STATUS, RevisionHistoryEntry, Comment, ClientEdit } from '../types';
-import { generateBlogDraft, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement, GenerationResult } from '../services/geminiService';
+import { generateBlogDraft, generateCompleteArticle, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement, GenerationResult } from '../services/geminiService';
 import { 
   Send, CheckCircle, Wand2, Sparkles, Globe, FileText, MessageSquare, 
   RefreshCw, LayoutTemplate, PenTool, PanelLeftClose, PanelLeftOpen, 
@@ -148,11 +148,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const middleColumnRef = React.useRef<HTMLDivElement>(null);
 
-  // --- Configuration State (Local UI only) ---
-  const [articleRequirements, setArticleRequirements] = useState('');
+  // --- Configuration State (Persisted to Article) ---
+  const [articleRequirements, setArticleRequirements] = useState(project.articleRequirements || '');
   const [structureConfig, setStructureConfig] = useState({
-    keyPoints: true,
-    faq: true
+    keyPoints: project.includeKeyPoints ?? true,
+    faq: project.includeFaq ?? true
   });
 
   // --- Editable Outline State ---
@@ -383,22 +383,35 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       return;
     }
     
-    // Auto-save the edited outline before generating
+    // Auto-save the edited outline and config before generating
     if (hasOutlineChanges) {
       onUpdate({ outlineContent: editableOutline });
       setHasOutlineChanges(false);
       setOutlineHistory([]);
     }
     
+    // Save config to article before generating
+    await onUpdate({
+      articleRequirements,
+      includeFaq: structureConfig.faq,
+      includeKeyPoints: structureConfig.keyPoints
+    });
+    
     setIsGenerating(true);
-    const result = await generateBlogDraft({
+    
+    // Use generateCompleteArticle for full article with Key Points and FAQ
+    const result = await generateCompleteArticle({
       title: project.selectedTitle || project.title, 
       outline: editableOutline, // Use the edited outline
       comments: project.clientComments, 
       clientName: "Client",
       wordCountRange: project.wordCountRange,
       perspective: project.perspective,
-      language: project.language
+      language: project.language,
+      // New config options
+      articleRequirements,
+      includeFaq: structureConfig.faq,
+      includeKeyPoints: structureConfig.keyPoints
     });
 
     if (result.content) {

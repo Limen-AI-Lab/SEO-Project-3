@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Article, ProjectStatus, ARTICLE_STATUS, Campaign, WordCountRange, ArticlePerspective, WORD_COUNT_CONFIG, PERSPECTIVE_CONFIG } from '../types';
 import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save, Check, ChevronUp, ChevronDown } from 'lucide-react';
-import { generateBlogOutline, refineBlogOutline } from '../services/geminiService';
+import { generateBlogOutline, refineBlogOutline, GenerationResult } from '../services/geminiService';
 import { getCampaignWithClients } from '../services/campaignService';
 import { 
   parseMarkdownOutline, 
@@ -207,12 +207,20 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         perspective: perspective  // Pass perspective for writing style
       };
       
-      const generated = await generateBlogOutline(params);
-      if (generated) {
-        setOutline(generated);
+      const result = await generateBlogOutline(params);
+      if (result.content) {
+        setOutline(result.content);
+        
+        // Show warnings if any
+        if (result.warnings && result.warnings.length > 0) {
+          result.warnings.forEach(warning => {
+            showToast(warning, 'warning');
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to generate outline:', error);
+      showToast('Failed to generate outline', 'error');
     }
     
     setIsGenerating(false);

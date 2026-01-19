@@ -156,7 +156,8 @@ const ClientReviewPage: React.FC = () => {
         selected_title: title,
         status: ARTICLE_STATUS.NEEDS_OUTLINE, // Go directly to outline creation
         proposed_titles: article.proposed_titles, // Inherit all proposed titles
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        client_comments: []
       }));
 
       const { error: insertError } = await supabase

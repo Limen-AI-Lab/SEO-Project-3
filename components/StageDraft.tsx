@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Article, ProjectStatus, ARTICLE_STATUS, RevisionHistoryEntry, Comment, ClientEdit } from '../types';
-import { generateBlogDraft, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement } from '../services/geminiService';
+import { generateBlogDraft, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement, GenerationResult } from '../services/geminiService';
 import { 
   Send, CheckCircle, Wand2, Sparkles, Globe, FileText, MessageSquare, 
   RefreshCw, LayoutTemplate, PenTool, PanelLeftClose, PanelLeftOpen, 
@@ -391,7 +391,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     }
     
     setIsGenerating(true);
-    const draft = await generateBlogDraft({
+    const result = await generateBlogDraft({
       title: project.selectedTitle || project.title, 
       outline: editableOutline, // Use the edited outline
       comments: project.clientComments, 
@@ -401,9 +401,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       language: project.language
     });
 
-    if (draft) {
+    if (result.content) {
       const updates: Partial<Article> = { 
-        draftContent: draft,
+        draftContent: result.content,
         generationCount: currentCount + 1
       };
       
@@ -415,6 +415,18 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       }
       
       onUpdate(updates);
+      
+      // Show warnings if any
+      if (result.warnings && result.warnings.length > 0) {
+        result.warnings.forEach(warning => {
+          showToast(warning, 'warning');
+        });
+      }
+    } else if (result.warnings && result.warnings.length > 0) {
+      // If no content but has warnings, show as errors
+      result.warnings.forEach(warning => {
+        showToast(warning, 'error');
+      });
     }
     setIsGenerating(false);
   };

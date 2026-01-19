@@ -7,6 +7,158 @@ import {
   PERSPECTIVE_CONFIG,
 } from "../types";
 
+// ============================================
+// Generation Result Types
+// ============================================
+
+export interface GenerationResult {
+  content: string;
+  warnings?: string[];
+}
+
+// ============================================
+// Validation Utility Functions
+// ============================================
+
+// Perspective keywords for detection
+const PERSPECTIVE_KEYWORDS = {
+  first: {
+    en: ['we', 'our', 'us', 'ourselves', 'i', 'my', 'me', 'myself'],
+    zh: ['我们', '我', '本公司', '我司', '我方', '本文', '笔者']
+  },
+  second: {
+    en: ['you', 'your', 'yours', 'yourself', 'yourselves'],
+    zh: ['你', '您', '你的', '您的', '你们', '您们']
+  },
+  third: {
+    en: ['the company', 'the firm', 'they', 'their', 'them', 'it', 'its', 'one', 'people', 'users', 'customers', 'clients'],
+    zh: ['该公司', '该企业', '他们', '其', '人们', '用户', '客户', '企业', '公司']
+  }
+};
+
+/**
+ * Count words for English or characters for Chinese
+ */
+export const countWords = (text: string, language: string): number => {
+  const isEnglish = language.toLowerCase() === 'english';
+  
+  if (isEnglish) {
+    // English: count words (split by whitespace)
+    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+    return words.length;
+  } else {
+    // Chinese: count characters (excluding spaces and punctuation)
+    const chineseChars = text.replace(/[\s\p{P}]/gu, '');
+    return chineseChars.length;
+  }
+};
+
+/**
+ * Count H2 sections in markdown outline
+ */
+export const countH2Sections = (outline: string): number => {
+  const h2Regex = /^##\s+[^#]/gm;
+  const matches = outline.match(h2Regex);
+  return matches ? matches.length : 0;
+};
+
+/**
+ * Detect perspective usage in text and return ratio of target perspective
+ * Returns a number between 0 and 1
+ */
+export const detectPerspectiveRatio = (
+  text: string, 
+  targetPerspective: ArticlePerspective, 
+  language: string
+): number => {
+  const isEnglish = language.toLowerCase() === 'english';
+  const lang = isEnglish ? 'en' : 'zh';
+  const lowerText = text.toLowerCase();
+  
+  let targetCount = 0;
+  let totalCount = 0;
+  
+  // Count occurrences of each perspective's keywords
+  for (const [perspective, keywords] of Object.entries(PERSPECTIVE_KEYWORDS)) {
+    const keywordList = keywords[lang as 'en' | 'zh'];
+    for (const keyword of keywordList) {
+      const regex = new RegExp(isEnglish ? `\\b${keyword}\\b` : keyword, 'gi');
+      const matches = lowerText.match(regex);
+      const count = matches ? matches.length : 0;
+      
+      if (perspective === targetPerspective) {
+        targetCount += count;
+      }
+      totalCount += count;
+    }
+  }
+  
+  if (totalCount === 0) return 1; // No pronouns found, assume OK
+  return targetCount / totalCount;
+};
+
+/**
+ * Use AI to fix perspective in content
+ */
+const fixPerspectiveWithAI = async (
+  content: string,
+  targetPerspective: ArticlePerspective,
+  language: string
+): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const isEnglish = language.toLowerCase() === 'english';
+    
+    const perspectiveLabels = {
+      first: isEnglish ? 'first person ("we", "our", "us")' : '第一人称（"我们"、"我"、"本公司"）',
+      second: isEnglish ? 'second person ("you", "your")' : '第二人称（"你"、"您"）',
+      third: isEnglish ? 'third person (objective tone)' : '第三人称（客观叙述）'
+    };
+    
+    let prompt: string;
+    if (isEnglish) {
+      prompt = `You are a professional editor. The following article needs to be rewritten to consistently use ${perspectiveLabels[targetPerspective]} throughout.
+
+IMPORTANT:
+- Change ALL pronouns and references to match the target perspective
+- Keep the content, structure, and meaning exactly the same
+- Only change the perspective/voice
+- Return ONLY the corrected article, no explanations
+
+Article to fix:
+${content}`;
+    } else {
+      prompt = `你是一位专业编辑。以下文章需要改写为全文统一使用${perspectiveLabels[targetPerspective]}。
+
+重要要求：
+- 将所有人称代词和表述改为目标人称
+- 保持内容、结构和含义完全不变
+- 只修改人称视角
+- 只返回修正后的文章，不要解释
+
+需要修正的文章：
+${content}`;
+    }
+    
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    
+    return response.text || content;
+  } catch (error) {
+    console.error("Failed to fix perspective:", error);
+    return content;
+  }
+};
+
+// ============================================
+// Constants
+// ============================================
+
+const MAX_RETRY_COUNT = 3;
+const PERSPECTIVE_THRESHOLD = 0.7; // 70%
+
 // Initialize the client
 // NOTE: In Vite, use import.meta.env instead of process.env
 // API Key should be in .env file as VITE_GEMINI_API_KEY
@@ -135,115 +287,127 @@ interface OutlineGenerationParams {
   perspective?: ArticlePerspective; // Writing perspective (first/second/third person)
 }
 
-export const generateBlogOutline = async (
-  params: OutlineGenerationParams
-): Promise<string> => {
-  try {
-    const ai = getAiClient();
+/**
+ * Build the outline generation prompt
+ */
+const buildOutlinePrompt = (
+  params: OutlineGenerationParams,
+  retryFeedback?: string
+): { prompt: string; wordCountConfig: typeof WORD_COUNT_CONFIG['1000-2000']; isEnglish: boolean } => {
+  // Determine target language (default to English)
+  const targetLanguage = params.language || "English";
+  const isEnglish = targetLanguage.toLowerCase() === "english";
 
-    // Determine target language (default to English)
-    const targetLanguage = params.language || "English";
-    const isEnglish = targetLanguage.toLowerCase() === "english";
+  // Get word count and H2 count configuration
+  const wordCountConfig = params.wordCountRange
+    ? WORD_COUNT_CONFIG[params.wordCountRange]
+    : WORD_COUNT_CONFIG["1000-2000"];
+  const perspectiveConfig = params.perspective
+    ? PERSPECTIVE_CONFIG[params.perspective]
+    : PERSPECTIVE_CONFIG["third"];
 
-    // Get word count and H2 count configuration
-    const wordCountConfig = params.wordCountRange
-      ? WORD_COUNT_CONFIG[params.wordCountRange]
-      : WORD_COUNT_CONFIG["1000-2000"];
-    const perspectiveConfig = params.perspective
-      ? PERSPECTIVE_CONFIG[params.perspective]
-      : PERSPECTIVE_CONFIG["third"];
+  // Calculate H3 count based on H2 count (1-2 H3 per H2, total around 7-8)
+  const h3Min = wordCountConfig.h2Min;
+  const h3Max = wordCountConfig.h2Max * 2;
 
-    // Calculate H3 count based on H2 count (1-2 H3 per H2, total around 7-8)
-    const h3Min = wordCountConfig.h2Min;
-    const h3Max = wordCountConfig.h2Max * 2;
+  // Build comprehensive context from all available information
+  let contextParts: string[] = [];
 
-    // Build comprehensive context from all available information
-    let contextParts: string[] = [];
+  // 1. Primary directive and title (most important)
+  if (isEnglish) {
+    contextParts.push(
+      `You are creating a concise blog post outline for the following title:\n"${params.selectedTitle}"`
+    );
+  } else {
+    contextParts.push(
+      `您正在为以下标题创建简洁的博客文章大纲：\n"${params.selectedTitle}"`
+    );
+  }
 
-    // 1. Primary directive and title (most important)
-    if (isEnglish) {
-      contextParts.push(
-        `You are creating a concise blog post outline for the following title:\n"${params.selectedTitle}"`
-      );
-    } else {
-      contextParts.push(
-        `您正在为以下标题创建简洁的博客文章大纲：\n"${params.selectedTitle}"`
-      );
-    }
-
-    // 2. Word count and structure requirements
-    if (isEnglish) {
-      contextParts.push(`\nArticle Length Requirements:
-- Target word count: ${wordCountConfig.min}-${wordCountConfig.max} words (STRICTLY follow this limit)
-- Number of H2 sections: exactly ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} sections
+  // 2. Word count and structure requirements (CRITICAL - emphasized)
+  if (isEnglish) {
+    contextParts.push(`
+⚠️ CRITICAL STRUCTURE REQUIREMENTS (MUST FOLLOW EXACTLY):
+- Number of H2 sections: EXACTLY ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} sections (THIS IS MANDATORY)
 - Number of H3 subsections: ${h3Min}-${h3Max} total (1-2 per H2 section)
+- Target article word count: ${wordCountConfig.min}-${wordCountConfig.max} words
 - Writing perspective: ${perspectiveConfig.label} (${perspectiveConfig.description})`);
-    } else {
-      contextParts.push(`\n文章长度要求：
-- 目标字数：${wordCountConfig.min}-${wordCountConfig.max} 字（必须严格遵守）
-- H2章节数量：${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个
+  } else {
+    contextParts.push(`
+⚠️ 关键结构要求（必须严格遵守）：
+- H2章节数量：必须正好 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个（这是强制要求）
 - H3子章节数量：总共 ${h3Min}-${h3Max} 个（每个H2下1-2个H3）
+- 目标文章字数：${wordCountConfig.min}-${wordCountConfig.max} 字
 - 写作视角：${perspectiveConfig.label}（${perspectiveConfig.description}）`);
-    }
+  }
 
-    // 3. Campaign strategy and goals
-    if (params.campaignGoals && params.campaignGoals.trim()) {
-      if (isEnglish) {
-        contextParts.push(
-          `\nMarketing Strategy Goals:\n${params.campaignGoals}`
-        );
-      } else {
-        contextParts.push(`\n营销策略目标：\n${params.campaignGoals}`);
-      }
-    }
-
-    // 4. Keywords for SEO
-    if (params.keywords && params.keywords.length > 0) {
-      if (isEnglish) {
-        contextParts.push(
-          `\nKeywords (integrate naturally into headings):\n${params.keywords.join(
-            ", "
-          )}`
-        );
-      } else {
-        contextParts.push(
-          `\n关键词（请自然融入标题）：\n${params.keywords.join(", ")}`
-        );
-      }
-    }
-
-    // 5. Target audience
-    if (params.targetAudience && params.targetAudience.trim()) {
-      if (isEnglish) {
-        contextParts.push(`\nTarget Audience:\n${params.targetAudience}`);
-      } else {
-        contextParts.push(`\n目标受众：\n${params.targetAudience}`);
-      }
-    }
-
-    // 6. Client feedback and requirements
-    if (params.clientComments && params.clientComments.length > 0) {
-      const commentsText = params.clientComments
-        .map((c) => `- ${c.text}`)
-        .join("\n");
-      if (isEnglish) {
-        contextParts.push(
-          `\nClient Feedback and Requirements (must be fully considered):\n${commentsText}`
-        );
-      } else {
-        contextParts.push(
-          `\n客户反馈和要求（必须充分考虑）：\n${commentsText}`
-        );
-      }
-    }
-
-    const context = contextParts.join("\n");
-
-    // Generate prompt based on target language
-    let prompt: string;
-
+  // 3. Campaign strategy and goals
+  if (params.campaignGoals && params.campaignGoals.trim()) {
     if (isEnglish) {
-      prompt = `${context}
+      contextParts.push(
+        `\nMarketing Strategy Goals:\n${params.campaignGoals}`
+      );
+    } else {
+      contextParts.push(`\n营销策略目标：\n${params.campaignGoals}`);
+    }
+  }
+
+  // 4. Keywords for SEO
+  if (params.keywords && params.keywords.length > 0) {
+    if (isEnglish) {
+      contextParts.push(
+        `\nKeywords (integrate naturally into headings):\n${params.keywords.join(
+          ", "
+        )}`
+      );
+    } else {
+      contextParts.push(
+        `\n关键词（请自然融入标题）：\n${params.keywords.join(", ")}`
+      );
+    }
+  }
+
+  // 5. Target audience
+  if (params.targetAudience && params.targetAudience.trim()) {
+    if (isEnglish) {
+      contextParts.push(`\nTarget Audience:\n${params.targetAudience}`);
+    } else {
+      contextParts.push(`\n目标受众：\n${params.targetAudience}`);
+    }
+  }
+
+  // 6. Client feedback and requirements
+  if (params.clientComments && params.clientComments.length > 0) {
+    const commentsText = params.clientComments
+      .map((c) => `- ${c.text}`)
+      .join("\n");
+    if (isEnglish) {
+      contextParts.push(
+        `\nClient Feedback and Requirements (must be fully considered):\n${commentsText}`
+      );
+    } else {
+      contextParts.push(
+        `\n客户反馈和要求（必须充分考虑）：\n${commentsText}`
+      );
+    }
+  }
+
+  // 7. Retry feedback (if this is a retry attempt)
+  if (retryFeedback) {
+    if (isEnglish) {
+      contextParts.push(`\n🚨 CORRECTION NEEDED: ${retryFeedback}`);
+    } else {
+      contextParts.push(`\n🚨 需要修正：${retryFeedback}`);
+    }
+  }
+
+  const context = contextParts.join("\n");
+
+  // Generate prompt based on target language
+  let prompt: string;
+
+  if (isEnglish) {
+    prompt = `${context}
 
 Create a CONCISE blog post outline with ONLY headings (H1, H2, H3). NO descriptions or explanations under headings.
 
@@ -252,7 +416,7 @@ Create a CONCISE blog post outline with ONLY headings (H1, H2, H3). NO descripti
 2. DO NOT add any text below headings - just headings only
 3. DO NOT add bullet points, descriptions, or explanations
 4. Exactly 1 H1 (main title)
-5. Exactly ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} H2 sections
+5. ⚠️ EXACTLY ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} H2 sections - COUNT CAREFULLY BEFORE SUBMITTING
 6. Only ${h3Min}-${h3Max} H3 subsections total (1-2 per H2, some H2s may have no H3)
 7. Keep outline compact to fit ${wordCountConfig.min}-${wordCountConfig.max} word article
 8. Use ${perspectiveConfig.label} perspective
@@ -281,9 +445,11 @@ This is a description - DO NOT ADD THIS
 ## Section One
 Explaining what this section covers - DO NOT ADD THIS
 
+⚠️ FINAL CHECK: Before returning, COUNT your H2 sections. You MUST have exactly ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} H2 sections.
+
 Return ONLY the Markdown headings, nothing else.`;
-    } else {
-      prompt = `${context}
+  } else {
+    prompt = `${context}
 
 创建一个简洁的博客文章大纲，只包含标题（H1、H2、H3）。标题下不要有任何描述或说明文字。
 
@@ -292,7 +458,7 @@ Return ONLY the Markdown headings, nothing else.`;
 2. 标题下方不要添加任何文字 - 只有标题
 3. 不要添加列表项、描述或解释
 4. 只有 1 个 H1（主标题）
-5. 正好 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个 H2 章节
+5. ⚠️ 必须正好 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个 H2 章节 - 提交前请仔细数一数
 6. 总共只有 ${h3Min}-${h3Max} 个 H3 子章节（每个H2下1-2个，有些H2可以没有H3）
 7. 保持大纲紧凑，以适应 ${wordCountConfig.min}-${wordCountConfig.max} 字的文章
 8. 使用${perspectiveConfig.label}视角
@@ -321,18 +487,82 @@ Return ONLY the Markdown headings, nothing else.`;
 ## 第一章节
 说明本章节内容 - 不要添加这个
 
+⚠️ 最终检查：返回前请数一数你的 H2 章节数量，必须正好是 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个。
+
 只返回 Markdown 标题，不要有其他内容。`;
+  }
+
+  return { prompt, wordCountConfig, isEnglish };
+};
+
+export const generateBlogOutline = async (
+  params: OutlineGenerationParams
+): Promise<GenerationResult> => {
+  const warnings: string[] = [];
+  let bestResult = "";
+  let bestH2Diff = Infinity;
+  
+  try {
+    const ai = getAiClient();
+    const { wordCountConfig, isEnglish } = buildOutlinePrompt(params);
+    
+    for (let attempt = 0; attempt <= MAX_RETRY_COUNT; attempt++) {
+      // Build prompt with retry feedback if needed
+      let retryFeedback: string | undefined;
+      if (attempt > 0 && bestResult) {
+        const currentH2Count = countH2Sections(bestResult);
+        if (isEnglish) {
+          retryFeedback = `Your previous outline had ${currentH2Count} H2 sections, but the requirement is ${wordCountConfig.h2Min}-${wordCountConfig.h2Max}. Please regenerate with the correct number of H2 sections.`;
+        } else {
+          retryFeedback = `你上次生成的大纲有 ${currentH2Count} 个 H2 章节，但要求是 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个。请重新生成正确数量的 H2 章节。`;
+        }
+      }
+      
+      const { prompt } = buildOutlinePrompt(params, retryFeedback);
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      
+      const content = response.text || "";
+      if (!content) continue;
+      
+      // Validate H2 count
+      const h2Count = countH2Sections(content);
+      const h2Diff = h2Count < wordCountConfig.h2Min 
+        ? wordCountConfig.h2Min - h2Count 
+        : h2Count > wordCountConfig.h2Max 
+          ? h2Count - wordCountConfig.h2Max 
+          : 0;
+      
+      // Track best result (closest to target)
+      if (h2Diff < bestH2Diff) {
+        bestH2Diff = h2Diff;
+        bestResult = content;
+      }
+      
+      // If valid, return immediately
+      if (h2Count >= wordCountConfig.h2Min && h2Count <= wordCountConfig.h2Max) {
+        return { content, warnings: [] };
+      }
+      
+      // If this was the last attempt, break
+      if (attempt === MAX_RETRY_COUNT) break;
     }
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-
-    return response.text || "";
+    
+    // If we get here, validation failed after all retries
+    const finalH2Count = countH2Sections(bestResult);
+    if (isEnglish) {
+      warnings.push(`H2 section count (${finalH2Count}) is outside the target range (${wordCountConfig.h2Min}-${wordCountConfig.h2Max}). Please adjust manually if needed.`);
+    } else {
+      warnings.push(`H2 章节数量（${finalH2Count}）不在目标范围（${wordCountConfig.h2Min}-${wordCountConfig.h2Max}）内，请根据需要手动调整。`);
+    }
+    
+    return { content: bestResult, warnings };
   } catch (error) {
     console.error("Failed to generate outline:", error);
-    return "";
+    return { content: "", warnings: ["Failed to generate outline"] };
   }
 };
 
@@ -371,12 +601,173 @@ interface DraftGenerationParams {
   language?: string;
 }
 
+/**
+ * Build the draft generation prompt
+ */
+const buildDraftPrompt = (
+  params: DraftGenerationParams,
+  retryFeedback?: { wordCount?: string; perspective?: string }
+): { prompt: string; wordCountConfig: typeof WORD_COUNT_CONFIG['1000-2000']; perspectiveConfig: typeof PERSPECTIVE_CONFIG['third']; isEnglish: boolean } => {
+  // Get word count and perspective configuration
+  const wordCountConfig = params.wordCountRange
+    ? WORD_COUNT_CONFIG[params.wordCountRange]
+    : WORD_COUNT_CONFIG["1000-2000"];
+  const perspectiveConfig = params.perspective
+    ? PERSPECTIVE_CONFIG[params.perspective]
+    : PERSPECTIVE_CONFIG["third"];
+
+  // Determine target language
+  const targetLanguage = params.language || "English";
+  const isEnglish = targetLanguage.toLowerCase() === "english";
+
+  let commentsContext = "";
+  if (params.comments.length > 0) {
+    if (isEnglish) {
+      commentsContext = `
+IMPORTANT: You must incorporate the following feedback from the client into the draft:
+${params.comments.map((c) => `- "${c.text}" (from ${c.author})`).join("\n")}
+`;
+    } else {
+      commentsContext = `
+重要：请在正文中融入以下客户反馈：
+${params.comments.map((c) => `- "${c.text}" (来自 ${c.author})`).join("\n")}
+`;
+    }
+  }
+
+  // Build perspective instruction with examples
+  let perspectiveInstruction: string;
+  if (isEnglish) {
+    switch (params.perspective) {
+      case "first":
+        perspectiveInstruction =
+          '⚠️ CRITICAL: Use FIRST PERSON perspective throughout the ENTIRE article. Use "we", "our", "us", "our team", "our company". NEVER use "the company", "they", "it", or "you".';
+        break;
+      case "second":
+        perspectiveInstruction =
+          '⚠️ CRITICAL: Use SECOND PERSON perspective throughout the ENTIRE article. Use "you", "your", "yours". Directly address the reader. NEVER use "we", "the company", or "they".';
+        break;
+      case "third":
+      default:
+        perspectiveInstruction =
+          '⚠️ CRITICAL: Use THIRD PERSON perspective with objective, professional tone throughout the ENTIRE article. Use "the company", "they", "it", "one", "people". NEVER use "we", "our", or "you".';
+    }
+  } else {
+    switch (params.perspective) {
+      case "first":
+        perspectiveInstruction =
+          '⚠️ 关键要求：全文必须使用第一人称视角。使用"我们"、"本公司"、"我司"、"我方"。绝不使用"该公司"、"他们"、"您"、"你"。';
+        break;
+      case "second":
+        perspectiveInstruction =
+          '⚠️ 关键要求：全文必须使用第二人称视角。使用"您"、"你"、"你的"、"您的"。直接与读者对话。绝不使用"我们"、"该公司"、"他们"。';
+        break;
+      case "third":
+      default:
+        perspectiveInstruction =
+          '⚠️ 关键要求：全文必须使用第三人称视角，保持客观、专业的叙述方式。使用"该公司"、"企业"、"用户"、"人们"。绝不使用"我们"、"您"、"你"。';
+    }
+  }
+
+  // Build retry feedback section
+  let retrySection = "";
+  if (retryFeedback) {
+    if (isEnglish) {
+      if (retryFeedback.wordCount) {
+        retrySection += `\n🚨 WORD COUNT CORRECTION: ${retryFeedback.wordCount}`;
+      }
+      if (retryFeedback.perspective) {
+        retrySection += `\n🚨 PERSPECTIVE CORRECTION: ${retryFeedback.perspective}`;
+      }
+    } else {
+      if (retryFeedback.wordCount) {
+        retrySection += `\n🚨 字数修正：${retryFeedback.wordCount}`;
+      }
+      if (retryFeedback.perspective) {
+        retrySection += `\n🚨 人称修正：${retryFeedback.perspective}`;
+      }
+    }
+  }
+
+  let prompt: string;
+
+  if (isEnglish) {
+    prompt = `Write a full blog post draft for a firm named "${params.clientName}".
+${retrySection}
+
+Title: "${params.title}"
+
+Follow this structure strictly:
+${params.outline}
+
+${commentsContext}
+
+**⚠️ CRITICAL WRITING REQUIREMENTS (MUST FOLLOW EXACTLY)**:
+
+1. PERSPECTIVE (MANDATORY):
+${perspectiveInstruction}
+
+2. WORD COUNT (MANDATORY):
+- The article MUST be between ${wordCountConfig.min}-${wordCountConfig.max} words.
+- This is a HARD REQUIREMENT. Count your words before finishing.
+- If too short, add more detail. If too long, be more concise.
+
+3. FORMAT:
+- Tone: Professional, Authoritative, yet Accessible.
+- Format: Markdown. Use bold (**text**) for emphasis.
+- Do NOT use single asterisks (*) for italics. Use asterisks ONLY for bullet points.
+
+⚠️ FINAL CHECK BEFORE SUBMITTING:
+1. Count your words - MUST be ${wordCountConfig.min}-${wordCountConfig.max} words
+2. Check perspective - MUST consistently use ${perspectiveConfig.label}
+
+Do not include preambles like "Here is the draft". Just start with the content.`;
+  } else {
+    prompt = `为"${params.clientName}"撰写一篇完整的博客文章。
+${retrySection}
+
+标题："${params.title}"
+
+请严格按照以下大纲结构撰写：
+${params.outline}
+
+${commentsContext}
+
+**⚠️ 关键写作要求（必须严格遵守）**：
+
+1. 人称视角（强制要求）：
+${perspectiveInstruction}
+
+2. 字数要求（强制要求）：
+- 文章字数必须在 ${wordCountConfig.min}-${wordCountConfig.max} 字之间
+- 这是硬性要求，完成前请数一数字数
+- 如果太短，请添加更多细节；如果太长，请更简洁
+
+3. 格式要求：
+- 语气：专业、权威，同时保持亲和力
+- 格式：Markdown。可以使用粗体（**文字**）进行强调
+- 不要使用单星号 (*) 进行斜体强调。星号仅用于列表项
+
+⚠️ 提交前最终检查：
+1. 数一数字数 - 必须是 ${wordCountConfig.min}-${wordCountConfig.max} 字
+2. 检查人称 - 必须全文统一使用${perspectiveConfig.label}
+
+不要包含"以下是草稿"之类的开场白，直接开始正文内容。`;
+  }
+
+  return { prompt, wordCountConfig, perspectiveConfig, isEnglish };
+};
+
 export const generateBlogDraft = async (
   titleOrParams: string | DraftGenerationParams,
   outline?: string,
   comments?: Comment[],
   clientName?: string
-): Promise<string> => {
+): Promise<GenerationResult> => {
+  const warnings: string[] = [];
+  let bestResult = "";
+  let bestScore = -Infinity; // Higher is better (closer to target)
+  
   try {
     const ai = getAiClient();
 
@@ -395,116 +786,119 @@ export const generateBlogDraft = async (
       params = titleOrParams;
     }
 
-    // Get word count and perspective configuration
-    const wordCountConfig = params.wordCountRange
-      ? WORD_COUNT_CONFIG[params.wordCountRange]
-      : WORD_COUNT_CONFIG["1000-2000"];
-    const perspectiveConfig = params.perspective
-      ? PERSPECTIVE_CONFIG[params.perspective]
-      : PERSPECTIVE_CONFIG["third"];
-
-    // Determine target language
+    const { wordCountConfig, isEnglish } = buildDraftPrompt(params);
     const targetLanguage = params.language || "English";
-    const isEnglish = targetLanguage.toLowerCase() === "english";
-
-    let commentsContext = "";
-    if (params.comments.length > 0) {
+    const targetPerspective = params.perspective || "third";
+    
+    for (let attempt = 0; attempt <= MAX_RETRY_COUNT; attempt++) {
+      // Build retry feedback if needed
+      let retryFeedback: { wordCount?: string; perspective?: string } | undefined;
+      
+      if (attempt > 0 && bestResult) {
+        const currentWordCount = countWords(bestResult, targetLanguage);
+        const currentPerspectiveRatio = detectPerspectiveRatio(bestResult, targetPerspective, targetLanguage);
+        
+        retryFeedback = {};
+        
+        if (currentWordCount < wordCountConfig.min || currentWordCount > wordCountConfig.max) {
+          if (isEnglish) {
+            retryFeedback.wordCount = `Your previous draft had ${currentWordCount} words, but the requirement is ${wordCountConfig.min}-${wordCountConfig.max}. Please ${currentWordCount < wordCountConfig.min ? 'add more content' : 'reduce content'}.`;
+          } else {
+            retryFeedback.wordCount = `你上次的草稿有 ${currentWordCount} 字，但要求是 ${wordCountConfig.min}-${wordCountConfig.max} 字。请${currentWordCount < wordCountConfig.min ? '添加更多内容' : '精简内容'}。`;
+          }
+        }
+        
+        if (currentPerspectiveRatio < PERSPECTIVE_THRESHOLD) {
+          const perspectiveLabel = PERSPECTIVE_CONFIG[targetPerspective].label;
+          if (isEnglish) {
+            retryFeedback.perspective = `Your previous draft did not consistently use ${perspectiveLabel}. Please rewrite to use ${perspectiveLabel} throughout the entire article.`;
+          } else {
+            retryFeedback.perspective = `你上次的草稿没有统一使用${perspectiveLabel}。请重写，全文使用${perspectiveLabel}。`;
+          }
+        }
+        
+        // If no issues found in retry feedback, we shouldn't be retrying
+        if (!retryFeedback.wordCount && !retryFeedback.perspective) {
+          retryFeedback = undefined;
+        }
+      }
+      
+      const { prompt } = buildDraftPrompt(params, retryFeedback);
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      
+      let content = response.text || "";
+      if (!content) continue;
+      
+      // Validate word count
+      const wordCount = countWords(content, targetLanguage);
+      const wordCountValid = wordCount >= wordCountConfig.min && wordCount <= wordCountConfig.max;
+      
+      // Validate perspective
+      let perspectiveRatio = detectPerspectiveRatio(content, targetPerspective, targetLanguage);
+      let perspectiveValid = perspectiveRatio >= PERSPECTIVE_THRESHOLD;
+      
+      // If perspective is invalid, try to fix with AI
+      if (!perspectiveValid) {
+        const fixedContent = await fixPerspectiveWithAI(content, targetPerspective, targetLanguage);
+        const fixedRatio = detectPerspectiveRatio(fixedContent, targetPerspective, targetLanguage);
+        
+        // Use fixed content if it's better
+        if (fixedRatio > perspectiveRatio) {
+          content = fixedContent;
+          perspectiveRatio = fixedRatio;
+          perspectiveValid = perspectiveRatio >= PERSPECTIVE_THRESHOLD;
+        }
+      }
+      
+      // Calculate score (word count deviation + perspective ratio)
+      const wordCountDeviation = wordCountValid ? 0 : 
+        Math.abs(wordCount - (wordCountConfig.min + wordCountConfig.max) / 2) / wordCountConfig.max;
+      const score = perspectiveRatio - wordCountDeviation;
+      
+      // Track best result
+      if (score > bestScore) {
+        bestScore = score;
+        bestResult = content;
+      }
+      
+      // If both valid, return immediately
+      if (wordCountValid && perspectiveValid) {
+        return { content, warnings: [] };
+      }
+      
+      // If this was the last attempt, break
+      if (attempt === MAX_RETRY_COUNT) break;
+    }
+    
+    // If we get here, validation failed after all retries
+    const finalWordCount = countWords(bestResult, targetLanguage);
+    const finalPerspectiveRatio = detectPerspectiveRatio(bestResult, targetPerspective, targetLanguage);
+    
+    if (finalWordCount < wordCountConfig.min || finalWordCount > wordCountConfig.max) {
       if (isEnglish) {
-        commentsContext = `
-IMPORTANT: You must incorporate the following feedback from the client into the draft:
-${params.comments.map((c) => `- "${c.text}" (from ${c.author})`).join("\n")}
-`;
+        warnings.push(`Word count (${finalWordCount}) is outside the target range (${wordCountConfig.min}-${wordCountConfig.max}). Please adjust manually if needed.`);
       } else {
-        commentsContext = `
-重要：请在正文中融入以下客户反馈：
-${params.comments.map((c) => `- "${c.text}" (来自 ${c.author})`).join("\n")}
-`;
+        warnings.push(`字数（${finalWordCount}）不在目标范围（${wordCountConfig.min}-${wordCountConfig.max}）内，请根据需要手动调整。`);
       }
     }
-
-    // Build perspective instruction
-    let perspectiveInstruction: string;
-    if (isEnglish) {
-      switch (params.perspective) {
-        case "first":
-          perspectiveInstruction =
-            'Use first person perspective ("we", "our", "us") throughout the article.';
-          break;
-        case "second":
-          perspectiveInstruction =
-            'Use second person perspective ("you", "your") throughout the article, directly addressing the reader.';
-          break;
-        case "third":
-        default:
-          perspectiveInstruction =
-            "Use third person perspective with objective, professional tone throughout the article.";
-      }
-    } else {
-      switch (params.perspective) {
-        case "first":
-          perspectiveInstruction =
-            '全文使用第一人称视角（"我们"、"本公司"），拉近与读者的距离。';
-          break;
-        case "second":
-          perspectiveInstruction =
-            '全文使用第二人称视角（"您"、"你"），直接与读者对话。';
-          break;
-        case "third":
-        default:
-          perspectiveInstruction =
-            "全文使用第三人称视角，保持客观、专业的叙述方式。";
-      }
-    }
-
-    let prompt: string;
-
-    if (isEnglish) {
-      prompt = `Write a full blog post draft for a firm named "${params.clientName}".
     
-Title: "${params.title}"
-
-Follow this structure strictly:
-${params.outline}
-
-${commentsContext}
-
-**Writing Requirements**:
-- ${perspectiveInstruction}
-- Tone: Professional, Authoritative, yet Accessible.
-- Format: Markdown. Use bold (**text**) for emphasis.
-- Do NOT use single asterisks (*) for italics. Use asterisks ONLY for bullet points.
-- Length: ${wordCountConfig.min}-${wordCountConfig.max} words.
-
-Do not include preambles like "Here is the draft". Just start with the content.`;
-    } else {
-      prompt = `为"${params.clientName}"撰写一篇完整的博客文章。
-    
-标题："${params.title}"
-
-请严格按照以下大纲结构撰写：
-${params.outline}
-
-${commentsContext}
-
-**写作要求**：
-- ${perspectiveInstruction}
-- 语气：专业、权威，同时保持亲和力。
-- 格式：Markdown。可以使用粗体（**文字**）进行强调。
-- 不要使用单星号 (*) 进行斜体强调。星号仅用于列表项（Bullet points）。
-- 字数：${wordCountConfig.min}-${wordCountConfig.max} 字。
-
-不要包含"以下是草稿"之类的开场白，直接开始正文内容。`;
+    if (finalPerspectiveRatio < PERSPECTIVE_THRESHOLD) {
+      const perspectiveLabel = PERSPECTIVE_CONFIG[targetPerspective].label;
+      if (isEnglish) {
+        warnings.push(`Perspective consistency (${Math.round(finalPerspectiveRatio * 100)}%) is below the target (70%). Please review and adjust ${perspectiveLabel} usage manually.`);
+      } else {
+        warnings.push(`人称一致性（${Math.round(finalPerspectiveRatio * 100)}%）低于目标（70%）。请手动检查并调整${perspectiveLabel}的使用。`);
+      }
     }
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-
-    return response.text || "";
+    
+    return { content: bestResult, warnings };
   } catch (error) {
     console.error("Failed to generate draft:", error);
-    return "";
+    return { content: "", warnings: ["Failed to generate draft"] };
   }
 };
 

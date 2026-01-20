@@ -168,12 +168,19 @@ export const PERSPECTIVE_CONFIG: Record<ArticlePerspective, { label: string; des
   'third': { label: 'Third Person', description: 'Objective tone' },
 };
 
+// Writing path type for distinguishing article creation method
+export type WritingPath = 'keyword-driven' | 'topic-expansion';
+
 export interface Article {
   id: string;
   campaignId: string;
   title: string; // Working title or topic
   status: ProjectStatus;
   lastUpdated: Date;
+  
+  // Writing method tracking
+  writingPath?: WritingPath;      // Which writing method was used to create this article
+  sourceKeyword?: string;         // Original keyword for keyword-driven articles
   
   // Content Settings (from Title Generation stage)
   language?: string;  // Target language for content (e.g., "English", "Chinese")

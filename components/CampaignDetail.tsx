@@ -236,7 +236,8 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
             title: defaultTopic,
             status: ARTICLE_STATUS.NEEDS_TITLES,
             proposed_titles: [],
-            client_comments: []
+            client_comments: [],
+            writing_path: 'topic-expansion'  // Mark as topic-expansion
           })
           .select()
           .single();
@@ -287,7 +288,8 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
           title: defaultTopic,
           status: ARTICLE_STATUS.NEEDS_TITLES,
           proposed_titles: [],
-          client_comments: []
+          client_comments: [],
+          writing_path: 'topic-expansion'  // Mark as topic-expansion
         })
         .select()
         .single();

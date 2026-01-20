@@ -8,10 +8,11 @@ import ClientManagement from './ClientManagement';
 import InviteCodeManagement from './InviteCodeManagement';
 import UserManagement from './UserManagement';
 import { Layout, User, LogOut, Ticket, Users, Menu, X as CloseIcon } from 'lucide-react';
-import { ViewState } from '../types';
+import { ViewState, ARTICLE_STATUS } from '../types';
 import { ToastProvider } from './Toast';
 import { ConfirmProvider } from './ConfirmDialog';
 import { useAuth } from '../contexts/AuthContext';
+import supabase from '../services/supabaseClient.js';
 
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -50,9 +51,44 @@ const MainLayout: React.FC = () => {
     setCurrentView(ViewState.CAMPAIGN_DETAIL);
   };
 
-  const handleSelectArticle = (id: string) => {
-    setSelectedArticleId(id);
-    setCurrentView(ViewState.ARTICLE_WORKSPACE);
+  const handleSelectArticle = async (id: string) => {
+    try {
+      // Query database to get article's writing_path and status
+      const { data: article, error } = await supabase
+        .from('articles')
+        .select('writing_path, status, campaign_id')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching article:', error);
+        // Fallback to default behavior
+        setSelectedArticleId(id);
+        setCurrentView(ViewState.ARTICLE_WORKSPACE);
+        return;
+      }
+
+      // Set the campaign ID for KeywordDiscovery
+      if (article?.campaign_id) {
+        setSelectedCampaignId(article.campaign_id);
+      }
+
+      // Check if it's a keyword-driven article in NEEDS_TITLES status
+      if (article?.writing_path === 'keyword-driven' && article?.status === ARTICLE_STATUS.NEEDS_TITLES) {
+        // Navigate to KeywordDiscovery with articleId
+        setSelectedArticleId(id);
+        setCurrentView(ViewState.KEYWORD_DISCOVERY);
+      } else {
+        // Default: navigate to ArticleWorkspace
+        setSelectedArticleId(id);
+        setCurrentView(ViewState.ARTICLE_WORKSPACE);
+      }
+    } catch (err) {
+      console.error('Unexpected error in handleSelectArticle:', err);
+      // Fallback to default behavior
+      setSelectedArticleId(id);
+      setCurrentView(ViewState.ARTICLE_WORKSPACE);
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -258,6 +294,7 @@ const MainLayout: React.FC = () => {
           <div className="h-full overflow-y-auto">
             <KeywordDiscovery
               campaignId={selectedCampaignId}
+              articleId={selectedArticleId || undefined}
               onBack={handleBackToCampaign}
             />
           </div>

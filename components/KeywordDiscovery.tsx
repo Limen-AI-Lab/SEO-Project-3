@@ -112,6 +112,7 @@ const TIME_RANGES = [
 
 interface Props {
   campaignId: string;
+  articleId?: string;  // Optional: if provided, load existing article in edit mode
   onBack: () => void;
 }
 
@@ -259,12 +260,15 @@ const SimpleDropdown: React.FC<{
   );
 };
 
-const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
+const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) => {
   const { showToast } = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [clientName, setClientName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit mode: when articleId is provided, we're editing an existing article
+  const isEditMode = !!articleId;
 
   // Step management: 'keyword-input' or 'topic-selection'
   const [currentStep, setCurrentStep] = useState<'keyword-input' | 'topic-selection'>('keyword-input');
@@ -283,7 +287,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
 
   const MAX_KEYWORD_LENGTH = 100;
 
-  // Load campaign data
+  // Load campaign data and existing article (if in edit mode)
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -336,6 +340,37 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
           }
         }
 
+        // If in edit mode, load existing article and pre-fill keyword
+        if (articleId) {
+          const { data: articleData, error: articleError } = await supabase
+            .from('articles')
+            .select('*')
+            .eq('id', articleId)
+            .single();
+
+          if (articleError) {
+            console.error('Error fetching article:', articleError);
+            setError(`Failed to load article: ${articleError.message}`);
+            setIsLoading(false);
+            return;
+          }
+
+          if (articleData) {
+            // Pre-fill keyword from source_keyword field
+            if (articleData.source_keyword) {
+              setKeyword(articleData.source_keyword);
+            }
+            // Pre-fill language if available
+            if (articleData.language) {
+              // Find language code from language name
+              const langCode = LANGUAGES.find(l => l.name === articleData.language)?.code;
+              if (langCode) {
+                setTargetLanguage(langCode);
+              }
+            }
+          }
+        }
+
       } catch (err) {
         console.error('Unexpected error loading data:', err);
         setError(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -345,7 +380,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
     };
 
     loadData();
-  }, [campaignId]);
+  }, [campaignId, articleId]);
 
   const handleGenerateIdeas = async () => {
     if (!keyword.trim()) {
@@ -375,45 +410,89 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
 
       setTopicIdeas(ideas);
 
-      // 3. Create Article record in database
-      const newArticle = {
-        campaign_id: campaignId,
-        title: keyword.trim(), // Working title is the keyword
-        status: ARTICLE_STATUS.NEEDS_TITLES,
-        proposed_titles: [],
-        language: languageName,
-        created_at: new Date().toISOString(),
-        last_updated: new Date().toISOString()
-      };
+      let resultArticle: Article;
 
-      const { data: insertedArticle, error: insertError } = await supabase
-        .from('articles')
-        .insert(newArticle)
-        .select()
-        .single();
+      if (isEditMode && articleId) {
+        // Edit mode: Update existing article with new keyword
+        const updateData = {
+          title: keyword.trim(),
+          source_keyword: keyword.trim(),
+          language: languageName,
+          last_updated: new Date().toISOString()
+        };
 
-      if (insertError) {
-        console.error('Error creating article:', insertError);
-        showToast(`Failed to create article: ${insertError.message}`, 'error');
-        setIsGeneratingIdeas(false);
-        return;
+        const { data: updatedArticle, error: updateError } = await supabase
+          .from('articles')
+          .update(updateData)
+          .eq('id', articleId)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Error updating article:', updateError);
+          showToast(`Failed to update article: ${updateError.message}`, 'error');
+          setIsGeneratingIdeas(false);
+          return;
+        }
+
+        // Map to Article interface
+        resultArticle = {
+          id: updatedArticle.id,
+          campaignId: updatedArticle.campaign_id,
+          title: updatedArticle.title,
+          status: updatedArticle.status as ProjectStatus,
+          lastUpdated: new Date(updatedArticle.last_updated),
+          proposedTitles: updatedArticle.proposed_titles || [],
+          language: updatedArticle.language,
+          sourceKeyword: updatedArticle.source_keyword,
+          writingPath: updatedArticle.writing_path,
+          clientComments: []
+        };
+      } else {
+        // Create mode: Create new Article record in database
+        const newArticle = {
+          campaign_id: campaignId,
+          title: keyword.trim(), // Working title is the keyword
+          status: ARTICLE_STATUS.NEEDS_TITLES,
+          proposed_titles: [],
+          language: languageName,
+          writing_path: 'keyword-driven',  // Mark as keyword-driven
+          source_keyword: keyword.trim(),   // Save the original keyword
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        };
+
+        const { data: insertedArticle, error: insertError } = await supabase
+          .from('articles')
+          .insert(newArticle)
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error creating article:', insertError);
+          showToast(`Failed to create article: ${insertError.message}`, 'error');
+          setIsGeneratingIdeas(false);
+          return;
+        }
+
+        // Map to Article interface
+        resultArticle = {
+          id: insertedArticle.id,
+          campaignId: insertedArticle.campaign_id,
+          title: insertedArticle.title,
+          status: insertedArticle.status as ProjectStatus,
+          lastUpdated: new Date(insertedArticle.last_updated),
+          proposedTitles: insertedArticle.proposed_titles || [],
+          language: insertedArticle.language,
+          sourceKeyword: insertedArticle.source_keyword,
+          writingPath: insertedArticle.writing_path,
+          clientComments: []
+        };
       }
 
-      // Map to Article interface
-      const mappedArticle: Article = {
-        id: insertedArticle.id,
-        campaignId: insertedArticle.campaign_id,
-        title: insertedArticle.title,
-        status: insertedArticle.status as ProjectStatus,
-        lastUpdated: new Date(insertedArticle.last_updated),
-        proposedTitles: insertedArticle.proposed_titles || [],
-        language: insertedArticle.language,
-        clientComments: []
-      };
+      setCreatedArticle(resultArticle);
 
-      setCreatedArticle(mappedArticle);
-
-      // 4. Switch to Step 2
+      // Switch to Step 2
       setCurrentStep('topic-selection');
 
     } catch (err) {
@@ -472,8 +551,9 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, onBack }) => {
 
   // Handle going back from Step 2 to Step 1
   const handleBackToKeyword = async () => {
-    // Delete the created article since user is going back
-    if (createdArticle) {
+    // Only delete the article if it was newly created (not in edit mode)
+    // In edit mode, the article already exists and should be preserved
+    if (createdArticle && !isEditMode) {
       await supabase
         .from('articles')
         .delete()

@@ -166,9 +166,18 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
            <h2 className="text-2xl font-bold text-slate-900">Title Generation</h2>
            <p className="text-slate-500 mt-1">Configure the AI to propose 5-10 engaging titles.</p>
         </div>
-        <button className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-lg hover:bg-indigo-100 transition border border-indigo-200">
-          Directly generate article
-        </button>
+        <div className="relative group">
+          <button 
+            disabled
+            className="px-4 py-2 bg-slate-100 text-slate-400 font-medium rounded-lg cursor-not-allowed border border-slate-200"
+          >
+            Directly generate article
+          </button>
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-800 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+            Coming soon
+            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></span>
+          </span>
+        </div>
       </div>
 
       {/* Configuration Panel */}

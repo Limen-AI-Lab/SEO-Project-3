@@ -91,30 +91,8 @@ interface Props {
   cmsId?: string;
 }
 
-// Mock References Data
-const MOCK_REFERENCES = [
-  {
-    id: 1,
-    title: "The 9 Best AI SEO Agencies in 2025",
-    snippet: "The 9 Best AI SEO Agencies in 2025; Digital Elevator - Best for SMBs · Small businesses to mid-market enterprise;...",
-    date: "7 days ago",
-    url: "#"
-  },
-  {
-    id: 2,
-    title: "8 AI SEO Tools We Absolutely Love Used By Experts",
-    snippet: "Discover the best AI tools for scaling your SEO efforts, including ChatGPT, Semrush, and more, to enhance your content...",
-    date: "7 days ago",
-    url: "#"
-  },
-  {
-    id: 3,
-    title: "How AI is Changing SEO: What You Need to Know",
-    snippet: "AI is revolutionizing search engine optimization. Learn how search engines are using AI and how you can adapt your strategy.",
-    date: "2 weeks ago",
-    url: "#"
-  }
-];
+// References Data (will be fetched from API in the future)
+const MOCK_REFERENCES: { id: number; title: string; snippet: string; date: string; url: string }[] = [];
 
 const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const { user, isAdminUser } = useAuth();
@@ -1204,18 +1182,25 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                        <div className="p-2 bg-slate-50/30">
                           <p className="text-[10px] text-slate-500 px-2 py-1">Select articles from search results that match your chosen idea type.</p>
                           <div className="space-y-2 mt-1 max-h-80 overflow-y-auto">
-                             {MOCK_REFERENCES.map(ref => (
-                               <div key={ref.id} className="p-3 bg-white rounded-lg border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition cursor-pointer group">
-                                  <a href={ref.url} className="block group-hover:text-indigo-700 transition">
-                                    <h4 className="text-sm font-medium text-slate-800 mb-1 group-hover:text-indigo-700 line-clamp-1">{ref.title}</h4>
-                                  </a>
-                                  <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">{ref.snippet}</p>
-                                  <div className="flex items-center gap-2">
-                                     <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Recommended</span>
-                                     <span className="text-[10px] text-slate-400">| {ref.date}</span>
-                                  </div>
+                             {MOCK_REFERENCES.length === 0 ? (
+                               <div className="p-6 text-center">
+                                  <p className="text-sm text-slate-500">No data available</p>
+                                  <p className="text-xs text-slate-400 mt-1">Coming soon</p>
                                </div>
-                             ))}
+                             ) : (
+                               MOCK_REFERENCES.map(ref => (
+                                 <div key={ref.id} className="p-3 bg-white rounded-lg border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition cursor-pointer group">
+                                    <a href={ref.url} className="block group-hover:text-indigo-700 transition">
+                                      <h4 className="text-sm font-medium text-slate-800 mb-1 group-hover:text-indigo-700 line-clamp-1">{ref.title}</h4>
+                                    </a>
+                                    <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">{ref.snippet}</p>
+                                    <div className="flex items-center gap-2">
+                                       <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Recommended</span>
+                                       <span className="text-[10px] text-slate-400">| {ref.date}</span>
+                                    </div>
+                                 </div>
+                               ))
+                             )}
                           </div>
                        </div>
                     </div>

@@ -48,32 +48,8 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
   // Reference module state
   const [isReferencesExpanded, setIsReferencesExpanded] = useState(true);
 
-  const mockReferences = [
-    {
-      id: 5,
-      title: "How to Choose the Right VR Headset for Your Needs",
-      snippet: "For gaming: Look for headsets with a high refresh rate (90Hz or above), wide field of view, and precise tracking. These features ensure immersive gameplay...",
-      type: "Guide",
-      date: "Oct 20, 2025",
-      url: "#"
-    },
-    {
-      id: 6,
-      title: "How to Choose the Right VR Headset: A Complete Guide",
-      snippet: "1. Define Your Usage Needs. Before choosing a VR headset, it's essential to clarify your intended use. 2. Types of VR Headsets: Tethered vs. Standalone...",
-      type: "Manual",
-      date: "Nov 26, 2024",
-      url: "#"
-    },
-    {
-      id: 10,
-      title: "How to Choose the Right VR Headset? - TechTips",
-      snippet: "To determine the right VR-headset, it is helpful to first think about whether you want to use a VR-headset with or without a PC. This defines the category...",
-      type: "Review",
-      date: "Dec 15, 2024",
-      url: "#"
-    }
-  ];
+  // References Data (will be fetched from API in the future)
+  const mockReferences: { id: number; title: string; snippet: string; type: string; date: string; url: string }[] = [];
 
   // Real-time parsing and validation
   useEffect(() => {
@@ -648,34 +624,41 @@ Specific details
                  </div>
                </button>
                
-               {isReferencesExpanded && (
-                 <div className="p-5 pt-2 space-y-5">
-                    <p className="text-xs text-slate-500 mb-4">
-                      Select relevant ideas from search results matching your topic.
-                    </p>
-                    {mockReferences.map((ref) => (
-                      <div key={ref.id} className="group">
-                        <div className="flex items-start gap-3">
-                           <span className="text-sm font-medium text-slate-400 min-w-[1.25rem]">{ref.id}</span>
-                           <div>
-                             <a href={ref.url} className="block text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline mb-1 leading-snug">
-                               {ref.title}
-                             </a>
-                             <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">
-                               {ref.snippet}
-                             </p>
-                             <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                               <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
-                                 {ref.type}
-                               </span>
-                               <span>{ref.date}</span>
-                             </div>
-                           </div>
-                        </div>
-                      </div>
-                    ))}
-                 </div>
-               )}
+              {isReferencesExpanded && (
+                <div className="p-5 pt-2 space-y-5">
+                   <p className="text-xs text-slate-500 mb-4">
+                     Select relevant ideas from search results matching your topic.
+                   </p>
+                   {mockReferences.length === 0 ? (
+                     <div className="py-6 text-center">
+                        <p className="text-sm text-slate-500">No data available</p>
+                        <p className="text-xs text-slate-400 mt-1">Coming soon</p>
+                     </div>
+                   ) : (
+                     mockReferences.map((ref) => (
+                       <div key={ref.id} className="group">
+                         <div className="flex items-start gap-3">
+                            <span className="text-sm font-medium text-slate-400 min-w-[1.25rem]">{ref.id}</span>
+                            <div>
+                              <a href={ref.url} className="block text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline mb-1 leading-snug">
+                                {ref.title}
+                              </a>
+                              <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">
+                                {ref.snippet}
+                              </p>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                                  {ref.type}
+                                </span>
+                                <span>{ref.date}</span>
+                              </div>
+                            </div>
+                         </div>
+                       </div>
+                     ))
+                   )}
+                </div>
+              )}
            </div>
 
            {/* Format Guide */}

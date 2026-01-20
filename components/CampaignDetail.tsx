@@ -11,7 +11,7 @@ import { useConfirm } from './ConfirmDialog';
 import StatusBadge from './StatusBadge';
 import SelectWritingMethodModal from './SelectWritingMethodModal';
 import Modal from './Modal';
-import { ArrowLeft, Plus, Search, Target, Users, Tag, Link2, CheckCircle, Copy, X, Building, Trash2, AlertCircle, Pencil } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Target, Users, FileText, Link2, CheckCircle, Copy, X, Building, Trash2, AlertCircle, Pencil } from 'lucide-react';
 
 interface Props {
   campaignId: string;
@@ -46,14 +46,14 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
   const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
   const [quotaMessage, setQuotaMessage] = useState('');
 
-  // Inline edit states for Strategy, Audience, Keywords
+  // Inline edit states for Strategy, Audience
   const [isEditingStrategy, setIsEditingStrategy] = useState(false);
   const [editingStrategyValue, setEditingStrategyValue] = useState('');
   const [isEditingAudience, setIsEditingAudience] = useState(false);
   const [editingAudienceValue, setEditingAudienceValue] = useState('');
-  const [isEditingKeywords, setIsEditingKeywords] = useState(false);
-  const [editingKeywordsValue, setEditingKeywordsValue] = useState<string[]>([]);
-  const [keywordInputValue, setKeywordInputValue] = useState('');
+  
+  // Article count state (for Counts card)
+  const [articleCount, setArticleCount] = useState(0);
 
   // Handle copy campaign review link
   const handleCopyLink = async () => {
@@ -124,6 +124,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       if (articlesError) {
         console.error('Error fetching articles:', articlesError);
         setArticles([]);
+        setArticleCount(0);
       } else if (articlesData) {
         // Map database fields to Article interface
           const mappedArticles: Article[] = articlesData.map((article: any) => ({
@@ -139,8 +140,15 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
             clientComments: article.client_comments ? (Array.isArray(article.client_comments) ? article.client_comments : []) : []
           }));
         setArticles(mappedArticles);
+        
+        // Calculate article count (articles with generation_count >= 1)
+        const countWithGeneration = articlesData.filter((article: any) => 
+          article.generation_count && article.generation_count >= 1
+        ).length;
+        setArticleCount(countWithGeneration);
       } else {
         setArticles([]);
+        setArticleCount(0);
       }
     } catch (err) {
       console.error('Unexpected error loading data:', err);
@@ -383,38 +391,6 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
     setIsEditingAudience(false);
   };
 
-  // Edit handlers for Keywords
-  const handleStartEditKeywords = () => {
-    setEditingKeywordsValue(campaign?.keywords || []);
-    setKeywordInputValue('');
-    setIsEditingKeywords(true);
-  };
-
-  const handleAddKeyword = () => {
-    const trimmed = keywordInputValue.trim();
-    if (trimmed && !editingKeywordsValue.includes(trimmed)) {
-      setEditingKeywordsValue([...editingKeywordsValue, trimmed]);
-    }
-    setKeywordInputValue('');
-  };
-
-  const handleRemoveKeyword = (keyword: string) => {
-    setEditingKeywordsValue(editingKeywordsValue.filter(k => k !== keyword));
-  };
-
-  const handleSaveKeywords = async () => {
-    if (!campaign) return;
-    try {
-      const updated = await updateCampaign(campaign.id, { keywords: editingKeywordsValue });
-      if (updated) {
-        setCampaign({ ...campaign, keywords: editingKeywordsValue });
-      }
-    } catch (err) {
-      console.error('Failed to update keywords:', err);
-    }
-    setIsEditingKeywords(false);
-  };
-
   if (isLoading) {
     return (
       <div className="p-8 max-w-7xl mx-auto flex items-center justify-center h-64">
@@ -607,89 +583,17 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
             )}
          </div>
 
-         {/* Keywords Card */}
+         {/* Counts Card */}
          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
                <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide">
-                  <Tag size={16} /> Keywords
+                  <FileText size={16} /> Counts
                </div>
-               {!isEditingKeywords && (
-                 <button
-                   onClick={handleStartEditKeywords}
-                   className="p-1 text-slate-400 hover:text-indigo-600 transition rounded"
-                   title="Edit keywords"
-                 >
-                   <Pencil size={14} />
-                 </button>
-               )}
             </div>
-            {isEditingKeywords ? (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {editingKeywordsValue.map((k, i) => (
-                    <span key={i} className="px-2 py-1 bg-indigo-50 text-indigo-600 text-xs rounded-md flex items-center gap-1">
-                      {k}
-                      <button
-                        onClick={() => handleRemoveKeyword(k)}
-                        className="text-indigo-400 hover:text-red-500 transition"
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={keywordInputValue}
-                  onChange={(e) => setKeywordInputValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddKeyword();
-                    }
-                  }}
-                  onBlur={() => {
-                    // Add the current input as keyword if not empty, then save
-                    if (keywordInputValue.trim()) {
-                      const trimmed = keywordInputValue.trim();
-                      if (!editingKeywordsValue.includes(trimmed)) {
-                        const newKeywords = [...editingKeywordsValue, trimmed];
-                        setEditingKeywordsValue(newKeywords);
-                        // Save with new keywords
-                        (async () => {
-                          if (!campaign) return;
-                          try {
-                            const updated = await updateCampaign(campaign.id, { keywords: newKeywords });
-                            if (updated) {
-                              setCampaign({ ...campaign, keywords: newKeywords });
-                            }
-                          } catch (err) {
-                            console.error('Failed to update keywords:', err);
-                          }
-                          setIsEditingKeywords(false);
-                        })();
-                        setKeywordInputValue('');
-                        return;
-                      }
-                    }
-                    handleSaveKeywords();
-                  }}
-                  className="w-full text-sm text-slate-700 border border-indigo-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Type keyword & press Enter..."
-                  autoFocus
-                />
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                 {campaign.keywords.length > 0 ? (
-                   campaign.keywords.map((k, i) => (
-                     <span key={i} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">{k}</span>
-                   ))
-                 ) : (
-                   <span className="text-slate-400 text-sm italic">No keywords set.</span>
-                 )}
-              </div>
-            )}
+            <div className="flex items-baseline gap-2">
+               <span className="text-3xl font-bold text-slate-900">{articleCount}</span>
+               <span className="text-sm text-slate-500">Article{articleCount !== 1 ? 's' : ''}</span>
+            </div>
          </div>
       </div>
 

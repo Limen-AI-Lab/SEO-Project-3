@@ -523,7 +523,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                <div className="relative group">
                  <Info size={16} className="text-blue-500 cursor-help" />
                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                   Counting rule: Article counting begins from the time the outline is generated.
+                   Counting rule: After clicking "Generate Draft", the number of articles will be counted.
                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
                  </div>
                </div>
@@ -881,53 +881,6 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 </div>
               )}
 
-              {/* AI-Powered Keyword Module */}
-              <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 transition-all">
-                <div className="flex justify-between items-center mb-3">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Tag size={14} className="text-indigo-600" />
-                    Seed Keywords
-                  </label>
-                  
-                  <button 
-                    onClick={handleGenerateKeywords}
-                    disabled={isGeneratingKeywords || (!campName && !strategy)}
-                    className="flex items-center gap-1.5 bg-white border border-indigo-200 text-indigo-600 hover:text-indigo-700 hover:border-indigo-300 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isGeneratingKeywords ? (
-                      <div className="animate-spin h-3 w-3 border-2 border-indigo-600 rounded-full border-t-transparent"></div>
-                    ) : (
-                      <Sparkles size={12} fill="currentColor" />
-                    )}
-                    {isGeneratingKeywords ? 'Analyzing...' : 'Generate via AI'}
-                  </button>
-                </div>
-
-                <div className="bg-white border border-slate-200 rounded-lg p-2 min-h-[80px] flex flex-wrap gap-2 items-start focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition">
-                  {keywords.map((kw, idx) => (
-                    <div key={idx} className="flex items-center gap-1 bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-medium animate-in fade-in zoom-in duration-200">
-                      {kw}
-                      <button 
-                        onClick={() => removeKeyword(idx)}
-                        className="hover:text-indigo-900 hover:bg-indigo-200 rounded-full p-0.5 transition"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  ))}
-                  <input 
-                    type="text" 
-                    value={keywordInput}
-                    onChange={(e) => setKeywordInput(e.target.value)}
-                    onKeyDown={handleAddKeyword}
-                    placeholder={keywords.length === 0 ? "Type keyword & press Enter, or use AI..." : "Add another..."}
-                    className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-1 px-1 text-slate-700 placeholder:text-slate-400"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-2 text-right">
-                  Press <strong>Enter</strong> to add tag. Click <strong>Generate</strong> to auto-fill.
-                </p>
-              </div>
             </div>
 
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
@@ -1115,53 +1068,6 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 </div>
               )}
 
-              {/* AI-Powered Keyword Module for Edit */}
-              <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 transition-all">
-                <div className="flex justify-between items-center mb-3">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Tag size={14} className="text-indigo-600" />
-                    Seed Keywords
-                  </label>
-                  
-                  <button 
-                    onClick={handleEditGenerateKeywords}
-                    disabled={isEditGeneratingKeywords || (!editCampName && !editStrategy)}
-                    className="flex items-center gap-1.5 bg-white border border-indigo-200 text-indigo-600 hover:text-indigo-700 hover:border-indigo-300 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isEditGeneratingKeywords ? (
-                      <div className="animate-spin h-3 w-3 border-2 border-indigo-600 rounded-full border-t-transparent"></div>
-                    ) : (
-                      <Sparkles size={12} fill="currentColor" />
-                    )}
-                    {isEditGeneratingKeywords ? 'Analyzing...' : 'Generate via AI'}
-                  </button>
-                </div>
-
-                <div className="bg-white border border-slate-200 rounded-lg p-2 min-h-[80px] flex flex-wrap gap-2 items-start focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition">
-                  {editKeywords.map((kw, idx) => (
-                    <div key={idx} className="flex items-center gap-1 bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-medium animate-in fade-in zoom-in duration-200">
-                      {kw}
-                      <button 
-                        onClick={() => removeEditKeyword(idx)}
-                        className="hover:text-indigo-900 hover:bg-indigo-200 rounded-full p-0.5 transition"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  ))}
-                  <input 
-                    type="text" 
-                    value={editKeywordInput}
-                    onChange={(e) => setEditKeywordInput(e.target.value)}
-                    onKeyDown={handleEditAddKeyword}
-                    placeholder={editKeywords.length === 0 ? "Type keyword & press Enter, or use AI..." : "Add another..."}
-                    className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-1 px-1 text-slate-700 placeholder:text-slate-400"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-2 text-right">
-                  Press <strong>Enter</strong> to add tag. Click <strong>Generate</strong> to auto-fill.
-                </p>
-              </div>
             </div>
 
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">

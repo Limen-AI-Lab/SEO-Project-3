@@ -114,6 +114,17 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
     setIsGenerating(true);
     const keywordsString = selectedKeywords.map(k => k.text).join(', ');
 
+    // Collect Client strict_rules from campaign.clients
+    const clientRules = campaign?.clients
+      ?.map(c => c.defaultRules)
+      .filter((r): r is string => !!r && r.trim() !== '')
+      .join('\n') || '';
+    
+    // Combine: Client rules first, then existing rules
+    const combinedRules = [clientRules, rules]
+      .filter(r => r && r.trim() !== '')
+      .join('\n');
+
     const generated = await generateBlogTitles({
       clientName: campaign?.clientName || "Client",
       topic: genTopic,
@@ -121,7 +132,7 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
       keywords: keywordsString,
       language: language,
       tone: tone,
-      rules: rules
+      rules: combinedRules
     });
 
     if (generated.length > 0) {

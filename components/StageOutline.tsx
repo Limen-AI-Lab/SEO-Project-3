@@ -170,6 +170,12 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         c => !ignoredFeedbackIds.includes(c.id)
       );
       
+      // Collect Client strict_rules from campaign.clients
+      const clientRules = campaign?.clients
+        ?.map(c => c.defaultRules)
+        .filter((r): r is string => !!r && r.trim() !== '')
+        .join('\n') || '';
+      
       // Build comprehensive params object with all available context
       // Use edited title if available, otherwise fall back to project title
       const params = {
@@ -180,7 +186,8 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         clientComments: activeComments,
         language: project.language,  // Pass target language for outline generation
         wordCountRange: wordCountRange,  // Pass word count range for H2 count
-        perspective: perspective  // Pass perspective for writing style
+        perspective: perspective,  // Pass perspective for writing style
+        rules: clientRules  // Pass Client strict_rules
       };
       
       const result = await generateBlogOutline(params);

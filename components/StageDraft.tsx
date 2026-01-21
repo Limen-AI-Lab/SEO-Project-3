@@ -13,6 +13,7 @@ import {
   Edit
 } from 'lucide-react';
 import { publishToCMS } from '../services/cmsService';
+import { getCampaignWithClients } from '../services/campaignService';
 import supabase from '../services/supabaseClient.js';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
@@ -377,6 +378,20 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     
     setIsGenerating(true);
     
+    // Fetch campaign information to get Client strict_rules
+    const campaign = await getCampaignWithClients(project.campaignId);
+    
+    // Collect Client strict_rules from campaign.clients
+    const clientRules = campaign?.clients
+      ?.map(c => c.defaultRules)
+      .filter((r): r is string => !!r && r.trim() !== '')
+      .join('\n') || '';
+    
+    // Combine: Client rules first, then articleRequirements
+    const combinedRequirements = [clientRules, articleRequirements]
+      .filter(r => r && r.trim() !== '')
+      .join('\n');
+    
     // Use generateCompleteArticle for full article with Key Points and FAQ
     const result = await generateCompleteArticle({
       title: project.selectedTitle || project.title, 
@@ -387,7 +402,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       perspective: project.perspective,
       language: project.language,
       // New config options
-      articleRequirements,
+      articleRequirements: combinedRequirements,  // Use combined rules
       includeFaq: structureConfig.faq,
       includeKeyPoints: structureConfig.keyPoints
     });

@@ -336,6 +336,7 @@ interface OutlineGenerationParams {
   language?: string; // Target language for outline content (e.g., "English", "Chinese")
   wordCountRange?: WordCountRange; // Target word count range (affects H2 count)
   perspective?: ArticlePerspective; // Writing perspective (first/second/third person)
+  rules?: string; // Strict content rules (from Client + Article level)
 }
 
 /**
@@ -443,7 +444,20 @@ const buildOutlinePrompt = (
     }
   }
 
-  // 7. Retry feedback (if this is a retry attempt)
+  // 7. Strict content rules
+  if (params.rules && params.rules.trim()) {
+    if (isEnglish) {
+      contextParts.push(
+        `\nStrict Content Rules (MUST FOLLOW):\n${params.rules}`
+      );
+    } else {
+      contextParts.push(
+        `\n严格内容规则（必须遵守）：\n${params.rules}`
+      );
+    }
+  }
+
+  // 8. Retry feedback (if this is a retry attempt)
   if (retryFeedback) {
     if (isEnglish) {
       contextParts.push(`\n🚨 CORRECTION NEEDED: ${retryFeedback}`);

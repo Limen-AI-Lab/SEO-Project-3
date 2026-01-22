@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import supabase from '../services/supabaseClient.js';
-import { redeemInviteCode, isAdmin, ADMIN_EMAIL } from '../services/inviteService';
+import { redeemInviteCode, isAdmin } from '../services/inviteService';
+import { fetchAdminEmails } from '../services/adminService';
 
 interface AuthContextType {
   user: User | null;
@@ -38,9 +39,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isAdminUser = isAdmin(user?.email);
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session and preload admin list
     const getInitialSession = async () => {
       try {
+        // 预加载管理员列表到缓存
+        await fetchAdminEmails();
+        
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setUser(session?.user ?? null);

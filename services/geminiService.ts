@@ -6,6 +6,11 @@ import {
   WORD_COUNT_CONFIG,
   PERSPECTIVE_CONFIG,
 } from "../types";
+import { 
+  broadcastPromptRequest, 
+  broadcastPromptUpdate,
+  PromptRecord 
+} from "../contexts/PromptMonitorContext";
 
 // ============================================
 // Generation Result Types
@@ -223,6 +228,85 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+// ============================================
+// Prompt Monitor 监控辅助函数
+// ============================================
+
+interface MonitoredRequestParams {
+  functionName: string;
+  model: string;
+  prompt: string;
+  config?: Record<string, any>;
+}
+
+/**
+ * 广播请求开始 (pending 状态)
+ */
+const monitorRequestStart = (params: MonitoredRequestParams): string | null => {
+  const { functionName, model, prompt, config } = params;
+  
+  const fullPayload: Record<string, any> = {
+    model,
+    contents: prompt,
+  };
+  
+  if (config) {
+    fullPayload.config = config;
+  }
+  
+  return broadcastPromptRequest({
+    functionName,
+    status: 'pending',
+    model,
+    userPrompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt, null, 2),
+    config,
+    fullPayload,
+  });
+};
+
+/**
+ * 广播请求已发送 (sent 状态)
+ */
+const monitorRequestSent = (recordId: string | null) => {
+  if (recordId) {
+    broadcastPromptUpdate(recordId, { status: 'sent' });
+  }
+};
+
+/**
+ * 广播请求完成 (completed 状态)
+ */
+const monitorRequestComplete = (
+  recordId: string | null, 
+  startTime: number,
+  responseText?: string
+) => {
+  if (recordId) {
+    broadcastPromptUpdate(recordId, { 
+      status: 'completed',
+      responseTime: Date.now() - startTime,
+      responseLength: responseText?.length || 0,
+    });
+  }
+};
+
+/**
+ * 广播请求错误 (error 状态)
+ */
+const monitorRequestError = (
+  recordId: string | null, 
+  startTime: number,
+  error: any
+) => {
+  if (recordId) {
+    broadcastPromptUpdate(recordId, { 
+      status: 'error',
+      responseTime: Date.now() - startTime,
+      error: error?.message || String(error),
+    });
+  }
+};
+
 export interface TitleGenerationParams {
   topic: string;
   clientName: string;
@@ -236,12 +320,12 @@ export interface TitleGenerationParams {
 export const generateBlogTitles = async (
   params: TitleGenerationParams
 ): Promise<string[]> => {
-  try {
-    const ai = getAiClient();
-
-    const prompt = `Generate 5 professional, SEO-friendly blog post titles for a firm named "${
-      params.clientName
-    }".
+  const startTime = Date.now();
+  const model = "gemini-2.5-flash";
+  
+  const prompt = `Generate 5 professional, SEO-friendly blog post titles for a firm named "${
+    params.clientName
+  }".
     
     Parameters:
     - Topic/Subject: "${params.topic}"
@@ -254,22 +338,44 @@ export const generateBlogTitles = async (
     The titles should be catchy, relevant, and optimized for search engines.
     Return ONLY a JSON array of strings.`;
 
+  const config = {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+    },
+  };
+
+  // 监控：记录请求开始
+  const recordId = monitorRequestStart({
+    functionName: 'generateBlogTitles',
+    model,
+    prompt,
+    config,
+  });
+
+  try {
+    const ai = getAiClient();
+    
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
+
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model,
       contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-        },
-      },
+      config,
     });
 
     const jsonStr = response.text;
+    
+    // 监控：请求完成
+    monitorRequestComplete(recordId, startTime, jsonStr);
+    
     if (!jsonStr) return [];
     return JSON.parse(jsonStr) as string[];
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to generate titles:", error);
     return [];
   }
@@ -285,9 +391,10 @@ export const suggestBlogKeywords = async (
   audience: string,
   clientName: string
 ): Promise<KeywordSuggestion[]> => {
-  try {
-    const ai = getAiClient();
-    const prompt = `Act as an SEO Expert with access to search trend data.
+  const startTime = Date.now();
+  const model = "gemini-2.5-flash";
+  
+  const prompt = `Act as an SEO Expert with access to search trend data.
     Generate 10 high-potential, relevant keywords/phrases for a blog post.
     
     Context:
@@ -300,28 +407,50 @@ export const suggestBlogKeywords = async (
     
     Return ONLY a JSON array of objects with keys: "keyword" and "volume".`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              keyword: { type: Type.STRING },
-              volume: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
-            },
-          },
+  const config = {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          keyword: { type: Type.STRING },
+          volume: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
         },
       },
+    },
+  };
+
+  // 监控：记录请求开始
+  const recordId = monitorRequestStart({
+    functionName: 'suggestBlogKeywords',
+    model,
+    prompt,
+    config,
+  });
+
+  try {
+    const ai = getAiClient();
+    
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config,
     });
 
     const jsonStr = response.text;
+    
+    // 监控：请求完成
+    monitorRequestComplete(recordId, startTime, jsonStr);
+    
     if (!jsonStr) return [];
     return JSON.parse(jsonStr) as KeywordSuggestion[];
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to suggest keywords:", error);
     return [];
   }
@@ -566,10 +695,23 @@ export const generateBlogOutline = async (
   const warnings: string[] = [];
   let bestResult = "";
   let bestH2Diff = Infinity;
+  const model = "gemini-2.5-flash";
+  
+  // 监控：记录主请求开始
+  const { prompt: initialPrompt, wordCountConfig, isEnglish } = buildOutlinePrompt(params);
+  const recordId = monitorRequestStart({
+    functionName: 'generateBlogOutline',
+    model,
+    prompt: initialPrompt,
+  });
+  
+  const startTime = Date.now();
   
   try {
     const ai = getAiClient();
-    const { wordCountConfig, isEnglish } = buildOutlinePrompt(params);
+    
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
     
     for (let attempt = 0; attempt <= MAX_RETRY_COUNT; attempt++) {
       // Build prompt with retry feedback if needed
@@ -586,7 +728,7 @@ export const generateBlogOutline = async (
       const { prompt } = buildOutlinePrompt(params, retryFeedback);
       
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model,
         contents: prompt,
       });
       
@@ -609,6 +751,8 @@ export const generateBlogOutline = async (
       
       // If valid, return immediately
       if (h2Count >= wordCountConfig.h2Min && h2Count <= wordCountConfig.h2Max) {
+        // 监控：请求完成
+        monitorRequestComplete(recordId, startTime, content);
         return { content, warnings: [] };
       }
       
@@ -624,8 +768,13 @@ export const generateBlogOutline = async (
       warnings.push(`H2 章节数量（${finalH2Count}）不在目标范围（${wordCountConfig.h2Min}-${wordCountConfig.h2Max}）内，请根据需要手动调整。`);
     }
     
+    // 监控：请求完成（带警告）
+    monitorRequestComplete(recordId, startTime, bestResult);
+    
     return { content: bestResult, warnings };
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to generate outline:", error);
     return { content: "", warnings: ["Failed to generate outline"] };
   }
@@ -897,26 +1046,38 @@ export const generateBlogDraft = async (
   const warnings: string[] = [];
   let bestResult = "";
   let bestScore = -Infinity; // Higher is better (closer to target)
+  const model = "gemini-2.5-flash";
+  const startTime = Date.now();
+
+  // Support both old and new function signatures
+  let params: DraftGenerationParams;
+  if (typeof titleOrParams === "string") {
+    // Legacy call: generateBlogDraft(title, outline, comments, clientName)
+    params = {
+      title: titleOrParams,
+      outline: outline || "",
+      comments: comments || [],
+      clientName: clientName || "",
+    };
+  } else {
+    // New call: generateBlogDraft(params)
+    params = titleOrParams;
+  }
+
+  // 监控：记录请求开始
+  const { prompt: initialPrompt, wordCountConfig, isEnglish } = buildDraftPrompt(params);
+  const recordId = monitorRequestStart({
+    functionName: 'generateBlogDraft',
+    model,
+    prompt: initialPrompt,
+  });
   
   try {
     const ai = getAiClient();
+    
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
 
-    // Support both old and new function signatures
-    let params: DraftGenerationParams;
-    if (typeof titleOrParams === "string") {
-      // Legacy call: generateBlogDraft(title, outline, comments, clientName)
-      params = {
-        title: titleOrParams,
-        outline: outline || "",
-        comments: comments || [],
-        clientName: clientName || "",
-      };
-    } else {
-      // New call: generateBlogDraft(params)
-      params = titleOrParams;
-    }
-
-    const { wordCountConfig, isEnglish } = buildDraftPrompt(params);
     const targetLanguage = params.language || "English";
     const targetPerspective = params.perspective || "third";
     
@@ -1022,6 +1183,8 @@ You MUST reduce by at least ${overBy} words. Strategies:
       
       // If both valid, return immediately
       if (wordCountValid && perspectiveValid) {
+        // 监控：请求完成
+        monitorRequestComplete(recordId, startTime, content);
         return { content, warnings: [] };
       }
       
@@ -1050,8 +1213,13 @@ You MUST reduce by at least ${overBy} words. Strategies:
       }
     }
     
+    // 监控：请求完成（带警告）
+    monitorRequestComplete(recordId, startTime, bestResult);
+    
     return { content: bestResult, warnings };
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to generate draft:", error);
     return { content: "", warnings: ["Failed to generate draft"] };
   }
@@ -1066,20 +1234,20 @@ export const generateKeyPoints = async (
   language: string,
   articleRequirements?: string
 ): Promise<string> => {
-  try {
-    const ai = getAiClient();
-    const isEnglish = language.toLowerCase() === "english";
-    
-    let customRequirementsNote = "";
-    if (articleRequirements && articleRequirements.trim()) {
-      customRequirementsNote = isEnglish 
-        ? `\nAdditional requirements to follow: ${articleRequirements}`
-        : `\n需要遵守的额外要求：${articleRequirements}`;
-    }
+  const startTime = Date.now();
+  const model = "gemini-2.5-flash";
+  const isEnglish = language.toLowerCase() === "english";
+  
+  let customRequirementsNote = "";
+  if (articleRequirements && articleRequirements.trim()) {
+    customRequirementsNote = isEnglish 
+      ? `\nAdditional requirements to follow: ${articleRequirements}`
+      : `\n需要遵守的额外要求：${articleRequirements}`;
+  }
 
-    let prompt: string;
-    if (isEnglish) {
-      prompt = `Based on the following article content, generate a "Key Takeaways" section.
+  let prompt: string;
+  if (isEnglish) {
+    prompt = `Based on the following article content, generate a "Key Takeaways" section.
 
 Requirements:
 - Create 4-6 bullet points summarizing the most important points
@@ -1094,8 +1262,8 @@ Article Content:
 ${articleContent}
 
 Return ONLY the bullet points, nothing else.`;
-    } else {
-      prompt = `根据以下文章内容，生成"核心要点"部分。
+  } else {
+    prompt = `根据以下文章内容，生成"核心要点"部分。
 
 要求：
 - 创建4-6个要点，总结文章最重要的内容
@@ -1110,19 +1278,37 @@ ${customRequirementsNote}
 ${articleContent}
 
 只返回要点列表，不要其他内容。`;
-    }
+  }
+
+  // 监控：记录请求开始
+  const recordId = monitorRequestStart({
+    functionName: 'generateKeyPoints',
+    model,
+    prompt,
+  });
+
+  try {
+    const ai = getAiClient();
+    
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model,
       contents: prompt,
     });
 
     const keyPoints = response.text?.trim() || "";
     
+    // 监控：请求完成
+    monitorRequestComplete(recordId, startTime, keyPoints);
+    
     // Format with heading
     const heading = isEnglish ? "## Key Takeaways" : "## 核心要点";
     return `${heading}\n\n${keyPoints}`;
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to generate key points:", error);
     return "";
   }
@@ -1137,20 +1323,20 @@ export const generateFaq = async (
   language: string,
   articleRequirements?: string
 ): Promise<string> => {
-  try {
-    const ai = getAiClient();
-    const isEnglish = language.toLowerCase() === "english";
-    
-    let customRequirementsNote = "";
-    if (articleRequirements && articleRequirements.trim()) {
-      customRequirementsNote = isEnglish 
-        ? `\nAdditional requirements to follow: ${articleRequirements}`
-        : `\n需要遵守的额外要求：${articleRequirements}`;
-    }
+  const startTime = Date.now();
+  const model = "gemini-2.5-flash";
+  const isEnglish = language.toLowerCase() === "english";
+  
+  let customRequirementsNote = "";
+  if (articleRequirements && articleRequirements.trim()) {
+    customRequirementsNote = isEnglish 
+      ? `\nAdditional requirements to follow: ${articleRequirements}`
+      : `\n需要遵守的额外要求：${articleRequirements}`;
+  }
 
-    let prompt: string;
-    if (isEnglish) {
-      prompt = `Based on the following article content, generate a FAQ section.
+  let prompt: string;
+  if (isEnglish) {
+    prompt = `Based on the following article content, generate a FAQ section.
 
 Requirements:
 - Create 3-5 frequently asked questions related to the article topic
@@ -1168,8 +1354,8 @@ Article Content:
 ${articleContent}
 
 Return ONLY the Q&A pairs formatted as specified, nothing else.`;
-    } else {
-      prompt = `根据以下文章内容，生成FAQ（常见问题）部分。
+  } else {
+    prompt = `根据以下文章内容，生成FAQ（常见问题）部分。
 
 要求：
 - 创建3-5个与文章主题相关的常见问题
@@ -1187,18 +1373,36 @@ ${customRequirementsNote}
 ${articleContent}
 
 只返回按指定格式的问答对，不要其他内容。`;
-    }
+  }
+
+  // 监控：记录请求开始
+  const recordId = monitorRequestStart({
+    functionName: 'generateFaq',
+    model,
+    prompt,
+  });
+
+  try {
+    const ai = getAiClient();
+    
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model,
       contents: prompt,
     });
 
     const faqContent = response.text?.trim() || "";
     
+    // 监控：请求完成
+    monitorRequestComplete(recordId, startTime, faqContent);
+    
     // Format with heading
     return `## FAQ\n\n${faqContent}`;
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to generate FAQ:", error);
     return "";
   }
@@ -1738,8 +1942,21 @@ export const generateBlogTopicIdeas = async (
 ): Promise<BlogTopicIdea[]> => {
   const MAX_RETRIES = 3;
   const isChinese = isChineseLanguage(params.targetLanguage);
+  const startTime = Date.now();
+  const model = "gemini-2.5-flash";
+
+  // 监控：记录请求开始
+  const monitorPrompt = `Generate 10 blog topic ideas for keyword: "${params.keyword}" in ${params.targetLanguage}`;
+  const recordId = monitorRequestStart({
+    functionName: 'generateBlogTopicIdeas',
+    model,
+    prompt: monitorPrompt,
+  });
 
   try {
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
+
     // Select 10 types from all available types
     const selectedTypes = ALL_TOPIC_TYPES.slice(0, 10);
 
@@ -1798,8 +2015,13 @@ export const generateBlogTopicIdeas = async (
       );
     }
 
+    // 监控：请求完成
+    monitorRequestComplete(recordId, startTime, JSON.stringify(validIdeas));
+
     return validIdeas;
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to generate topic ideas:", error);
     return [];
   }
@@ -1821,10 +2043,10 @@ export interface KeywordDrivenTitleParams {
 export const generateKeywordDrivenTitles = async (
   params: KeywordDrivenTitleParams
 ): Promise<string[]> => {
-  try {
-    const ai = getAiClient();
+  const startTime = Date.now();
+  const model = "gemini-2.5-flash";
 
-    const prompt = `You are an expert SEO copywriter. Generate exactly 5 compelling, SEO-optimized blog post titles.
+  const prompt = `You are an expert SEO copywriter. Generate exactly 5 compelling, SEO-optimized blog post titles.
 
 Context:
 - Primary Keyword: "${params.keyword}"
@@ -1847,22 +2069,44 @@ Requirements:
 
 Return ONLY a JSON array of 5 title strings.`;
 
+  const config = {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+    },
+  };
+
+  // 监控：记录请求开始
+  const recordId = monitorRequestStart({
+    functionName: 'generateKeywordDrivenTitles',
+    model,
+    prompt,
+    config,
+  });
+
+  try {
+    const ai = getAiClient();
+    
+    // 监控：请求已发送
+    monitorRequestSent(recordId);
+
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model,
       contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-        },
-      },
+      config,
     });
 
     const jsonStr = response.text;
+    
+    // 监控：请求完成
+    monitorRequestComplete(recordId, startTime, jsonStr);
+    
     if (!jsonStr) return [];
     return JSON.parse(jsonStr) as string[];
   } catch (error) {
+    // 监控：请求错误
+    monitorRequestError(recordId, startTime, error);
     console.error("Failed to generate keyword-driven titles:", error);
     return [];
   }

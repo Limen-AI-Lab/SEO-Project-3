@@ -741,7 +741,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     
                     {selectedClients.length === 0 && (
                       <span className="text-slate-400 text-sm py-1">
-                        {availableClients.length === 0 ? 'Please create clients in Clients page first' : 'Select Client(s)...'}
+                        {availableClients.length === 0 ? 'Please add clients in Clients page' : 'Select Client(s)...'}
                       </span>
                     )}
 
@@ -956,7 +956,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     
                     {editSelectedClients.length === 0 && (
                       <span className="text-slate-400 text-sm py-1">
-                        {availableClients.length === 0 ? 'Please create clients in Clients page first' : 'Select Client(s)...'}
+                        {availableClients.length === 0 ? 'Please add clients in Clients page' : 'Select Client(s)...'}
                       </span>
                     )}
 

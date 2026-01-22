@@ -1,11 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PromptMonitorProvider } from './contexts/PromptMonitorContext';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import MainLayout from './components/MainLayout';
+import PromptMonitor from './components/PromptMonitor';
 
 // Protected Route component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -90,7 +92,10 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <PromptMonitorProvider>
+          <AppRoutes />
+          <PromptMonitor />
+        </PromptMonitorProvider>
       </AuthProvider>
     </BrowserRouter>
   );

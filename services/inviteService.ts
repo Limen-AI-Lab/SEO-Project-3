@@ -1,4 +1,5 @@
 import supabase from './supabaseClient.js';
+import { isAdminSync, checkIsAdmin } from './adminService';
 
 // 邀请码状态类型
 export type InviteCodeStatus = 'active' | 'paused' | 'revoked';
@@ -44,14 +45,23 @@ export interface UserQuota {
   remaining: number;
 }
 
-// 管理员邮箱
+// 默认管理员邮箱 (作为后备)
 export const ADMIN_EMAIL = 'lufei.zhan@limenlab.ai';
 
 /**
- * 检查用户是否是管理员
+ * 同步检查用户是否是管理员 (使用缓存)
+ * 用于 UI 即时判断
  */
 export const isAdmin = (email: string | undefined): boolean => {
-  return email === ADMIN_EMAIL;
+  return isAdminSync(email);
+};
+
+/**
+ * 异步检查用户是否是管理员 (从数据库验证)
+ * 用于需要精确判断的场景
+ */
+export const isAdminAsync = async (email: string | undefined): Promise<boolean> => {
+  return checkIsAdmin(email);
 };
 
 /**

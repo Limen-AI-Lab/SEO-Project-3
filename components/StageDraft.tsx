@@ -20,6 +20,7 @@ import { useConfirm } from './ConfirmDialog';
 import { useAuth } from '../contexts/AuthContext';
 import { incrementUserUsedCount } from '../services/inviteService';
 import RichTextEditor, { RichTextEditorRef } from './RichTextEditor';
+import GenerationProgressModal, { GenerationStep, StepStatus } from './GenerationProgressModal';
 
 /**
  * Parse revision history edits to Comment[] format for display
@@ -115,6 +116,18 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isMetaGenerating, setIsMetaGenerating] = useState(false);
+  
+  // Generation Progress Modal State
+  const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([
+    { id: 1, text: 'Analyzing geo data and cross-referencing literature...', status: 'pending' },
+    { id: 2, text: 'Synthesizing blog outline and SEO keyword structure...', status: 'pending' },
+    { id: 3, text: 'Generating deep-dive content with AI engine (this may take 1-2 mins)...', status: 'pending' },
+    { id: 4, text: 'Finalizing tone adjustment and formatting for publication...', status: 'pending' },
+  ]);
+  const generationTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const apiCompletedRef = useRef(false);
+  const apiResultRef = useRef<GenerationResult | null>(null);
+  const currentStepRef = useRef(1); // Track current step for async access
   
   // Multi-Modal AI State
   const [attachedFile, setAttachedFile] = useState<{ name: string, data: string, type: string } | null>(null);
@@ -348,6 +361,84 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     }
   };
 
+  // --- Helper: Update step status ---
+  const updateStepStatus = (stepId: number, status: StepStatus) => {
+    setGenerationSteps(prev => 
+      prev.map(step => step.id === stepId ? { ...step, status } : step)
+    );
+  };
+
+  // --- Helper: Reset all steps to pending ---
+  const resetGenerationSteps = () => {
+    setGenerationSteps([
+      { id: 1, text: 'Analyzing geo data and cross-referencing literature...', status: 'pending' },
+      { id: 2, text: 'Synthesizing blog outline and SEO keyword structure...', status: 'pending' },
+      { id: 3, text: 'Generating deep-dive content with AI engine (this may take 1-2 mins)...', status: 'pending' },
+      { id: 4, text: 'Finalizing tone adjustment and formatting for publication...', status: 'pending' },
+    ]);
+  };
+
+  // --- Helper: Clear all generation timers ---
+  const clearGenerationTimers = () => {
+    generationTimersRef.current.forEach(timer => clearTimeout(timer));
+    generationTimersRef.current = [];
+  };
+
+  // --- Helper: Fast-forward remaining steps when API returns early ---
+  const fastForwardSteps = async (fromStep: number): Promise<void> => {
+    return new Promise((resolve) => {
+      let currentStep = fromStep;
+      
+      const advanceStep = () => {
+        if (currentStep <= 4) {
+          updateStepStatus(currentStep, 'completed');
+          currentStep++;
+          if (currentStep <= 4) {
+            updateStepStatus(currentStep, 'loading');
+            setTimeout(advanceStep, 500); // 0.5s per step
+          } else {
+            resolve();
+          }
+        } else {
+          resolve();
+        }
+      };
+      
+      advanceStep();
+    });
+  };
+
+  // --- Helper: Handle generation completion ---
+  const handleGenerationComplete = async (result: GenerationResult, currentCount: number) => {
+    if (result.content) {
+      const updates: Partial<Article> = { 
+        draftContent: result.content,
+        generationCount: currentCount + 1
+      };
+      
+      // Increment user used count ONLY on first successful generation
+      if (currentCount === 0 && user?.id) {
+        incrementUserUsedCount(user.id).catch(err => {
+          console.error('Failed to increment user used count:', err);
+        });
+      }
+      
+      onUpdate(updates);
+      
+      // Show warnings if any
+      if (result.warnings && result.warnings.length > 0) {
+        result.warnings.forEach(warning => {
+          showToast(warning, 'warning');
+        });
+      }
+    } else if (result.warnings && result.warnings.length > 0) {
+      // If no content but has warnings, show as errors
+      result.warnings.forEach(warning => {
+        showToast(warning, 'error');
+      });
+    }
+  };
+
   // --- AI Actions ---
   const handleGenerateDraft = async () => {
     if (!editableOutline.trim()) {
@@ -376,7 +467,42 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       includeKeyPoints: structureConfig.keyPoints
     });
     
+    // Reset state
+    resetGenerationSteps();
+    clearGenerationTimers();
+    apiCompletedRef.current = false;
+    apiResultRef.current = null;
+    currentStepRef.current = 1;
+    
     setIsGenerating(true);
+    
+    // Start step 1
+    updateStepStatus(1, 'loading');
+    
+    // Step durations: 20s, 20s, 60s
+    const stepDurations = [20000, 20000, 60000];
+    
+    // Schedule simulated steps 1-3
+    let accumulatedTime = 0;
+    for (let i = 0; i < 3; i++) {
+      accumulatedTime += stepDurations[i];
+      const stepToComplete = i + 1;
+      const nextStep = i + 2;
+      
+      const timer = setTimeout(() => {
+        // Only proceed if API hasn't completed yet
+        if (!apiCompletedRef.current) {
+          updateStepStatus(stepToComplete, 'completed');
+          currentStepRef.current = nextStep;
+          
+          if (nextStep <= 4) {
+            updateStepStatus(nextStep, 'loading');
+          }
+        }
+      }, accumulatedTime);
+      
+      generationTimersRef.current.push(timer);
+    }
     
     // Fetch campaign information to get Client strict_rules
     const campaign = await getCampaignWithClients(project.campaignId);
@@ -392,7 +518,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       .filter(r => r && r.trim() !== '')
       .join('\n');
     
-    // Use generateCompleteArticle for full article with Key Points and FAQ
+    // Start API call
     const result = await generateCompleteArticle({
       title: project.selectedTitle || project.title, 
       outline: editableOutline, // Use the edited outline
@@ -401,39 +527,38 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       wordCountRange: project.wordCountRange,
       perspective: project.perspective,
       language: project.language,
+      tone: project.tone,  // Tone of voice from title generation stage
       // New config options
       articleRequirements: combinedRequirements,  // Use combined rules
       includeFaq: structureConfig.faq,
-      includeKeyPoints: structureConfig.keyPoints
+      includeKeyPoints: structureConfig.keyPoints,
+      keywords: project.targetKeywords  // Target keywords for SEO
     });
 
-    if (result.content) {
-      const updates: Partial<Article> = { 
-        draftContent: result.content,
-        generationCount: currentCount + 1
-      };
-      
-      // Increment user used count ONLY on first successful generation
-      if (currentCount === 0 && user?.id) {
-        incrementUserUsedCount(user.id).catch(err => {
-          console.error('Failed to increment user used count:', err);
-        });
-      }
-      
-      onUpdate(updates);
-      
-      // Show warnings if any
-      if (result.warnings && result.warnings.length > 0) {
-        result.warnings.forEach(warning => {
-          showToast(warning, 'warning');
-        });
-      }
-    } else if (result.warnings && result.warnings.length > 0) {
-      // If no content but has warnings, show as errors
-      result.warnings.forEach(warning => {
-        showToast(warning, 'error');
-      });
+    // API completed
+    apiCompletedRef.current = true;
+    apiResultRef.current = result;
+    clearGenerationTimers();
+    
+    // Get current step from ref (reliable for async)
+    const currentLoadingStepId = currentStepRef.current;
+    
+    // Fast-forward any remaining steps
+    if (currentLoadingStepId < 4) {
+      // Complete current loading step and fast-forward remaining
+      await fastForwardSteps(currentLoadingStepId);
+    } else {
+      // Already at step 4, just mark it complete
+      updateStepStatus(4, 'completed');
     }
+    
+    // Small delay to show completion state
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Handle the result
+    await handleGenerationComplete(result, currentCount);
+    
+    // Close modal
     setIsGenerating(false);
   };
 
@@ -750,6 +875,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   return (
     <div className="flex h-full w-full overflow-hidden p-3 pb-0 gap-3 transition-all relative bg-slate-50">
+
+      {/* --- Generation Progress Modal --- */}
+      <GenerationProgressModal 
+        isOpen={isGenerating} 
+        steps={generationSteps} 
+      />
 
       {/* --- LEFT COLUMN: Context --- */}
       <div 
@@ -1297,12 +1428,6 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              onDrop={handleEditorDrop}
              onDragOver={handleDragOver}
           >
-            {isGenerating ? (
-               <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center text-slate-500 gap-4">
-                  <div className="w-12 h-12 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
-                  <p className="animate-pulse text-sm font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">AI is crafting your draft...</p>
-               </div>
-            ) : null}
 
             {/* RICH TEXT EDITOR VIEW (TipTap) */}
             {(viewMode === 'markdown' || !isFocusMode) ? (

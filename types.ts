@@ -185,6 +185,7 @@ export interface Article {
   // Content Settings (from Title Generation stage)
   language?: string;  // Target language for content (e.g., "English", "Chinese")
   tone?: string;      // Tone of voice for content
+  targetKeywords?: string[];  // Target keywords for SEO (from Title Generation stage)
   
   // Outline & Draft Generation Settings
   wordCountRange?: WordCountRange;      // Target word count range (affects H2 count)

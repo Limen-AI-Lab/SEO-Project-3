@@ -307,6 +307,14 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         draftContent: articleData.draft_content || undefined,
         draftBlocks: draftBlocksToUse,
         clientComments: parseClientComments(articleData.client_comments, draftBlocksToUse),
+        // Content Settings (from Title Generation stage)
+        language: articleData.language || undefined,
+        tone: articleData.tone || undefined,
+        targetKeywords: articleData.target_keywords || undefined,
+        // Outline & Draft Generation Settings
+        wordCountRange: articleData.word_count_range || undefined,
+        perspective: articleData.perspective || undefined,
+        articleRequirements: articleData.article_requirements || undefined,
         // Revision tracking
         revisionRound: articleData.revision_round || 1,
         revisionHistory: articleData.revision_history || [],
@@ -466,6 +474,9 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       if (updates.tone !== undefined) {
         dbUpdates.tone = updates.tone;
       }
+      if (updates.targetKeywords !== undefined) {
+        dbUpdates.target_keywords = updates.targetKeywords;
+      }
       if (updates.generationCount !== undefined) {
         dbUpdates.generation_count = updates.generationCount;
       }
@@ -571,6 +582,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
           console.log('Titles to approve:', titlesToApprove);
 
           // Create new articles for each title (forking logic)
+          // Inherit language, tone, and targetKeywords from the original article
           const newArticles = titlesToApprove.map((title) => ({
             campaign_id: article.campaignId,
             title: title,
@@ -578,7 +590,11 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
             status: ARTICLE_STATUS.TITLES_APPROVED,
             proposed_titles: [title],
             created_at: new Date().toISOString(),
-            last_updated: new Date().toISOString()
+            last_updated: new Date().toISOString(),
+            // Inherit content settings from original article
+            language: article.language || null,
+            tone: article.tone || null,
+            target_keywords: article.targetKeywords || null
           }));
 
           // Insert all new articles

@@ -26,8 +26,13 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
   const [audience, setAudience] = useState('');
   const [targetCountries, setTargetCountries] = useState('');
 
-  // Keyword State
-  const [selectedKeywords, setSelectedKeywords] = useState<KeywordTag[]>([]);
+  // Keyword State - initialize from saved targetKeywords if available
+  const [selectedKeywords, setSelectedKeywords] = useState<KeywordTag[]>(() => {
+    if (project.targetKeywords && project.targetKeywords.length > 0) {
+      return project.targetKeywords.map(k => ({ text: k, volume: 'Unknown' as const }));
+    }
+    return [];
+  });
   const [manualKeywordInput, setManualKeywordInput] = useState('');
   const [suggestedKeywords, setSuggestedKeywords] = useState<KeywordSuggestion[]>([]);
   const [isSuggestingKeywords, setIsSuggestingKeywords] = useState(false);
@@ -36,14 +41,14 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
   const [tone, setTone] = useState(project.tone || 'Professional & Authoritative');
   const [rules, setRules] = useState('');
 
-  // Pre-fill from Campaign Context
+  // Pre-fill from Campaign Context (only if no saved targetKeywords)
   useEffect(() => {
     if (campaign) {
       if (!audience) setAudience(campaign.targetAudience);
       
-      // Initial keyword population (from campaign or existing)
+      // Initial keyword population: use saved targetKeywords first, then campaign keywords
       if (selectedKeywords.length === 0 && campaign.keywords.length > 0) {
-        setSelectedKeywords(campaign.keywords.map(k => ({ text: k, volume: 'Unknown' })));
+        setSelectedKeywords(campaign.keywords.map(k => ({ text: k, volume: 'Unknown' as const })));
       }
       
       // Append strategy goals to rules if not already present
@@ -146,7 +151,8 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
       await onUpdate({ 
         proposedTitles: titles.filter(t => t.trim() !== ''),
         language: language,
-        tone: tone
+        tone: tone,
+        targetKeywords: selectedKeywords.map(k => k.text)
       });
       showToast("Progress saved successfully!", 'success');
     } catch (error) {
@@ -161,11 +167,12 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
       return;
     }
     
-    // Update article status and save language/tone settings
+    // Update article status and save language/tone/keywords settings
     onUpdate({ 
       proposedTitles: validTitles,
       language: language,
       tone: tone,
+      targetKeywords: selectedKeywords.map(k => k.text),
       status: ARTICLE_STATUS.AWAITING_REVIEW_TITLES // Use new status constant
     });
   };

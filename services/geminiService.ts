@@ -813,14 +813,17 @@ interface DraftGenerationParams {
   wordCountRange?: WordCountRange;
   perspective?: ArticlePerspective;
   language?: string;
+  tone?: string;                   // Tone of voice (e.g., "kindly", "professional")
   // New config options
   articleRequirements?: string;    // Custom requirements (brand name, forbidden words, etc.)
   includeFaq?: boolean;            // Whether to generate FAQ section
   includeKeyPoints?: boolean;      // Whether to generate Key Points section
+  keywords?: string[];             // Target keywords for SEO
 }
 
 /**
- * Build the draft generation prompt
+ * Build the draft generation prompt using COTR framework
+ * (Context, Objective, Tone, Response format)
  */
 const buildDraftPrompt = (
   params: DraftGenerationParams,
@@ -845,91 +848,101 @@ const buildDraftPrompt = (
     wordCountConfig.max
   );
 
+  // Convert word counts to token counts (× 1.3 for both English and Chinese)
+  const TOKEN_MULTIPLIER = 1.3;
+  const tokenMin = Math.round(wordCountConfig.min * TOKEN_MULTIPLIER);
+  const tokenMax = Math.round(wordCountConfig.max * TOKEN_MULTIPLIER);
+  const tokenTargetAvg = Math.round(sectionCounts.targetAvg * TOKEN_MULTIPLIER);
+  const tokensPerH2 = Math.round(sectionCounts.wordsPerH2 * TOKEN_MULTIPLIER);
+
+  // Build keywords context
+  let keywordsContext = "";
+  if (params.keywords && params.keywords.length > 0) {
+    if (isEnglish) {
+      keywordsContext = `- Target Keywords: ${params.keywords.join(', ')}`;
+    } else {
+      keywordsContext = `- 目标关键词：${params.keywords.join('、')}`;
+    }
+  }
+
+  // Build client feedback context
   let commentsContext = "";
   if (params.comments.length > 0) {
     if (isEnglish) {
       commentsContext = `
-IMPORTANT: You must incorporate the following feedback from the client into the draft:
-${params.comments.map((c) => `- "${c.text}" (from ${c.author})`).join("\n")}
-`;
+## Client Feedback (incorporate naturally)
+${params.comments.map((c) => `- "${c.text}" (from ${c.author})`).join("\n")}`;
     } else {
       commentsContext = `
-重要：请在正文中融入以下客户反馈：
-${params.comments.map((c) => `- "${c.text}" (来自 ${c.author})`).join("\n")}
-`;
+## 客户反馈（自然融入）
+${params.comments.map((c) => `- "${c.text}" (来自 ${c.author})`).join("\n")}`;
     }
   }
 
-  // Build perspective instruction with examples
+  // Build perspective instruction
   let perspectiveInstruction: string;
   if (isEnglish) {
     switch (params.perspective) {
       case "first":
         perspectiveInstruction =
-          '⚠️ CRITICAL: Use FIRST PERSON perspective throughout the ENTIRE article. Use "we", "our", "us", "our team", "our company". NEVER use "the company", "they", "it", or "you".';
+          'Use FIRST PERSON perspective throughout. Use "we", "our", "us", "our team". NEVER use "the company", "they", or "you".';
         break;
       case "second":
         perspectiveInstruction =
-          '⚠️ CRITICAL: Use SECOND PERSON perspective throughout the ENTIRE article. Use "you", "your", "yours". Directly address the reader. NEVER use "we", "the company", or "they".';
+          'Use SECOND PERSON perspective throughout. Use "you", "your", "yours". Directly address the reader. NEVER use "we" or "they".';
         break;
       case "third":
       default:
         perspectiveInstruction =
-          '⚠️ CRITICAL: Use THIRD PERSON perspective with objective, professional tone throughout the ENTIRE article. Use "the company", "they", "it", "one", "people". NEVER use "we", "our", or "you".';
+          'Use THIRD PERSON perspective with objective tone. Use "the company", "they", "it", "one", "people". NEVER use "we", "our", or "you".';
     }
   } else {
     switch (params.perspective) {
       case "first":
         perspectiveInstruction =
-          '⚠️ 关键要求：全文必须使用第一人称视角。使用"我们"、"本公司"、"我司"、"我方"。绝不使用"该公司"、"他们"、"您"、"你"。';
+          '全文使用第一人称视角。使用"我们"、"本公司"、"我司"。绝不使用"该公司"、"他们"、"您"、"你"。';
         break;
       case "second":
         perspectiveInstruction =
-          '⚠️ 关键要求：全文必须使用第二人称视角。使用"您"、"你"、"你的"、"您的"。直接与读者对话。绝不使用"我们"、"该公司"、"他们"。';
+          '全文使用第二人称视角。使用"您"、"你"、"你的"。直接与读者对话。绝不使用"我们"、"该公司"。';
         break;
       case "third":
       default:
         perspectiveInstruction =
-          '⚠️ 关键要求：全文必须使用第三人称视角，保持客观、专业的叙述方式。使用"该公司"、"企业"、"用户"、"人们"。绝不使用"我们"、"您"、"你"。';
+          '全文使用第三人称视角，保持客观叙述。使用"该公司"、"企业"、"用户"、"人们"。绝不使用"我们"、"您"、"你"。';
     }
   }
 
-  // Build word count distribution instruction based on outline analysis
-  let wordCountDistribution: string;
+  // Build token count distribution (using tokens for more accurate AI length control)
+  let tokenCountDistribution: string;
   if (isEnglish) {
-    wordCountDistribution = `
-📊 WORD COUNT DISTRIBUTION (based on your outline with ${sectionCounts.h2Count} H2 sections${sectionCounts.h3Count > 0 ? ` and ${sectionCounts.h3Count} H3 subsections` : ''}):
-- Target total: ${sectionCounts.targetAvg} words (range: ${wordCountConfig.min}-${wordCountConfig.max})
-- Suggested per H2 section: ~${sectionCounts.wordsPerH2} words (including any H3 subsections)
-- IMPORTANT: Keep each section CONCISE and FOCUSED. Cover the key points briefly.
-- If the outline has many sections, you MUST write shorter content for each section to stay within the total word limit.
-- Prioritize QUALITY over QUANTITY - it's better to be concise than to exceed the word limit.`;
+    tokenCountDistribution = `- Target: ${tokenTargetAvg} tokens (range: ${tokenMin}-${tokenMax})
+- Per H2 section: ~${tokensPerH2} tokens
+- Outline has ${sectionCounts.h2Count} H2 sections${sectionCounts.h3Count > 0 ? ` and ${sectionCounts.h3Count} H3 subsections` : ''}`;
   } else {
-    wordCountDistribution = `
-📊 字数分配方案（基于您的大纲，共 ${sectionCounts.h2Count} 个 H2 章节${sectionCounts.h3Count > 0 ? `和 ${sectionCounts.h3Count} 个 H3 子章节` : ''}）：
-- 目标总字数：${sectionCounts.targetAvg} 字（范围：${wordCountConfig.min}-${wordCountConfig.max}）
-- 每个 H2 章节建议字数：约 ${sectionCounts.wordsPerH2} 字（包含其下的 H3 子章节）
-- 重要：每个章节必须简洁精炼，只讲核心要点
-- 如果大纲章节较多，每个章节的内容必须更加精简，以确保总字数不超标
-- 质量优先于数量 - 宁可精简也不要超出字数限制`;
+    tokenCountDistribution = `- 目标：${tokenTargetAvg} tokens（范围：${tokenMin}-${tokenMax}）
+- 每个 H2 章节：约 ${tokensPerH2} tokens
+- 大纲共 ${sectionCounts.h2Count} 个 H2 章节${sectionCounts.h3Count > 0 ? `和 ${sectionCounts.h3Count} 个 H3 子章节` : ''}`;
   }
 
   // Build retry feedback section
   let retrySection = "";
   if (retryFeedback) {
     if (isEnglish) {
+      retrySection = "\n## ⚠️ CORRECTION REQUIRED";
       if (retryFeedback.wordCount) {
-        retrySection += `\n🚨 WORD COUNT CORRECTION: ${retryFeedback.wordCount}`;
+        retrySection += `\n${retryFeedback.wordCount}`;
       }
       if (retryFeedback.perspective) {
-        retrySection += `\n🚨 PERSPECTIVE CORRECTION: ${retryFeedback.perspective}`;
+        retrySection += `\n${retryFeedback.perspective}`;
       }
     } else {
+      retrySection = "\n## ⚠️ 需要修正";
       if (retryFeedback.wordCount) {
-        retrySection += `\n🚨 字数修正：${retryFeedback.wordCount}`;
+        retrySection += `\n${retryFeedback.wordCount}`;
       }
       if (retryFeedback.perspective) {
-        retrySection += `\n🚨 人称修正：${retryFeedback.perspective}`;
+        retrySection += `\n${retryFeedback.perspective}`;
       }
     }
   }
@@ -939,99 +952,137 @@ ${params.comments.map((c) => `- "${c.text}" (来自 ${c.author})`).join("\n")}
   if (params.articleRequirements && params.articleRequirements.trim()) {
     if (isEnglish) {
       customRequirementsSection = `
-4. CUSTOM REQUIREMENTS (MUST FOLLOW):
-${params.articleRequirements}
-`;
+## 5. Custom Requirements (MUST FOLLOW)
+${params.articleRequirements}`;
     } else {
       customRequirementsSection = `
-4. 自定义要求（必须遵守）：
-${params.articleRequirements}
-`;
+## 5. 自定义要求（必须遵守）
+${params.articleRequirements}`;
     }
   }
 
   let prompt: string;
 
   if (isEnglish) {
-    prompt = `Write a full blog post draft for a firm named "${params.clientName}".
+    prompt = `# ROLE
+You are a senior SEO blog writer with expertise in creating engaging, search-optimized content. You excel at transforming outlines into compelling articles that balance readability with SEO best practices.
+
+# CONTEXT
+- Article Title: "${params.title}"
+- Target Language: ${targetLanguage}
+- Token Count Range: ${tokenMin}-${tokenMax} tokens
+- Writing Perspective: ${perspectiveConfig.label}
+${keywordsContext}
+
+## Outline Structure
+${params.outline}
+${commentsContext}
 ${retrySection}
 
-Title: "${params.title}"
+# OBJECTIVE
+Write a complete blog post draft that strictly follows the provided outline structure while meeting all specified requirements.
 
-Follow this structure strictly:
-${params.outline}
+# TONE
+${params.tone ? `Write in a ${params.tone} tone.` : 'Professional and Authoritative, yet Accessible.'} The content should establish expertise while remaining easy to understand for the target audience.
 
-${commentsContext}
+# CONSTRAINTS (in priority order)
 
-**⚠️ CRITICAL WRITING REQUIREMENTS (MUST FOLLOW EXACTLY)**:
+## 1. Token Count [HIGHEST PRIORITY]
+- HARD LIMIT: ${tokenMin}-${tokenMax} tokens. NO EXCEPTIONS.
+- Estimate your token count carefully before finishing.
+${tokenCountDistribution}
 
-1. PERSPECTIVE (MANDATORY):
+## 2. Perspective Consistency [HIGH PRIORITY]
 ${perspectiveInstruction}
 
-2. WORD COUNT (MANDATORY - THIS IS THE MOST IMPORTANT REQUIREMENT):
-- The article MUST be between ${wordCountConfig.min}-${wordCountConfig.max} words. NO EXCEPTIONS.
-- This is a HARD LIMIT. You MUST stay within this range.
-- Count your words carefully before finishing.
-${wordCountDistribution}
+## 3. SEO Best Practices
+${params.keywords && params.keywords.length > 0 ? `- Naturally incorporate target keywords: ${params.keywords.join(', ')}
+- Ensure keywords appear in the introduction and conclusion
+- Avoid keyword stuffing - integration should feel natural` : '- Write with SEO in mind - use clear, searchable language'}
+- Maintain proper heading hierarchy (H1 → H2 → H3)
+- Keep paragraphs concise (2-4 sentences) for better readability
+- Use bullet points and lists to break up dense information
 
-⚠️ WORD COUNT STRATEGY:
-- Write SHORT, CONCISE paragraphs (2-3 sentences max per paragraph)
-- Use bullet points to convey information efficiently
-- Focus on KEY POINTS only, skip unnecessary details
-- Each H2 section should be brief but complete
-- If you find yourself writing too much, STOP and condense
-
-3. FORMAT:
-- Tone: Professional, Authoritative, yet Accessible.
-- Format: Markdown. Use bold (**text**) for emphasis.
-- Do NOT use single asterisks (*) for italics. Use asterisks ONLY for bullet points.
-
+## 4. Formatting
+- Use Markdown format
+- Use **bold** for emphasis (double asterisks)
+- Do NOT use *italics* (single asterisks only for bullet points)
+- Ensure proper spacing between sections
 ${customRequirementsSection}
-⚠️ FINAL CHECK BEFORE SUBMITTING:
-1. COUNT YOUR WORDS - You MUST be within ${wordCountConfig.min}-${wordCountConfig.max} words. If over, DELETE content until you're within range.
-2. Check perspective - MUST consistently use ${perspectiveConfig.label}
 
-Do not include preambles like "Here is the draft". Do not include word count statistics like "Word Count: XXX words". Just start with the content.`;
+# WORKFLOW
+Follow these steps internally before writing:
+1. **Understand the audience**: Identify who will read this and what value they seek
+2. **Analyze the outline**: Plan token distribution across sections (~${tokensPerH2} tokens per H2)
+3. **Map keywords**: Decide where to naturally place each target keyword
+4. **Write systematically**: Follow the outline order, maintaining consistent perspective
+5. **Self-check**: Verify token count is within range, keywords are integrated, and formatting is correct
+
+# RESPONSE FORMAT
+- Output ONLY the article content in Markdown format
+- Do NOT include preambles like "Here is the draft"
+- Do NOT include word count statistics
+- Start directly with the content`;
   } else {
-    prompt = `为"${params.clientName}"撰写一篇完整的博客文章。
+    prompt = `# 角色设定
+你是一位资深SEO博客作者，擅长创作引人入胜且搜索优化的内容。你能够将大纲转化为既具可读性又符合SEO最佳实践的优质文章。
+
+# 上下文
+- 文章标题：「${params.title}」
+- 目标语言：${targetLanguage}
+- Token 数范围：${tokenMin}-${tokenMax} tokens
+- 写作视角：${perspectiveConfig.label}
+${keywordsContext}
+
+## 大纲结构
+${params.outline}
+${commentsContext}
 ${retrySection}
 
-标题："${params.title}"
+# 任务目标
+撰写一篇完整的博客文章草稿，严格按照提供的大纲结构，同时满足所有指定要求。
 
-请严格按照以下大纲结构撰写：
-${params.outline}
+# 语气风格
+${params.tone ? `使用${params.tone}的语气撰写。` : '专业且权威，同时保持亲和力。'}内容应展现专业性，同时让目标读者易于理解。
 
-${commentsContext}
+# 约束条件（按优先级排列）
 
-**⚠️ 关键写作要求（必须严格遵守）**：
+## 1. Token 数要求 [最高优先级]
+- 硬性限制：${tokenMin}-${tokenMax} tokens，没有例外
+- 完成前请仔细估算 token 数
+${tokenCountDistribution}
 
-1. 人称视角（强制要求）：
+## 2. 人称一致性 [高优先级]
 ${perspectiveInstruction}
 
-2. 字数要求（强制要求 - 这是最重要的要求）：
-- 文章字数必须在 ${wordCountConfig.min}-${wordCountConfig.max} 字之间，没有例外
-- 这是硬性限制，必须严格遵守
-- 完成前请仔细数一数字数
-${wordCountDistribution}
+## 3. SEO 最佳实践
+${params.keywords && params.keywords.length > 0 ? `- 自然融入目标关键词：${params.keywords.join('、')}
+- 确保关键词出现在开头和结尾段落
+- 避免关键词堆砌 - 融入应自然流畅` : '- 以 SEO 思维写作 - 使用清晰、易搜索的语言'}
+- 保持正确的标题层级（H1 → H2 → H3）
+- 段落保持简洁（每段2-4句），提升可读性
+- 善用列表来拆分密集信息
 
-⚠️ 字数控制策略：
-- 每个段落要简短精炼（每段最多2-3句话）
-- 善用列表来高效传达信息
-- 只讲核心要点，省略不必要的细节
-- 每个 H2 章节要简洁但完整
-- 如果发现写得太多，立即停下来精简内容
-
-3. 格式要求：
-- 语气：专业、权威，同时保持亲和力
-- 格式：Markdown。可以使用粗体（**文字**）进行强调
-- 不要使用单星号 (*) 进行斜体强调。星号仅用于列表项
-
+## 4. 格式要求
+- 使用 Markdown 格式
+- 使用 **粗体** 进行强调（双星号）
+- 不要使用 *斜体*（单星号仅用于列表项）
+- 确保章节之间有适当的间距
 ${customRequirementsSection}
-⚠️ 提交前最终检查：
-1. 数一数字数 - 必须在 ${wordCountConfig.min}-${wordCountConfig.max} 字之间。如果超出，请删减内容直到符合要求。
-2. 检查人称 - 必须全文统一使用${perspectiveConfig.label}
 
-不要包含"以下是草稿"之类的开场白，不要包含"字数统计"或"Word Count"等信息，直接开始正文内容。`;
+# 工作流程
+写作前请在内心完成以下步骤：
+1. **理解受众**：明确读者是谁，他们寻求什么价值
+2. **分析大纲**：规划各章节的 token 分配（每个H2约 ${tokensPerH2} tokens）
+3. **规划关键词**：决定在哪些位置自然融入各个目标关键词
+4. **系统写作**：按大纲顺序撰写，保持人称一致
+5. **自我检查**：确认 token 数在范围内、关键词已融入、格式正确
+
+# 输出格式
+- 仅输出 Markdown 格式的文章正文
+- 不要包含「以下是草稿」等开场白
+- 不要包含字数统计信息
+- 直接开始正文内容`;
   }
 
   return { prompt, wordCountConfig, perspectiveConfig, isEnglish };

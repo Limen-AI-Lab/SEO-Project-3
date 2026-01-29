@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Search, 
   Users,
@@ -14,6 +15,7 @@ import {
 } from '../services/inviteService';
 
 const UserManagement: React.FC = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const [users, setUsers] = useState<UserWithQuota[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

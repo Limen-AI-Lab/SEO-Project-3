@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Campaign, Article, ProjectStatus, ARTICLE_STATUS, Client } from '../types';
 import supabase from '../services/supabaseClient.js';
 import { generateCampaignReviewLink, copyToClipboard } from '../services/linkService';
@@ -23,6 +24,7 @@ interface Props {
 const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, onKeywordDiscovery }) => {
   const { user } = useAuth();
   const { confirm } = useConfirm();
+  const { t } = useTranslation(['campaign', 'common']);
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -407,7 +409,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       <div className="p-8 max-w-7xl mx-auto">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition w-fit mb-4">
           <ArrowLeft size={16} />
-          <span className="text-sm font-medium">Back to Dashboard</span>
+          <span className="text-sm font-medium">{t('detail.backToDashboard')}</span>
         </button>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <p className="text-red-600 font-medium mb-2">Failed to Load</p>
@@ -429,7 +431,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       <div className="flex flex-col gap-6">
          <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition w-fit">
             <ArrowLeft size={16} />
-            <span className="text-sm font-medium">Back to Dashboard</span>
+            <span className="text-sm font-medium">{t('detail.backToDashboard')}</span>
          </button>
 
          <div className="flex justify-between items-start">
@@ -446,10 +448,10 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                       </span>
                     </div>
                   ) : (
-                    <span className="font-medium text-slate-700">{campaign.clientName || 'No clients'}</span>
+                    <span className="font-medium text-slate-700">{campaign.clientName === 'Unknown Client' ? t('detail.unknownClient') : (campaign.clientName || t('detail.noClients'))}</span>
                   )}
                   <span>•</span>
-                  <span>Campaign</span>
+                  <span>{t('detail.campaign')}</span>
                </div>
             </div>
             <div className="flex items-center gap-3">
@@ -457,10 +459,10 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                <button 
                  onClick={openClientModal}
                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition border bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
-                 title="Manage associated clients"
+                 title={t('detail.manageClients')}
                >
                  <Building size={18} />
-                 Manage Clients
+                 {t('detail.manageClients')}
                </button>
                
                {/* Client Review Link Button */}
@@ -471,17 +473,17 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                      ? 'bg-green-50 border-green-200 text-green-600' 
                      : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
                  }`}
-                 title="Copy client review link for this campaign"
+                 title={t('detail.clientReviewLink')}
                >
                  {linkCopied ? (
                    <>
                      <CheckCircle size={18} />
-                     Link Copied!
+                     {t('detail.linkCopied')}
                    </>
                  ) : (
                    <>
                      <Link2 size={18} />
-                     Client Review Link
+                     {t('detail.clientReviewLink')}
                    </>
                  )}
                </button>
@@ -494,12 +496,12 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
               {isCreatingArticle ? (
                 <>
                   <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-                  Creating...
+                  {t('detail.creating')}
                 </>
               ) : (
                 <>
                   <Plus size={18} />
-                  New Article
+                  {t('articles.newArticle')}
                 </>
               )}
             </button>
@@ -513,13 +515,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
                <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide">
-                  <Target size={16} /> Strategy
+                  <Target size={16} /> {t('detail.strategy')}
                </div>
                {!isEditingStrategy && (
                  <button
                    onClick={handleStartEditStrategy}
                    className="p-1 text-slate-400 hover:text-indigo-600 transition rounded"
-                   title="Edit strategy"
+                   title={t('detail.editStrategy')}
                  >
                    <Pencil size={14} />
                  </button>
@@ -539,10 +541,10 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                 }}
                 className="w-full text-sm text-slate-700 border border-indigo-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 rows={3}
-                placeholder="Define your strategy goals..."
+                placeholder={t('detail.strategyPlaceholder')}
               />
             ) : (
-              <p className="text-slate-700 text-sm leading-relaxed">{campaign.strategyGoals || "No strategy defined."}</p>
+              <p className="text-slate-700 text-sm leading-relaxed">{campaign.strategyGoals || t('detail.noStrategyDefined')}</p>
             )}
          </div>
 
@@ -550,13 +552,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
                <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide">
-                  <Users size={16} /> Audience
+                  <Users size={16} /> {t('detail.audience')}
                </div>
                {!isEditingAudience && (
                  <button
                    onClick={handleStartEditAudience}
                    className="p-1 text-slate-400 hover:text-indigo-600 transition rounded"
-                   title="Edit audience"
+                   title={t('detail.editAudience')}
                  >
                    <Pencil size={14} />
                  </button>
@@ -576,10 +578,10 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                 }}
                 className="w-full text-sm text-slate-700 border border-indigo-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 rows={3}
-                placeholder="Define your target audience..."
+                placeholder={t('detail.audiencePlaceholder')}
               />
             ) : (
-              <p className="text-slate-700 text-sm leading-relaxed">{campaign.targetAudience || "General Audience"}</p>
+              <p className="text-slate-700 text-sm leading-relaxed">{campaign.targetAudience || t('detail.generalAudience')}</p>
             )}
          </div>
 
@@ -587,12 +589,12 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
                <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm uppercase tracking-wide">
-                  <FileText size={16} /> Counts
+                  <FileText size={16} /> {t('detail.counts')}
                </div>
             </div>
             <div className="flex items-baseline gap-2">
                <span className="text-3xl font-bold text-slate-900">{articleCount}</span>
-               <span className="text-sm text-slate-500">Article{articleCount !== 1 ? 's' : ''}</span>
+               <span className="text-sm text-slate-500">{articleCount !== 1 ? t('detail.articlePlural') : t('detail.article')}</span>
             </div>
          </div>
       </div>
@@ -600,12 +602,12 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
       {/* Articles List */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-slate-900">Campaign Articles</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t('detail.campaignArticles')}</h2>
           <div className="relative">
              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
              <input 
                type="text" 
-               placeholder="Search articles..." 
+               placeholder={t('articles.searchPlaceholder')} 
                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
              />
           </div>
@@ -614,13 +616,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
         <div className="divide-y divide-slate-100">
            {articles.length === 0 ? (
              <div className="p-12 text-center text-slate-400">
-                <p>No articles in this campaign yet.</p>
+                <p>{t('articles.noArticles')}</p>
                 <button 
                   onClick={handleOpenCreateModal} 
                   disabled={isCreatingArticle}
                   className="text-indigo-600 hover:underline mt-2 disabled:opacity-50"
                 >
-                  {isCreatingArticle ? 'Creating...' : 'Create the first article'}
+                  {isCreatingArticle ? t('detail.creating') : t('detail.createFirstArticle')}
                 </button>
              </div>
            ) : (
@@ -635,7 +637,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                       <h3 className="font-medium text-slate-900">{article.selectedTitle || article.title}</h3>
                       <StatusBadge status={article.status} />
                    </div>
-                   <p className="text-sm text-slate-500">Last updated {article.lastUpdated.toLocaleDateString()}</p>
+                   <p className="text-sm text-slate-500">{t('articles.lastUpdated')} {article.lastUpdated.toLocaleDateString()}</p>
                  </div>
                  
                  <div className="flex items-center gap-4">
@@ -665,8 +667,8 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                <div>
-                 <h3 className="text-lg font-bold text-slate-900">Manage Associated Clients</h3>
-                 <p className="text-sm text-slate-500 mt-0.5">Add or remove clients from this campaign</p>
+                 <h3 className="text-lg font-bold text-slate-900">{t('clientModal.title')}</h3>
+                 <p className="text-sm text-slate-500 mt-0.5">{t('clientModal.subtitle')}</p>
                </div>
                <button 
                  onClick={() => setIsClientModalOpen(false)} 
@@ -681,7 +683,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                <div className="mb-6">
                  <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 flex items-center gap-2">
                    <Users size={14} className="text-indigo-600" />
-                   Associated Clients ({campaign.clients?.length || 0})
+                   {t('clientModal.associatedClients', { count: campaign.clients?.length || 0 })}
                  </h4>
                  
                  {campaign.clients && campaign.clients.length > 0 ? (
@@ -699,7 +701,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                              <div className="font-medium text-slate-800">{client.name}</div>
                              {client.contacts && client.contacts.length > 0 && (
                                <div className="text-xs text-slate-500">
-                                 {client.contacts.length} contact{client.contacts.length > 1 ? 's' : ''} with portal access
+                                 {t('clientModal.contactsWithAccess', { count: client.contacts.length })}
                                </div>
                              )}
                            </div>
@@ -707,7 +709,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                          <button 
                            onClick={() => handleRemoveClient(client.id)}
                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition opacity-0 group-hover:opacity-100"
-                           title="Remove from campaign"
+                           title={t('clientModal.removeFromCampaign')}
                          >
                            <Trash2 size={16} />
                          </button>
@@ -716,7 +718,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                    </div>
                  ) : (
                    <div className="text-center py-6 text-slate-400 text-sm italic border border-dashed border-slate-200 rounded-lg">
-                     No clients associated with this campaign yet.
+                     {t('clientModal.noClientsYet')}
                    </div>
                  )}
                </div>
@@ -726,7 +728,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                  <div>
                    <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 flex items-center gap-2">
                      <Plus size={14} className="text-green-600" />
-                     Add Client
+                     {t('clientModal.addClient')}
                    </h4>
                    <div className="space-y-2">
                      {getUnassociatedClients().map(client => (
@@ -743,7 +745,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                              <div className="font-medium text-slate-700 group-hover:text-indigo-600 transition">{client.name}</div>
                              {client.contacts && client.contacts.length > 0 && (
                                <div className="text-xs text-slate-500">
-                                 {client.contacts.length} contact{client.contacts.length > 1 ? 's' : ''}
+                                 {t('clientModal.contacts', { count: client.contacts.length })}
                                </div>
                              )}
                            </div>
@@ -754,7 +756,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                            ) : (
                              <>
                                <Plus size={16} />
-                               <span className="text-sm font-medium">Add</span>
+                               <span className="text-sm font-medium">{t('clientModal.add')}</span>
                              </>
                            )}
                          </div>
@@ -766,13 +768,13 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
 
                {getUnassociatedClients().length === 0 && availableClients.length > 0 && (
                  <div className="text-center py-4 text-slate-500 text-sm bg-slate-50 rounded-lg">
-                   All available clients have been added to this campaign.
+                   {t('clientModal.allClientsAdded')}
                  </div>
                )}
 
                {availableClients.length === 0 && (
                  <div className="text-center py-4 text-amber-600 text-sm bg-amber-50 rounded-lg border border-amber-200">
-                   No clients found. Please create clients in the Clients page first.
+                   {t('clientModal.noClientsFound')}
                  </div>
                )}
             </div>
@@ -782,7 +784,7 @@ const CampaignDetail: React.FC<Props> = ({ campaignId, onBack, onSelectArticle, 
                  onClick={() => setIsClientModalOpen(false)} 
                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
                >
-                 Done
+                 {t('clientModal.done')}
                </button>
             </div>
           </div>

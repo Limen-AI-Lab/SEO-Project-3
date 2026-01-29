@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Campaign, Article, ARTICLE_STATUS, ProjectStatus } from '../types';
 import supabase from '../services/supabaseClient.js';
 import { ArrowLeft, Home, ChevronRight, MapPin, Globe, HelpCircle, Sparkles, ChevronDown } from 'lucide-react';
@@ -7,108 +8,28 @@ import StageTitlesKeyword from './StageTitlesKeyword';
 import { generateBlogTopicIdeas, BlogTopicIdea } from '../services/geminiService';
 import { useToast } from './Toast';
 
-// Standard country list with English names
-const COUNTRIES = [
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'BE', name: 'Belgium' },
-  { code: 'AT', name: 'Austria' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'NO', name: 'Norway' },
-  { code: 'DK', name: 'Denmark' },
-  { code: 'FI', name: 'Finland' },
-  { code: 'PL', name: 'Poland' },
-  { code: 'CZ', name: 'Czech Republic' },
-  { code: 'PT', name: 'Portugal' },
-  { code: 'IE', name: 'Ireland' },
-  { code: 'NZ', name: 'New Zealand' },
-  { code: 'SG', name: 'Singapore' },
-  { code: 'HK', name: 'Hong Kong' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'KR', name: 'South Korea' },
-  { code: 'CN', name: 'China' },
-  { code: 'TW', name: 'Taiwan' },
-  { code: 'IN', name: 'India' },
-  { code: 'MY', name: 'Malaysia' },
-  { code: 'PH', name: 'Philippines' },
-  { code: 'TH', name: 'Thailand' },
-  { code: 'VN', name: 'Vietnam' },
-  { code: 'ID', name: 'Indonesia' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'AR', name: 'Argentina' },
-  { code: 'CL', name: 'Chile' },
-  { code: 'CO', name: 'Colombia' },
-  { code: 'ZA', name: 'South Africa' },
-  { code: 'AE', name: 'United Arab Emirates' },
-  { code: 'SA', name: 'Saudi Arabia' },
-  { code: 'IL', name: 'Israel' },
-  { code: 'TR', name: 'Turkey' },
-  { code: 'RU', name: 'Russia' },
-  { code: 'UA', name: 'Ukraine' },
+// Country codes list
+const COUNTRY_CODES = [
+  'US', 'GB', 'CA', 'AU', 'DE', 'FR', 'ES', 'IT', 'NL', 'BE',
+  'AT', 'CH', 'SE', 'NO', 'DK', 'FI', 'PL', 'CZ', 'PT', 'IE',
+  'NZ', 'SG', 'HK', 'JP', 'KR', 'CN', 'TW', 'IN', 'MY', 'PH',
+  'TH', 'VN', 'ID', 'BR', 'MX', 'AR', 'CL', 'CO', 'ZA', 'AE',
+  'SA', 'IL', 'TR', 'RU', 'UA'
 ];
 
-// Standard language list with English names
-const LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'zh', name: 'Chinese' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'fr', name: 'French' },
-  { code: 'de', name: 'German' },
-  { code: 'it', name: 'Italian' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'nl', name: 'Dutch' },
-  { code: 'ru', name: 'Russian' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ko', name: 'Korean' },
-  { code: 'ar', name: 'Arabic' },
-  { code: 'hi', name: 'Hindi' },
-  { code: 'bn', name: 'Bengali' },
-  { code: 'pl', name: 'Polish' },
-  { code: 'tr', name: 'Turkish' },
-  { code: 'vi', name: 'Vietnamese' },
-  { code: 'th', name: 'Thai' },
-  { code: 'sv', name: 'Swedish' },
-  { code: 'da', name: 'Danish' },
-  { code: 'fi', name: 'Finnish' },
-  { code: 'no', name: 'Norwegian' },
-  { code: 'cs', name: 'Czech' },
-  { code: 'el', name: 'Greek' },
-  { code: 'he', name: 'Hebrew' },
-  { code: 'hu', name: 'Hungarian' },
-  { code: 'id', name: 'Indonesian' },
-  { code: 'ms', name: 'Malay' },
-  { code: 'ro', name: 'Romanian' },
-  { code: 'sk', name: 'Slovak' },
-  { code: 'uk', name: 'Ukrainian' },
-  { code: 'bg', name: 'Bulgarian' },
+// Language codes list
+const LANGUAGE_CODES = [
+  'en', 'zh', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'ru', 'ja',
+  'ko', 'ar', 'hi', 'bn', 'pl', 'tr', 'vi', 'th', 'sv', 'da',
+  'fi', 'no', 'cs', 'el', 'he', 'hu', 'id', 'ms', 'ro', 'sk',
+  'uk', 'bg'
 ];
 
 // Search pages options
-const SEARCH_PAGES = [
-  { value: 1, label: '1 Page' },
-  { value: 2, label: '2 Pages' },
-  { value: 3, label: '3 Pages' },
-  { value: 5, label: '5 Pages' },
-];
+const SEARCH_PAGE_VALUES = [1, 2, 3, 5];
 
 // Time range options
-const TIME_RANGES = [
-  { value: 'any', label: 'Any Time' },
-  { value: 'hour', label: 'Past Hour' },
-  { value: 'day', label: 'Past 24 Hours' },
-  { value: 'week', label: 'Past Week' },
-  { value: 'month', label: 'Past Month' },
-  { value: 'year', label: 'Past Year' },
-];
+const TIME_RANGE_VALUES = ['any', 'hour', 'day', 'week', 'month', 'year'];
 
 interface Props {
   campaignId: string;
@@ -124,7 +45,8 @@ const SearchableDropdown: React.FC<{
   placeholder?: string;
   icon?: React.ReactNode;
   searchable?: boolean;
-}> = ({ options, value, onChange, placeholder, icon, searchable = true }) => {
+  noResultsText?: string;
+}> = ({ options, value, onChange, placeholder, icon, searchable = true, noResultsText = 'No results found' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -177,7 +99,7 @@ const SearchableDropdown: React.FC<{
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
           {filteredOptions.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-slate-400">No results found</div>
+            <div className="px-4 py-3 text-sm text-slate-400">{noResultsText}</div>
           ) : (
             filteredOptions.map((opt) => {
               const optValue = opt.code || opt.value?.toString() || '';
@@ -262,10 +184,32 @@ const SimpleDropdown: React.FC<{
 
 const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) => {
   const { showToast } = useToast();
+  const { t } = useTranslation(['campaign', 'common']);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [clientName, setClientName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Generate translated options for dropdowns
+  const COUNTRIES = COUNTRY_CODES.map(code => ({
+    code,
+    name: t(`countries.${code}`)
+  }));
+
+  const LANGUAGES = LANGUAGE_CODES.map(code => ({
+    code,
+    name: t(`languages.${code}`)
+  }));
+
+  const SEARCH_PAGES = SEARCH_PAGE_VALUES.map(value => ({
+    value,
+    label: t(`searchPages.${value}`)
+  }));
+
+  const TIME_RANGES = TIME_RANGE_VALUES.map(value => ({
+    value,
+    label: t(`timeRanges.${value}`)
+  }));
 
   // Edit mode: when articleId is provided, we're editing an existing article
   const isEditMode = !!articleId;
@@ -384,7 +328,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
 
   const handleGenerateIdeas = async () => {
     if (!keyword.trim()) {
-      showToast('Please enter a keyword', 'warning');
+      showToast(t('toasts.enterKeyword'), 'warning');
       return;
     }
 
@@ -403,7 +347,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
       });
 
       if (ideas.length === 0) {
-        showToast('Failed to generate topic ideas. Please try again.', 'error');
+        showToast(t('toasts.generateFailed'), 'error');
         setIsGeneratingIdeas(false);
         return;
       }
@@ -540,7 +484,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
 
       // If status changed to AWAITING_REVIEW_TITLES, navigate back to campaign
       if (updates.status === ARTICLE_STATUS.AWAITING_REVIEW_TITLES) {
-        showToast('Titles submitted for client review!', 'success');
+        showToast(t('toasts.titlesSubmitted'), 'success');
         onBack();
       }
     } catch (err) {
@@ -571,7 +515,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
       <div className="flex flex-col h-full bg-slate-50 items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-slate-500">Loading...</p>
+          <p className="text-slate-500">{t('keywordDiscovery.loading')}</p>
         </div>
       </div>
     );
@@ -583,18 +527,18 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
         <header className="bg-white border-b border-slate-200 px-6 py-4">
           <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition">
             <ArrowLeft size={16} />
-            <span className="text-sm font-medium">Back</span>
+            <span className="text-sm font-medium">{t('keywordDiscovery.back')}</span>
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-md">
-            <p className="text-red-600 font-medium mb-2">Failed to load</p>
-            <p className="text-red-500 text-sm mb-4">{error || 'Data not found'}</p>
+            <p className="text-red-600 font-medium mb-2">{t('keywordDiscovery.failedToLoad')}</p>
+            <p className="text-red-500 text-sm mb-4">{error || t('keywordDiscovery.dataNotFound')}</p>
             <button 
               onClick={() => window.location.reload()} 
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
             >
-              Retry
+              {t('keywordDiscovery.retry')}
             </button>
           </div>
         </div>
@@ -614,16 +558,16 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
           {/* Breadcrumbs */}
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
             <span className="hover:text-indigo-600 cursor-pointer flex items-center gap-1">
-              <Home size={10} /> Home
+              <Home size={10} /> {t('keywordDiscovery.breadcrumbHome')}
             </span>
             <ChevronRight size={10} />
-            <span className="hover:text-indigo-600 cursor-pointer" onClick={onBack}>Campaigns</span>
+            <span className="hover:text-indigo-600 cursor-pointer" onClick={onBack}>{t('keywordDiscovery.breadcrumbCampaigns')}</span>
             <ChevronRight size={10} />
             <span className="hover:text-indigo-600 cursor-pointer font-medium text-slate-700" onClick={onBack}>
               {campaign.name}
             </span>
             <ChevronRight size={10} />
-            <span className="text-slate-400">Keyword-Driven Writing</span>
+            <span className="text-slate-400">{t('keywordDiscovery.breadcrumbKeywordDrivenWriting')}</span>
           </div>
 
           <div className="flex items-center justify-between">
@@ -634,7 +578,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
               <div>
                 <h1 className="text-lg font-bold text-slate-900 leading-tight">{campaign.name}</h1>
                 <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <span>{clientName || 'No client'}</span>
+                  <span>{clientName || t('keywordDiscovery.noClient')}</span>
                   <span>•</span>
                   <StatusBadge status={ARTICLE_STATUS.NEEDS_TITLES} />
                 </div>
@@ -667,16 +611,16 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
           <span className="hover:text-indigo-600 cursor-pointer flex items-center gap-1">
-            <Home size={10} /> Home
+            <Home size={10} /> {t('keywordDiscovery.breadcrumbHome')}
           </span>
           <ChevronRight size={10} />
-          <span className="hover:text-indigo-600 cursor-pointer" onClick={onBack}>Campaigns</span>
+          <span className="hover:text-indigo-600 cursor-pointer" onClick={onBack}>{t('keywordDiscovery.breadcrumbCampaigns')}</span>
           <ChevronRight size={10} />
           <span className="hover:text-indigo-600 cursor-pointer font-medium text-slate-700" onClick={onBack}>
             {campaign.name}
           </span>
           <ChevronRight size={10} />
-          <span className="text-slate-400">Keyword Discovery</span>
+          <span className="text-slate-400">{t('keywordDiscovery.breadcrumbKeywordDiscovery')}</span>
         </div>
 
         <div className="flex items-center justify-between">
@@ -687,7 +631,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
             <div>
               <h1 className="text-lg font-bold text-slate-900 leading-tight">{campaign.name}</h1>
               <div className="flex items-center gap-2 text-sm text-slate-500">
-                <span>{clientName || 'No client'}</span>
+                <span>{clientName || t('keywordDiscovery.noClient')}</span>
                 <span>•</span>
                 <StatusBadge status={ARTICLE_STATUS.NEEDS_TITLES} />
               </div>
@@ -702,7 +646,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
           {/* Form Card */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
             <h2 className="text-xl font-bold text-slate-900 mb-6">
-              Enter a Keyword to Discover Ideas
+              {t('keywordDiscovery.pageTitle')}
             </h2>
 
             {/* Keyword Input */}
@@ -710,11 +654,11 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
               <div className="flex items-center justify-between mb-2">
                 <label className="flex items-center gap-1 text-sm font-medium text-slate-700">
                   <span className="text-red-500">*</span>
-                  A Keyword
+                  {t('keywordDiscovery.keywordLabel')}
                   <HelpCircle size={14} className="text-slate-400 cursor-help" />
                 </label>
                 <span className="text-sm text-indigo-500 hover:underline cursor-pointer">
-                  Example: AI SEO tool
+                  {t('keywordDiscovery.keywordExample')}
                 </span>
               </div>
               <div className="relative">
@@ -722,7 +666,7 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
                   type="text"
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value.slice(0, MAX_KEYWORD_LENGTH))}
-                  placeholder="Enter a primary keyword or long-tail keyword"
+                  placeholder={t('keywordDiscovery.keywordPlaceholder')}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400">
@@ -735,28 +679,30 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="flex items-center gap-1 text-sm font-medium text-slate-700 mb-2">
-                  Target Market
+                  {t('keywordDiscovery.targetMarket')}
                   <HelpCircle size={14} className="text-slate-400 cursor-help" />
                 </label>
                 <SearchableDropdown
                   options={COUNTRIES}
                   value={targetMarket}
                   onChange={setTargetMarket}
-                  placeholder="Select country"
+                  placeholder={t('keywordDiscovery.selectCountry')}
                   icon={<MapPin size={16} />}
+                  noResultsText={t('keywordDiscovery.noResultsFound')}
                 />
               </div>
               <div>
                 <label className="flex items-center gap-1 text-sm font-medium text-slate-700 mb-2">
-                  Target Language
+                  {t('keywordDiscovery.targetLanguage')}
                   <HelpCircle size={14} className="text-slate-400 cursor-help" />
                 </label>
                 <SearchableDropdown
                   options={LANGUAGES}
                   value={targetLanguage}
                   onChange={setTargetLanguage}
-                  placeholder="Select language"
+                  placeholder={t('keywordDiscovery.selectLanguage')}
                   icon={<Globe size={16} />}
+                  noResultsText={t('keywordDiscovery.noResultsFound')}
                 />
               </div>
             </div>
@@ -765,26 +711,26 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div>
                 <label className="flex items-center gap-1 text-sm font-medium text-slate-700 mb-2">
-                  Search Pages
+                  {t('keywordDiscovery.searchPages')}
                   <HelpCircle size={14} className="text-slate-400 cursor-help" />
                 </label>
                 <SimpleDropdown
                   options={SEARCH_PAGES}
                   value={searchPages}
                   onChange={setSearchPages}
-                  placeholder="Select pages"
+                  placeholder={t('keywordDiscovery.selectPages')}
                 />
               </div>
               <div>
                 <label className="flex items-center gap-1 text-sm font-medium text-slate-700 mb-2">
-                  Time Range
+                  {t('keywordDiscovery.timeRange')}
                   <HelpCircle size={14} className="text-slate-400 cursor-help" />
                 </label>
                 <SimpleDropdown
                   options={TIME_RANGES}
                   value={timeRange}
                   onChange={setTimeRange}
-                  placeholder="Select time range"
+                  placeholder={t('keywordDiscovery.selectTimeRange')}
                 />
               </div>
             </div>
@@ -805,12 +751,12 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
                 {isGeneratingIdeas ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                    Generating Ideas...
+                    {t('keywordDiscovery.generatingIdeas')}
                   </>
                 ) : (
                   <>
                     <Sparkles size={18} />
-                    Generate Ideas
+                    {t('keywordDiscovery.generateIdeas')}
                     <ChevronRight size={18} />
                   </>
                 )}

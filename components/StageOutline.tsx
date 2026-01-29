@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Article, ProjectStatus, ARTICLE_STATUS, Campaign, WordCountRange, ArticlePerspective, WORD_COUNT_CONFIG, PERSPECTIVE_CONFIG } from '../types';
+import { useTranslation } from 'react-i18next';
+import { Article, ProjectStatus, ARTICLE_STATUS, Campaign, WordCountRange, ArticlePerspective, WORD_COUNT_CONFIG } from '../types';
 import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save, Check, ChevronUp, ChevronDown } from 'lucide-react';
 import { generateBlogOutline, refineBlogOutline, GenerationResult } from '../services/geminiService';
 import { getCampaignWithClients } from '../services/campaignService';
@@ -21,6 +22,7 @@ interface Props {
 const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useTranslation(['article', 'common']);
   const [outline, setOutline] = useState(project.outlineContent || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiInstruction, setAiInstruction] = useState('');
@@ -114,12 +116,12 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
     // Validate before submitting
     const validation = validateMarkdownOutline(outline);
     if (!validation.valid) {
-      showToast('Outline format error: ' + validation.errors.join(', '), 'error');
+      showToast(t('outlineToasts.formatError', { errors: validation.errors.join(', ') }), 'error');
       return;
     }
 
     if (outline.trim().length < 10) {
-      showToast("Please provide a more detailed outline.", 'warning');
+      showToast(t('outlineToasts.provideDetailedOutline'), 'warning');
       return;
     }
 
@@ -142,7 +144,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         outlineContent: outline,
         outlineSections: sections 
       });
-      showToast("Progress saved successfully!", 'success');
+      showToast(t('outlineToasts.progressSaved'), 'success');
     } catch (error) {
       console.error('Failed to save outline:', error);
     }
@@ -151,10 +153,10 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
   const handleAiGenerate = async () => {
     if (outline.trim().length > 10) {
       const isConfirmed = await confirm({
-        title: 'Overwrite Outline',
-        message: 'This will overwrite the current outline. Continue?',
+        title: t('outlineConfirm.overwriteTitle'),
+        message: t('outlineConfirm.overwriteMessage'),
         type: 'warning',
-        confirmText: 'Overwrite'
+        confirmText: t('outlineConfirm.overwriteConfirm')
       });
       if (!isConfirmed) return;
     }
@@ -203,7 +205,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
       }
     } catch (error) {
       console.error('Failed to generate outline:', error);
-      showToast('Failed to generate outline', 'error');
+      showToast(t('outlineToasts.generateFailed'), 'error');
     }
     
     setIsGenerating(false);
@@ -223,7 +225,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
 
   const handleExportMarkdown = () => {
     if (!outline.trim()) {
-      showToast('Outline is empty, cannot export', 'warning');
+      showToast(t('outlineToasts.emptyCannotExport'), 'warning');
       return;
     }
     
@@ -247,7 +249,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               <AlignLeft size={24} />
            </div>
            <div className="flex-1">
-             <h3 className="text-green-900 font-semibold">Approved Title Selected</h3>
+             <h3 className="text-green-900 font-semibold">{t('outline.approvedTitleSelected')}</h3>
              {isEditingTitle ? (
                <div className="mt-2 flex items-center gap-2">
                  <input
@@ -291,7 +293,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                  </button>
                </div>
              )}
-             <p className="text-green-700 text-sm mt-2">Please build the structure based on this direction.</p>
+             <p className="text-green-700 text-sm mt-2">{t('outline.buildStructureHint')}</p>
            </div>
         </div>
       </div>
@@ -302,8 +304,8 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[700px]">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Outline Builder</h2>
-                <p className="text-slate-500 text-sm mt-1">Define headers and key points.</p>
+                <h2 className="text-2xl font-bold text-slate-900">{t('outline.outlineBuilder')}</h2>
+                <p className="text-slate-500 text-sm mt-1">{t('outline.defineHeadersAndPoints')}</p>
               </div>
               <div className="flex items-center gap-3">
                 {/* Word Count Range Selector */}
@@ -331,9 +333,9 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                   }}
                   className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                  {Object.entries(PERSPECTIVE_CONFIG).map(([key, config]) => (
-                    <option key={key} value={key}>{config.label}</option>
-                  ))}
+                  <option value="first">{t('outline.firstPersonLabel')}</option>
+                  <option value="second">{t('outline.secondPersonLabel')}</option>
+                  <option value="third">{t('outline.thirdPersonLabel')}</option>
                 </select>
                 
                 <button 
@@ -346,7 +348,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                   ) : (
                     <Sparkles size={16} />
                   )}
-                  {isGenerating ? 'Drafting...' : 'Generate with Gemini'}
+                  {isGenerating ? t('outline.drafting') : t('outline.generateWithGemini')}
                 </button>
               </div>
             </div>
@@ -364,12 +366,12 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                 {showPreview ? (
                   <>
                     <Edit3 size={16} />
-                    Edit Mode
+                    {t('outline.editMode')}
                   </>
                 ) : (
                   <>
                     <Eye size={16} />
-                    Preview
+                    {t('outline.preview')}
                   </>
                 )}
               </button>
@@ -381,7 +383,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                 className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download size={16} />
-                Export
+                {t('outline.export')}
               </button>
               
               <div className="flex-1" />
@@ -389,7 +391,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               {parsedOutline.length > 0 && (
                 <span className="flex items-center gap-1 px-3 py-2 bg-green-50 text-green-700 text-sm rounded-lg">
                   <Check size={14} />
-                  {parsedOutline.length} sections detected
+                  {t('outline.sectionsDetected', { count: parsedOutline.length })}
                 </span>
               )}
             </div>
@@ -399,7 +401,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center gap-2 text-red-800 font-medium text-sm mb-2">
                   <AlertTriangle size={16} />
-                  Format Errors
+                  {t('outline.formatErrors')}
                 </div>
                 <ul className="text-sm text-red-700 space-y-1">
                   {validationErrors.map((err, i) => (
@@ -414,7 +416,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-center gap-2 text-amber-800 font-medium text-sm mb-2">
                   <AlertTriangle size={16} />
-                  Suggestions
+                  {t('outline.suggestions')}
                 </div>
                 <ul className="text-sm text-amber-700 space-y-1">
                   {validationWarnings.map((warn, i) => (
@@ -433,7 +435,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                       type="text" 
                       value={aiInstruction}
                       onChange={(e) => setAiInstruction(e.target.value)}
-                      placeholder="Ask AI to adjust (e.g. 'Add a section on Tax Fraud', 'Make it shorter')..."
+                      placeholder={t('outline.aiRefineLabel')}
                       className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                       onKeyDown={(e) => e.key === 'Enter' && handleAiRefine()}
                    />
@@ -443,7 +445,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                   disabled={isRefining || !aiInstruction.trim()}
                   className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-50 disabled:opacity-50 transition"
                 >
-                  {isRefining ? 'Refining...' : 'Refine'}
+                  {isRefining ? t('outline.refining') : t('outline.refine')}
                 </button>
             </div>
             )}
@@ -455,20 +457,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
               value={outline}
               onChange={(e) => setOutline(e.target.value)}
                   className="w-full h-full p-4 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition resize-none font-mono text-sm leading-relaxed"
-                  placeholder={`Enter outline in Markdown format:
-
-# Main Title
-Describe the content direction
-
-## Section 1: Core Concepts
-- Key point one
-- Key point two
-
-### Subtopic 1.1
-Specific details
-
-## Section 2: Deep Dive
-...`}
+                  placeholder={t('outline.outlinePlaceholder')}
                 />
               ) : (
                 <OutlinePreview sections={parsedOutline} showStats={true} className="h-full" />
@@ -481,7 +470,7 @@ Specific details
               onClick={handleSaveDraft}
               className="px-6 py-2.5 text-slate-600 font-medium hover:bg-white hover:shadow-sm rounded-lg border border-transparent hover:border-slate-200 transition"
             >
-              Save Draft
+              {t('outline.saveDraft')}
             </button>
             <button 
               onClick={handleSubmit} 
@@ -489,7 +478,7 @@ Specific details
               className="px-6 py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition flex items-center gap-2 shadow-lg shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send size={18} />
-              Send Outline
+              {t('outline.sendOutline')}
             </button>
           </div>
         </div>
@@ -501,18 +490,18 @@ Specific details
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 text-amber-800 font-bold">
                   <MessageSquare size={18} />
-                  <h3>Client Feedback</h3>
+                  <h3>{t('outline.clientFeedback')}</h3>
                 </div>
                 {ignoredFeedbackIds.length > 0 && (
                   <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                    {ignoredFeedbackIds.length} ignored
+                    {ignoredFeedbackIds.length} {t('outline.ignored').toLowerCase()}
                   </span>
                 )}
               </div>
               
               {project.clientComments.length === 0 ? (
                  <p className="text-sm text-amber-700/70 italic">
-                   No specific comments from the client on this project yet. Use the approved title as your main guide.
+                   {t('outline.noClientComments')}
                  </p>
               ) : (
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
@@ -534,7 +523,7 @@ Specific details
                               <span className="text-xs font-bold text-slate-700">{comment.author}</span>
                               {isIgnored && (
                                 <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-medium">
-                                  Ignored
+                                  {t('outline.ignored')}
                                 </span>
                               )}
                             </div>
@@ -555,13 +544,13 @@ Specific details
                                   onClick={handleCancelFeedbackEdit}
                                   className="px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded transition"
                                 >
-                                  Cancel
+                                  {t('outline.cancel')}
                                 </button>
                                 <button
                                   onClick={handleSaveFeedbackEdit}
                                   className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 transition"
                                 >
-                                  Save
+                                  {t('outline.save')}
                                 </button>
                               </div>
                             </div>
@@ -576,7 +565,7 @@ Specific details
                                 <button
                                   onClick={() => handleStartEditFeedback(comment.id, comment.text)}
                                   className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition"
-                                  title="Edit feedback"
+                                  title={t('outline.editFeedback')}
                                 >
                                   <Pencil size={14} />
                                 </button>
@@ -587,7 +576,7 @@ Specific details
                                       ? 'text-green-600 hover:bg-green-50' 
                                       : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
                                   }`}
-                                  title={isIgnored ? 'Include in AI generation' : 'Ignore in AI generation'}
+                                  title={isIgnored ? t('outline.includeInAi') : t('outline.ignoreInAi')}
                                 >
                                   {isIgnored ? <Eye size={14} /> : <EyeOff size={14} />}
                                 </button>
@@ -603,15 +592,15 @@ Specific details
 
            {/* Project Context Info */}
            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-               <h3 className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">Article Details</h3>
+               <h3 className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">{t('outline.articleDetails')}</h3>
                <div className="space-y-3 text-sm">
                   <div>
-                    <span className="text-slate-400 block text-xs">Working Title</span>
+                    <span className="text-slate-400 block text-xs">{t('outline.workingTitle')}</span>
                     <span className="font-medium text-slate-900">{project.title}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-xs">Status</span>
-                    <span className="font-medium text-blue-600">Outline Development</span>
+                    <span className="text-slate-400 block text-xs">{t('outline.status')}</span>
+                    <span className="font-medium text-blue-600">{t('outline.outlineDevelopment')}</span>
                   </div>
                </div>
            </div>
@@ -623,7 +612,7 @@ Specific details
                  className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition text-left"
                >
                  <div className="flex items-center gap-2">
-                   <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">References</h3>
+                   <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">{t('outline.references')}</h3>
                    <span className="text-xs font-normal text-slate-500 normal-case bg-white border border-slate-200 px-1.5 py-0.5 rounded-full">3</span>
                  </div>
                  <div className="text-slate-400">
@@ -634,12 +623,12 @@ Specific details
               {isReferencesExpanded && (
                 <div className="p-5 pt-2 space-y-5">
                    <p className="text-xs text-slate-500 mb-4">
-                     Select relevant ideas from search results matching your topic.
+                     {t('outline.selectRelevantIdeas')}
                    </p>
                    {mockReferences.length === 0 ? (
                      <div className="py-6 text-center">
-                        <p className="text-sm text-slate-500">No data available</p>
-                        <p className="text-xs text-slate-400 mt-1">Coming soon</p>
+                        <p className="text-sm text-slate-500">{t('outline.noDataAvailable')}</p>
+                        <p className="text-xs text-slate-400 mt-1">{t('outline.comingSoon')}</p>
                      </div>
                    ) : (
                      mockReferences.map((ref) => (
@@ -670,12 +659,12 @@ Specific details
 
            {/* Format Guide */}
            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
-               <h3 className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">Format Guide</h3>
+               <h3 className="font-bold text-slate-700 mb-3 text-sm uppercase tracking-wide">{t('outline.formatGuide')}</h3>
                <div className="text-xs text-slate-600 space-y-2 font-mono">
-                  <p><span className="bg-slate-800 text-white px-1.5 py-0.5 rounded">H1</span> # Main Title</p>
-                  <p><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">H2</span> ## Section</p>
-                  <p><span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border">H3</span> ### Subsection</p>
-                  <p className="text-slate-400 mt-3">Add description below headers</p>
+                  <p><span className="bg-slate-800 text-white px-1.5 py-0.5 rounded">H1</span> {t('outline.mainTitle')}</p>
+                  <p><span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">H2</span> {t('outline.section')}</p>
+                  <p><span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border">H3</span> {t('outline.subsection')}</p>
+                  <p className="text-slate-400 mt-3">{t('outline.addDescriptionBelowHeaders')}</p>
                </div>
            </div>
         </div>

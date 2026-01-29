@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Campaign, Client } from '../types';
 import { getCampaigns, createCampaign, getClients, addClient, deleteClient } from '../services/store';
 import { generateCampaignKeywords } from '../services/geminiService';
@@ -20,6 +21,7 @@ interface Props {
 
 const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
   const { user, isAdminUser } = useAuth();
+  const { t } = useTranslation(['dashboard', 'common']);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -167,7 +169,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       const invalidClients = selectedClients.filter(c => !uuidRegex.test(c.id));
       
       if (selectedClients.length > 0 && invalidClients.length > 0) {
-        showAlert('Invalid Client ID', 'Some selected client IDs have invalid format. Please ensure client data is synced to the database and create clients in the "Clients" page first.', 'error');
+        showAlert(t('dashboard:alerts.invalidClientId'), t('dashboard:alerts.invalidClientIdMessage'), 'error');
         return;
       }
 
@@ -207,13 +209,13 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
       // If new method failed, it means migration hasn't been run
       // Show error message to user
-      showAlert('Database Migration Incomplete', 'Please run the migration script in Supabase SQL Editor. See console for details.', 'error');
+      showAlert(t('dashboard:alerts.migrationIncomplete'), t('dashboard:alerts.migrationMessage'), 'error');
       console.error('Campaign creation failed: campaign_clients table not found or client_id column still exists.');
       console.log('Please run the database migration script in Supabase.');
       return;
     } catch (err) {
       console.error('Unexpected error creating campaign:', err);
-      showAlert('Creation Failed', `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}. Please check console for more information.`, 'error');
+      showAlert(t('dashboard:alerts.creationFailed'), `${err instanceof Error ? err.message : t('errors:general.unknownError')}`, 'error');
     }
   };
 
@@ -259,7 +261,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   const handleGenerateKeywords = async () => {
     if (!campName && !strategy) {
-      showAlert('Missing Information', 'Please fill in Campaign Name and Strategy Goals first so AI has enough context to generate keywords.', 'warning');
+      showAlert(t('dashboard:alerts.missingInfo'), t('dashboard:alerts.missingInfoMessage'), 'warning');
       return;
     }
     setIsGeneratingKeywords(true);
@@ -350,7 +352,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
   const handleEditGenerateKeywords = async () => {
     if (!editCampName && !editStrategy) {
-      showAlert('Missing Information', 'Please fill in Campaign Name and Strategy Goals first so AI has enough context to generate keywords.', 'warning');
+      showAlert(t('dashboard:alerts.missingInfo'), t('dashboard:alerts.missingInfoMessage'), 'warning');
       return;
     }
     setIsEditGeneratingKeywords(true);
@@ -386,7 +388,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       closeEditModal();
     } catch (err) {
       console.error('Error saving campaign:', err);
-      showAlert('Save Failed', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showAlert(t('dashboard:alerts.updateFailed'), `${err instanceof Error ? err.message : t('errors:general.unknownError')}`, 'error');
     } finally {
       setIsSavingEdit(false);
     }
@@ -397,11 +399,11 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
     
     const articleCount = articleCounts[camp.id] || 0;
     const confirmMsg = articleCount > 0 
-      ? `This will also delete ${articleCount} articles under this Campaign, and cannot be recovered!`
-      : 'This action cannot be undone!';
+      ? t('dashboard:deleteConfirm.messageWithArticles', { count: articleCount })
+      : t('dashboard:deleteConfirm.messageNoArticles');
     
     showConfirm(
-      `Delete "${camp.name}"`,
+      t('dashboard:deleteConfirm.title', { name: camp.name }),
       confirmMsg,
       async () => {
     setIsDeletingCampaign(true);
@@ -443,7 +445,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       }
     } catch (err) {
       console.error('Error deleting campaign:', err);
-      showAlert('Delete Failed', `${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showAlert(t('dashboard:alerts.deleteFailed'), `${err instanceof Error ? err.message : t('errors:general.unknownError')}`, 'error');
     } finally {
       setIsDeletingCampaign(false);
     }
@@ -490,15 +492,15 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       {/* Header */}
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Campaign Dashboard</h1>
-          <p className="text-slate-500 mt-2">Manage strategic content campaigns and client goals.</p>
+          <h1 className="text-3xl font-bold text-slate-900">{t('dashboard:title')}</h1>
+          <p className="text-slate-500 mt-2">{t('dashboard:subtitle')}</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-md"
         >
           <Plus size={18} />
-          New Campaign
+          {t('dashboard:newCampaign')}
         </button>
       </div>
 
@@ -506,7 +508,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500">Active Campaigns</p>
+            <p className="text-sm font-medium text-slate-500">{t('dashboard:stats.activeCampaigns')}</p>
             <p className="text-3xl font-bold text-slate-900 mt-1">{totalCampaigns}</p>
           </div>
           <div className="h-12 w-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600">
@@ -516,14 +518,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
           <div>
-             <p className="text-sm font-medium text-slate-500">Articles in Production</p>
+             <p className="text-sm font-medium text-slate-500">{t('dashboard:stats.articlesInProduction')}</p>
              <div className="flex items-baseline gap-2 mt-1">
                <p className="text-3xl font-bold text-slate-900">{userQuota?.used_count ?? 0}</p>
                <p className="text-lg text-slate-400">/ {userQuota?.max_quota ?? 10}</p>
                <div className="relative group">
                  <Info size={16} className="text-blue-500 cursor-help" />
                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                   Counting rule: After clicking "Generate Draft", the number of articles will be counted.
+                   {t('dashboard:stats.countingRule')}
                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
                  </div>
                </div>
@@ -531,11 +533,11 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
              {userQuota && calculatedRemaining <= 0 && (
                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                  <AlertCircle size={12} />
-                 Quota reached
+                 {t('dashboard:stats.quotaReached')}
                </p>
              )}
              {userQuota && calculatedRemaining > 0 && calculatedRemaining <= 3 && (
-               <p className="text-xs text-amber-500 mt-1">{calculatedRemaining} remaining</p>
+               <p className="text-xs text-amber-500 mt-1">{t('dashboard:stats.remaining', { count: calculatedRemaining })}</p>
              )}
           </div>
           <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
@@ -544,7 +546,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-           <p className="text-sm font-medium text-slate-500 mb-2">Content Output</p>
+           <p className="text-sm font-medium text-slate-500 mb-2">{t('dashboard:stats.contentOutput')}</p>
            <div className="h-24 w-full">
              <ResponsiveContainer width="100%" height="100%">
                <BarChart data={chartData} layout="vertical">
@@ -565,12 +567,12 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
       {/* Campaign List */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-slate-900">Recent Campaigns</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t('dashboard:campaigns.title')}</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
-              placeholder="Search campaigns..." 
+              placeholder={t('dashboard:campaigns.searchPlaceholder')} 
               className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
             />
           </div>
@@ -594,10 +596,10 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     <button
                       onClick={(e) => openEditModal(e, camp)}
                       className="ml-2 flex items-center gap-1.5 px-2.5 py-1 rounded border border-slate-300 text-xs font-medium text-slate-600 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 bg-white shadow-sm transition-all"
-                      title="Edit Campaign"
+                      title={t('dashboard:campaigns.editCampaign')}
                     >
                       <Pencil size={12} />
-                      Edit
+                      {t('common:buttons.edit')}
                     </button>
                     {isAdminUser && (
                       <div onClick={(e) => e.stopPropagation()} className="ml-2 relative inline-flex items-center">
@@ -625,7 +627,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                                await updateCampaign(camp.id, { cmsId: newId as any });
                              } catch (err) {
                                console.error('Failed to update CMS ID', err);
-                               showAlert('Update Failed', 'Unable to update CMS ID.', 'error');
+                               showAlert(t('dashboard:alerts.updateFailed'), t('errors:database.updateFailed'), 'error');
                              }
                            }}
                            className="absolute inset-0 w-full h-full px-2 pr-8 py-1 rounded border border-slate-300 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50 bg-white shadow-sm transition-all"
@@ -643,7 +645,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     <Briefcase size={14} />
                     <span>{camp.clientName}</span>
                     <span className="mx-1">•</span>
-                    <span>Created {camp.createdAt.toLocaleDateString()}</span>
+                    <span>{t('dashboard:campaigns.created')} {camp.createdAt.toLocaleDateString()}</span>
                   </div>
                   {camp.strategyGoals && (
                     <p className="text-sm text-slate-600 italic line-clamp-1 max-w-2xl">"{camp.strategyGoals}"</p>
@@ -652,15 +654,15 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 
                 <div className="flex items-center gap-4">
                    <div className="text-right">
-                      <p className="text-xs text-slate-400 font-medium uppercase">Production</p>
-                      <p className="text-lg font-semibold text-slate-700">{activeCount} Articles</p>
+                      <p className="text-xs text-slate-400 font-medium uppercase">{t('dashboard:campaigns.production')}</p>
+                      <p className="text-lg font-semibold text-slate-700">{activeCount} {t('dashboard:campaigns.articles')}</p>
                    </div>
                    
                    {/* Campaign Review Link Button */}
                    <button
                      onClick={(e) => handleCopyCampaignLink(e, camp.id)}
                      className="relative p-2 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-all"
-                     title="Copy client review link"
+                     title={t('dashboard:campaigns.copyLink')}
                    >
                      {copyToast.show && copyToast.campaignId === camp.id ? (
                        <CheckCircle size={18} className="text-green-500" />
@@ -669,7 +671,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                      )}
                      {copyToast.show && copyToast.campaignId === camp.id && (
                        <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                         Link copied!
+                         {t('common:messages.linkCopied')}
                        </span>
                      )}
                    </button>
@@ -677,7 +679,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                    <button
                      onClick={(e) => handleListDeleteCampaign(e, camp)}
                      className="p-2 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
-                     title="Delete Campaign"
+                     title={t('dashboard:campaigns.deleteCampaign')}
                    >
                      <Trash2 size={18} />
                    </button>
@@ -695,7 +697,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-lg font-bold text-slate-900">Setup New Campaign</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t('dashboard:modal.createTitle')}</h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 transition p-1 hover:bg-slate-100 rounded-full"
@@ -707,12 +709,12 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
             <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Campaign Name</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('dashboard:modal.campaignName')}</label>
                   <input 
                     type="text" 
                     value={campName}
                     onChange={(e) => setCampName(e.target.value)}
-                    placeholder="e.g. Tax Season 2024"
+                    placeholder={t('dashboard:modal.campaignNamePlaceholder')}
                     className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     autoFocus
                   />
@@ -720,7 +722,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 
                 {/* Client Multi-Select Dropdown */}
                 <div className="relative" ref={dropdownRef}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Client Name</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('dashboard:modal.clientName')}</label>
                   
                   {/* Dropdown Trigger & Display */}
                   <div 
@@ -741,7 +743,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     
                     {selectedClients.length === 0 && (
                       <span className="text-slate-400 text-sm py-1">
-                        {availableClients.length === 0 ? 'Please add clients in Clients page' : 'Select Client(s)...'}
+                        {availableClients.length === 0 ? t('dashboard:modal.noClients') : t('dashboard:modal.selectClients')}
                       </span>
                     )}
 
@@ -762,7 +764,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                             autoFocus
                             value={clientSearchTerm}
                             onChange={(e) => setClientSearchTerm(e.target.value)}
-                            placeholder="Search clients..."
+                            placeholder={t('dashboard:modal.searchClients')}
                             className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-indigo-500"
                           />
                         </div>
@@ -772,7 +774,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                       <div className="max-h-48 overflow-y-auto">
                         {filteredClients.length === 0 && clientSearchTerm && (
                            <div className="px-4 py-3 text-sm text-slate-400 text-center italic border-t border-slate-100">
-                             Client not found.
+                             {t('dashboard:modal.clientNotFound')}
                            </div>
                         )}
                         
@@ -803,16 +805,16 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                         
                         {filteredClients.length === 0 && !clientSearchTerm && availableClients.length === 0 && (
                           <div className="px-4 py-3 text-sm text-center">
-                            <div className="text-slate-500 mb-2 font-medium">No clients in database yet</div>
+                            <div className="text-slate-500 mb-2 font-medium">{t('dashboard:modal.noClientsInDb')}</div>
                             <div className="text-slate-400 text-xs">
-                              Please create clients in "Clients" page first before creating a Campaign.
+                              {t('dashboard:modal.createClientsFirst')}
                             </div>
                           </div>
                         )}
                         
                         {filteredClients.length === 0 && !clientSearchTerm && availableClients.length > 0 && (
                           <div className="px-4 py-3 text-sm text-slate-400 text-center italic">
-                            No clients found.
+                            {t('dashboard:modal.clientNotFound')}
                           </div>
                         )}
                       </div>
@@ -824,7 +826,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                              onClick={() => {/* Redirect logic would go here, simplified to focus input for now */}}
                              className="w-full py-1.5 text-xs text-slate-500 font-medium hover:text-indigo-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition"
                            >
-                             Manage Clients
+                             {t('common:buttons.manageClients')}
                            </button>
                         </div>
                       )}
@@ -836,13 +838,13 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   <div className="flex items-center gap-2">
-                    <Target size={14} /> Strategy Goals
+                    <Target size={14} /> {t('dashboard:modal.strategyGoals')}
                   </div>
                 </label>
                 <textarea 
                   value={strategy}
                   onChange={(e) => setStrategy(e.target.value)}
-                  placeholder="What is the primary objective? e.g. 'Establish authority in crypto compliance'"
+                  placeholder={t('dashboard:modal.strategyPlaceholder')}
                   className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-20 resize-none"
                 />
               </div>
@@ -850,14 +852,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   <div className="flex items-center gap-2">
-                    <Users size={14} /> Target Audience
+                    <Users size={14} /> {t('dashboard:modal.targetAudience')}
                   </div>
                 </label>
                 <input 
                   type="text" 
                   value={audience}
                   onChange={(e) => setAudience(e.target.value)}
-                  placeholder="e.g. Small Business Owners, CFOs"
+                  placeholder={t('dashboard:modal.audiencePlaceholder')}
                   className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
@@ -865,14 +867,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               {isAdminUser && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    CMS ID
+                    {t('dashboard:modal.cmsId')}
                   </label>
                   <select
                     value={cmsId}
                     onChange={(e) => setCmsId(e.target.value)}
                     className="w-full px-4 pr-10 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
-                    <option value="">Select CMS ID...</option>
+                    <option value="">{t('dashboard:modal.selectCmsId')}</option>
                     <option value="advisories">advisories</option>
                     <option value="bam">bam</option>
                     <option value="fbpsnews">fbpsnews</option>
@@ -888,7 +890,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 text-slate-600 font-medium hover:bg-white hover:shadow-sm rounded-lg border border-transparent hover:border-slate-200 transition"
               >
-                Cancel
+                {t('common:buttons.cancel')}
               </button>
               <button 
                 onClick={handleCreateCampaign}
@@ -896,7 +898,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:shadow-none transition flex items-center gap-2"
               >
                 <Plus size={18} />
-                Start Campaign
+                {t('dashboard:modal.startCampaign')}
               </button>
             </div>
           </div>
@@ -908,7 +910,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-lg font-bold text-slate-900">Edit Campaign</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t('dashboard:modal.editTitle')}</h3>
               <button 
                 onClick={closeEditModal}
                 className="text-slate-400 hover:text-slate-600 transition p-1 hover:bg-slate-100 rounded-full"
@@ -923,12 +925,12 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
             >
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Campaign Name</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('dashboard:modal.campaignName')}</label>
                   <input 
                     type="text" 
                     value={editCampName}
                     onChange={(e) => setEditCampName(e.target.value)}
-                    placeholder="e.g. Tax Season 2024"
+                    placeholder={t('dashboard:modal.campaignNamePlaceholder')}
                     className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     autoFocus
                   />
@@ -936,7 +938,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                 
                 {/* Client Multi-Select Dropdown for Edit */}
                 <div className="relative" ref={editDropdownRef} onClick={(e) => e.stopPropagation()}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Client Name</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('dashboard:modal.clientName')}</label>
                   
                   <div 
                     onClick={() => setIsEditClientDropdownOpen(!isEditClientDropdownOpen)}
@@ -956,7 +958,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     
                     {editSelectedClients.length === 0 && (
                       <span className="text-slate-400 text-sm py-1">
-                        {availableClients.length === 0 ? 'Please add clients in Clients page' : 'Select Client(s)...'}
+                        {availableClients.length === 0 ? t('dashboard:modal.noClients') : t('dashboard:modal.selectClients')}
                       </span>
                     )}
 
@@ -975,7 +977,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                             autoFocus
                             value={editClientSearchTerm}
                             onChange={(e) => setEditClientSearchTerm(e.target.value)}
-                            placeholder="Search clients..."
+                            placeholder={t('dashboard:modal.searchClients')}
                             className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-indigo-500"
                           />
                         </div>
@@ -984,7 +986,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                       <div className="max-h-48 overflow-y-auto">
                         {filteredEditClients.length === 0 && editClientSearchTerm && (
                            <div className="px-4 py-3 text-sm text-slate-400 text-center italic border-t border-slate-100">
-                             Client not found.
+                             {t('dashboard:modal.clientNotFound')}
                            </div>
                         )}
                         
@@ -1008,9 +1010,9 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                         
                         {filteredEditClients.length === 0 && !editClientSearchTerm && availableClients.length === 0 && (
                           <div className="px-4 py-3 text-sm text-center">
-                            <div className="text-slate-500 mb-2 font-medium">No clients in database yet</div>
+                            <div className="text-slate-500 mb-2 font-medium">{t('dashboard:modal.noClientsInDb')}</div>
                             <div className="text-slate-400 text-xs">
-                              Please create clients in "Clients" page first.
+                              {t('dashboard:modal.createClientsFirst')}
                             </div>
                           </div>
                         )}
@@ -1023,13 +1025,13 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   <div className="flex items-center gap-2">
-                    <Target size={14} /> Strategy Goals
+                    <Target size={14} /> {t('dashboard:modal.strategyGoals')}
                   </div>
                 </label>
                 <textarea 
                   value={editStrategy}
                   onChange={(e) => setEditStrategy(e.target.value)}
-                  placeholder="What is the primary objective? e.g. 'Establish authority in crypto compliance'"
+                  placeholder={t('dashboard:modal.strategyPlaceholder')}
                   className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-20 resize-none"
                 />
               </div>
@@ -1037,14 +1039,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   <div className="flex items-center gap-2">
-                    <Users size={14} /> Target Audience
+                    <Users size={14} /> {t('dashboard:modal.targetAudience')}
                   </div>
                 </label>
                 <input 
                   type="text" 
                   value={editAudience}
                   onChange={(e) => setEditAudience(e.target.value)}
-                  placeholder="e.g. Small Business Owners, CFOs"
+                  placeholder={t('dashboard:modal.audiencePlaceholder')}
                   className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
@@ -1052,14 +1054,14 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
               {isAdminUser && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    CMS ID
+                    {t('dashboard:modal.cmsId')}
                   </label>
                   <select
                     value={editCmsId}
                     onChange={(e) => setEditCmsId(e.target.value)}
                     className="w-full px-4 pr-10 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
-                    <option value="">Select CMS ID...</option>
+                    <option value="">{t('dashboard:modal.selectCmsId')}</option>
                     <option value="advisories">advisories</option>
                     <option value="bam">bam</option>
                     <option value="fbpsnews">fbpsnews</option>
@@ -1077,7 +1079,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   disabled={isSavingEdit || isDeletingCampaign}
                   className="px-4 py-2 text-slate-600 font-medium hover:bg-white hover:shadow-sm rounded-lg border border-transparent hover:border-slate-200 transition disabled:opacity-50"
                 >
-                  Cancel
+                  {t('common:buttons.cancel')}
                 </button>
                 <button 
                   onClick={handleSaveEdit}
@@ -1089,7 +1091,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   ) : (
                     <Check size={18} />
                   )}
-                  Save
+                  {t('dashboard:modal.saveCampaign')}
                 </button>
             </div>
           </div>

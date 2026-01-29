@@ -1,0 +1,68 @@
+{
+  "title": "Campaign Dashboard",
+  "nav": "Dashboard",
+  "subtitle": "Manage strategic content campaigns and client goals.",
+  "newCampaign": "New Campaign",
+  "stats": {
+    "activeCampaigns": "Active Campaigns",
+    "articlesInProduction": "Articles in Production",
+    "contentOutput": "Content Output",
+    "active": "Active",
+    "published": "Published",
+    "quotaReached": "Quota reached",
+    "remaining": "{{count}} remaining",
+    "countingRule": "Counting rule: After clicking \"Generate Draft\", the number of articles will be counted."
+  },
+  "campaigns": {
+    "title": "Recent Campaigns",
+    "searchPlaceholder": "Search campaigns...",
+    "production": "Production",
+    "articles": "Articles",
+    "created": "Created",
+    "noCampaigns": "No campaigns yet",
+    "copyLink": "Copy client review link",
+    "deleteCampaign": "Delete Campaign",
+    "editCampaign": "Edit Campaign"
+  },
+  "modal": {
+    "createTitle": "Setup New Campaign",
+    "editTitle": "Edit Campaign",
+    "campaignName": "Campaign Name",
+    "campaignNamePlaceholder": "e.g. Tax Season 2024",
+    "clientName": "Client Name",
+    "selectClients": "Select Client(s)...",
+    "noClients": "Please add clients in Clients page",
+    "searchClients": "Search clients...",
+    "clientNotFound": "Client not found.",
+    "noClientsInDb": "No clients in database yet",
+    "createClientsFirst": "Please create clients in \"Clients\" page first before creating a Campaign.",
+    "strategyGoals": "Strategy Goals",
+    "strategyPlaceholder": "What is the primary objective? e.g. 'Establish authority in crypto compliance'",
+    "targetAudience": "Target Audience",
+    "audiencePlaceholder": "e.g. Small Business Owners, CFOs",
+    "cmsId": "CMS ID",
+    "selectCmsId": "Select CMS ID...",
+    "keywords": "Keywords",
+    "keywordsPlaceholder": "Enter keyword and press Enter",
+    "generateKeywords": "AI Generate Keywords",
+    "generatingKeywords": "Generating...",
+    "startCampaign": "Start Campaign",
+    "saveCampaign": "Save"
+  },
+  "deleteConfirm": {
+    "title": "Delete \"{{name}}\"",
+    "messageWithArticles": "This will also delete {{count}} articles under this Campaign, and cannot be recovered!",
+    "messageNoArticles": "This action cannot be undone!"
+  },
+  "alerts": {
+    "invalidClientId": "Invalid Client ID",
+    "invalidClientIdMessage": "Some selected client IDs have invalid format. Please ensure client data is synced to the database and create clients in the \"Clients\" page first.",
+    "migrationIncomplete": "Database Migration Incomplete",
+    "migrationMessage": "Please run the migration script in Supabase SQL Editor. See console for details.",
+    "creationFailed": "Creation Failed",
+    "updateFailed": "Update Failed",
+    "deleteFailed": "Delete Failed",
+    "missingInfo": "Missing Information",
+    "missingInfoMessage": "Please fill in Campaign Name and Strategy Goals first so AI has enough context to generate keywords."
+  }
+}

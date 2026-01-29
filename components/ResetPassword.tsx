@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import supabase from '../services/supabaseClient.js';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
   const { updatePassword } = useAuth();
+  const { t } = useTranslation(['auth', 'common']);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,17 +45,17 @@ const ResetPassword: React.FC = () => {
     setError(null);
 
     if (!password || !confirmPassword) {
-      setError('Please fill in all fields');
+      setError(t('auth:errors.fillAllFields'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth:resetPassword.passwordMismatch'));
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('auth:signup.passwordRequirements'));
       return;
     }
 
@@ -71,7 +74,7 @@ const ResetPassword: React.FC = () => {
         }, 2000);
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError(t('auth:errors.unknownError'));
     } finally {
       setLoading(false);
     }
@@ -81,9 +84,10 @@ const ResetPassword: React.FC = () => {
   if (validSession === null) {
     return (
       <div className="bg-background-light dark:bg-background-dark font-sans flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+        <LanguageSwitcher variant="standalone" />
         <div className="flex items-center gap-2 text-gray-500">
           <Loader2 size={24} className="animate-spin" />
-          <span>Loading...</span>
+          <span>{t('common:messages.loading')}</span>
         </div>
       </div>
     );
@@ -93,6 +97,7 @@ const ResetPassword: React.FC = () => {
   if (!validSession) {
     return (
       <div className="bg-background-light dark:bg-background-dark font-sans flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+        <LanguageSwitcher variant="standalone" />
         <div className="w-full max-w-[420px] bg-card-light dark:bg-card-dark rounded-3xl shadow-soft dark:shadow-none dark:border dark:border-border-dark overflow-hidden relative">
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#F0F0FE] to-transparent dark:from-[#544AED]/20 dark:to-transparent pointer-events-none"></div>
           <div className="relative px-8 pt-10 pb-8">
@@ -100,9 +105,9 @@ const ResetPassword: React.FC = () => {
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
                 <AlertCircle size={32} className="text-red-600 dark:text-red-400" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">Invalid or Expired Link</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">{t('auth:resetPassword.invalidToken')}</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                This password reset link is invalid or has expired. Please request a new one.
+                {t('errors:auth.invalidToken')}
               </p>
             </div>
 
@@ -110,17 +115,17 @@ const ResetPassword: React.FC = () => {
               to="/forgot-password"
               className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all shadow-primary/30 hover:shadow-primary/50"
             >
-              Request New Link
+              {t('auth:forgotPassword.sendLink')}
             </Link>
 
             <div className="mt-6 text-center">
               <Link to="/" className="text-sm font-medium text-primary hover:text-primary-hover">
-                Back to Sign In
+                {t('auth:forgotPassword.backToLogin')}
               </Link>
             </div>
 
             <p className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
-              © 2024 Imprintly Inc. All rights reserved.
+              {t('auth:copyright')}
             </p>
           </div>
         </div>
@@ -132,6 +137,7 @@ const ResetPassword: React.FC = () => {
   if (success) {
     return (
       <div className="bg-background-light dark:bg-background-dark font-sans flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+        <LanguageSwitcher variant="standalone" />
         <div className="w-full max-w-[420px] bg-card-light dark:bg-card-dark rounded-3xl shadow-soft dark:shadow-none dark:border dark:border-border-dark overflow-hidden relative">
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#F0F0FE] to-transparent dark:from-[#544AED]/20 dark:to-transparent pointer-events-none"></div>
           <div className="relative px-8 pt-10 pb-8">
@@ -139,9 +145,9 @@ const ResetPassword: React.FC = () => {
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">Password Updated!</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">{t('auth:resetPassword.success')}</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                Your password has been successfully updated. Redirecting to dashboard...
+                {t('common:messages.loading')}
               </p>
             </div>
 
@@ -150,7 +156,7 @@ const ResetPassword: React.FC = () => {
             </div>
 
             <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500">
-              © 2024 Imprintly Inc. All rights reserved.
+              {t('auth:copyright')}
             </p>
           </div>
         </div>
@@ -160,6 +166,7 @@ const ResetPassword: React.FC = () => {
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-sans flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+      <LanguageSwitcher variant="standalone" />
       <div className="w-full max-w-[420px] bg-card-light dark:bg-card-dark rounded-3xl shadow-soft dark:shadow-none dark:border dark:border-border-dark overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#F0F0FE] to-transparent dark:from-[#544AED]/20 dark:to-transparent pointer-events-none"></div>
         <div className="relative px-8 pt-10 pb-8">
@@ -168,9 +175,9 @@ const ResetPassword: React.FC = () => {
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md mr-3">
                 <span className="text-white text-xl font-bold font-display">I</span>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Imprintly</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">{t('common:app.name')}</h1>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Enter your new password below.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">{t('auth:resetPassword.subtitle')}</p>
           </div>
 
           {error && (
@@ -181,7 +188,7 @@ const ResetPassword: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="password">New Password</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="password">{t('auth:resetPassword.newPassword')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <Lock size={20} />
@@ -190,18 +197,18 @@ const ResetPassword: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2.5 border border-border-light dark:border-border-dark rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-shadow tracking-widest"
                   id="password"
                   name="password"
-                  placeholder="••••••••"
+                  placeholder={t('auth:resetPassword.newPasswordPlaceholder')}
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-400">Must be at least 6 characters</p>
+              <p className="mt-1 text-xs text-gray-400">{t('auth:signup.passwordRequirements')}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="confirmPassword">Confirm New Password</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="confirmPassword">{t('auth:resetPassword.confirmPassword')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <Lock size={20} />
@@ -210,7 +217,7 @@ const ResetPassword: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2.5 border border-border-light dark:border-border-dark rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-shadow tracking-widest"
                   id="confirmPassword"
                   name="confirmPassword"
-                  placeholder="••••••••"
+                  placeholder={t('auth:resetPassword.confirmPasswordPlaceholder')}
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -228,17 +235,17 @@ const ResetPassword: React.FC = () => {
                 {loading ? (
                   <>
                     <Loader2 size={18} className="animate-spin mr-2" />
-                    Updating Password...
+                    {t('auth:resetPassword.resetting')}
                   </>
                 ) : (
-                  'Update Password'
+                  t('auth:resetPassword.resetButton')
                 )}
               </button>
             </div>
           </form>
 
           <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500">
-            © 2024 Imprintly Inc. All rights reserved.
+            {t('auth:copyright')}
           </p>
         </div>
       </div>
@@ -247,4 +254,3 @@ const ResetPassword: React.FC = () => {
 };
 
 export default ResetPassword;
-

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const { t } = useTranslation(['auth', 'common']);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,7 +21,7 @@ const Login: React.FC = () => {
     setIsEmailNotVerified(false);
 
     if (!email || !password) {
-      setError('Please fill in all fields');
+      setError(t('auth:errors.fillAllFields'));
       return;
     }
 
@@ -47,6 +50,9 @@ const Login: React.FC = () => {
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-sans flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+      {/* 语言切换按钮 */}
+      <LanguageSwitcher variant="standalone" />
+      
       <div className="w-full max-w-[420px] bg-card-light dark:bg-card-dark rounded-3xl shadow-soft dark:shadow-none dark:border dark:border-border-dark overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#F0F0FE] to-transparent dark:from-[#544AED]/20 dark:to-transparent pointer-events-none"></div>
         <div className="relative px-8 pt-10 pb-8">
@@ -55,9 +61,9 @@ const Login: React.FC = () => {
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md mr-3">
                 <span className="text-white text-xl font-bold font-display">I</span>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Imprintly</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">{t('common:app.name')}</h1>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Manage strategic content campaigns.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">{t('auth:login.subtitle')}</p>
           </div>
 
           {error && (
@@ -72,10 +78,10 @@ const Login: React.FC = () => {
                 <AlertCircle size={20} className="text-amber-600 dark:text-amber-400 mt-0.5 mr-3 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-1">
-                    Email Not Verified
+                    {t('auth:emailVerification.title')}
                   </p>
                   <p className="text-sm text-amber-700 dark:text-amber-400">
-                    Please check your email inbox and click the verification link to activate your account.
+                    {t('auth:emailVerification.message')}
                   </p>
                 </div>
               </div>
@@ -84,7 +90,7 @@ const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="email">Email Address</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="email">{t('common:labels.email')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <Mail size={20} />
@@ -93,7 +99,7 @@ const Login: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2.5 border border-border-light dark:border-border-dark rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-shadow"
                   id="email"
                   name="email"
-                  placeholder="name@company.com"
+                  placeholder={t('auth:login.emailPlaceholder')}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -103,8 +109,8 @@ const Login: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300" htmlFor="password">Password</label>
-                <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-hover transition-colors">Forgot Password?</Link>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300" htmlFor="password">{t('common:labels.password')}</label>
+                <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-hover transition-colors">{t('auth:login.forgotPassword')}</Link>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -114,7 +120,7 @@ const Login: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2.5 border border-border-light dark:border-border-dark rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-shadow tracking-widest"
                   id="password"
                   name="password"
-                  placeholder="••••••••"
+                  placeholder={t('auth:login.passwordPlaceholder')}
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -125,7 +131,7 @@ const Login: React.FC = () => {
             <div className="flex items-center">
               <input className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded-full dark:border-gray-600 dark:bg-gray-700" id="remember-me" name="remember-me" type="checkbox" />
               <label className="ml-2.5 block text-sm text-gray-600 dark:text-gray-400" htmlFor="remember-me">
-                Remember me
+                {t('auth:login.rememberMe')}
               </label>
             </div>
             <div>
@@ -137,21 +143,21 @@ const Login: React.FC = () => {
                 {loading ? (
                   <>
                     <Loader2 size={18} className="animate-spin mr-2" />
-                    Signing In...
+                    {t('auth:login.signingIn')}
                   </>
                 ) : (
-                  'Sign In'
+                  t('common:buttons.signIn')
                 )}
               </button>
             </div>
           </form>
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Don't have an account?{' '}
-              <Link to="/signup" className="font-medium text-primary hover:text-primary-hover">Sign Up</Link>
+              {t('auth:login.noAccount')}{' '}
+              <Link to="/signup" className="font-medium text-primary hover:text-primary-hover">{t('common:buttons.signUp')}</Link>
             </p>
             <p className="mt-6 text-xs text-gray-400 dark:text-gray-500">
-              © 2024 Imprintly Inc. All rights reserved.
+              {t('auth:copyright')}
             </p>
           </div>
         </div>

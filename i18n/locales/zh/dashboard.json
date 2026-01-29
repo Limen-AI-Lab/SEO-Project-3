@@ -1,0 +1,68 @@
+{
+  "title": "文章主题面板",
+  "nav": "面板",
+  "subtitle": "管理文章主题集合和客户目标",
+  "newCampaign": "新建主题",
+  "stats": {
+    "activeCampaigns": "进行中的主题",
+    "articlesInProduction": "制作中的文章",
+    "contentOutput": "内容产出",
+    "active": "活跃",
+    "published": "已发布",
+    "quotaReached": "配额已用完",
+    "remaining": "剩余 {{count}} 篇",
+    "countingRule": "计数规则：点击「生成草稿」后，文章数量将被计入。"
+  },
+  "campaigns": {
+    "title": "主题总览",
+    "searchPlaceholder": "搜索主题...",
+    "production": "制作中",
+    "articles": "篇文章",
+    "created": "创建于",
+    "noCampaigns": "暂无主题",
+    "copyLink": "复制客户审核链接",
+    "deleteCampaign": "删除主题",
+    "editCampaign": "编辑主题"
+  },
+  "modal": {
+    "createTitle": "创建新主题",
+    "editTitle": "编辑主题",
+    "campaignName": "主题名称",
+    "campaignNamePlaceholder": "例如：2024 税务季",
+    "clientName": "客户名称",
+    "selectClients": "选择客户...",
+    "noClients": "请先在客户页面添加客户",
+    "searchClients": "搜索客户...",
+    "clientNotFound": "未找到客户",
+    "noClientsInDb": "数据库中还没有客户",
+    "createClientsFirst": "请先在「客户」页面创建客户，然后再创建主题。",
+    "strategyGoals": "战略目标",
+    "strategyPlaceholder": "主要目标是什么？例如：在加密合规领域建立权威",
+    "targetAudience": "目标受众",
+    "audiencePlaceholder": "例如：小企业主、CFO",
+    "cmsId": "CMS ID",
+    "selectCmsId": "选择 CMS ID...",
+    "keywords": "关键词",
+    "keywordsPlaceholder": "输入关键词，按回车添加",
+    "generateKeywords": "AI 生成关键词",
+    "generatingKeywords": "生成中...",
+    "startCampaign": "开始主题",
+    "saveCampaign": "保存"
+  },
+  "deleteConfirm": {
+    "title": "删除「{{name}}」",
+    "messageWithArticles": "这将同时删除该主题下的 {{count}} 篇文章，且无法恢复！",
+    "messageNoArticles": "此操作无法撤销！"
+  },
+  "alerts": {
+    "invalidClientId": "无效的客户 ID",
+    "invalidClientIdMessage": "部分选中的客户 ID 格式无效。请确保客户数据已同步到数据库，并先在「客户」页面创建客户。",
+    "migrationIncomplete": "数据库迁移未完成",
+    "migrationMessage": "请在 Supabase SQL 编辑器中运行迁移脚本。详情请查看控制台。",
+    "creationFailed": "创建失败",
+    "updateFailed": "更新失败",
+    "deleteFailed": "删除失败",
+    "missingInfo": "信息不完整",
+    "missingInfoMessage": "请先填写主题名称和战略目标，以便 AI 有足够的上下文来生成关键词。"
+  }
+}

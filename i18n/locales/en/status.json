@@ -1,0 +1,34 @@
+{
+  "article": {
+    "NEEDS_TITLES": "Needs Titles",
+    "AWAITING_REVIEW_TITLES": "Awaiting Title Review",
+    "TITLES_APPROVED": "Titles Approved",
+    "NEEDS_TITLES_REVISION": "Titles Need Revision",
+    "NEEDS_OUTLINE": "Needs Outline",
+    "AWAITING_REVIEW_OUTLINE": "Awaiting Outline Review",
+    "OUTLINE_APPROVED": "Outline Approved",
+    "NEEDS_OUTLINE_REVISION": "Outline Needs Revision",
+    "NEEDS_DRAFT": "Needs Draft",
+    "AWAITING_REVIEW_DRAFT": "Awaiting Draft Review",
+    "DRAFT_APPROVED": "Draft Approved",
+    "NEEDS_DRAFT_REVISION": "Draft Needs Revision",
+    "PUBLISHED": "Published",
+    "NEEDS_REVISION": "Needs Revision"
+  },
+  "campaign": {
+    "ACTIVE": "Active",
+    "ARCHIVED": "Archived"
+  },
+  "inviteCode": {
+    "active": "Active",
+    "used": "Used",
+    "expired": "Expired"
+  },
+  "phase": {
+    "titles": "Titles Phase",
+    "outline": "Outline Phase",
+    "draft": "Draft Phase",
+    "review": "Review Phase",
+    "published": "Published"
+  }
+}

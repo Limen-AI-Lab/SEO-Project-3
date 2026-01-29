@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "inviteCodes": "邀请码",
+    "users": "用户"
+  },
+  "inviteCodes": {
+    "title": "邀请码管理",
+    "subtitle": "创建和管理用户注册邀请码",
+    "newCode": "生成新邀请码",
+    "searchPlaceholder": "搜索邀请码...",
+    "noCodes": "暂无邀请码",
+    "createFirst": "生成第一个邀请码开始"
+  },
+  "inviteCode": {
+    "code": "邀请码",
+    "status": "状态",
+    "quota": "配额",
+    "used": "已使用",
+    "available": "可用",
+    "expired": "已过期",
+    "createdAt": "创建时间",
+    "expiresAt": "过期时间",
+    "usedBy": "使用者",
+    "usedAt": "使用时间",
+    "copy": "复制",
+    "delete": "删除",
+    "noExpiry": "永不过期"
+  },
+  "generateCode": {
+    "title": "生成邀请码",
+    "quota": "文章配额",
+    "quotaPlaceholder": "例如：10",
+    "quotaHelp": "使用此邀请码注册的用户可创建的最大文章数",
+    "expiryDays": "有效天数",
+    "expiryPlaceholder": "例如：30",
+    "expiryHelp": "留空表示永不过期",
+    "generate": "生成",
+    "generating": "生成中..."
+  },
+  "deleteConfirm": {
+    "title": "删除邀请码",
+    "message": "确定要删除此邀请码吗？此操作无法撤销。"
+  },
+  "users": {
+    "title": "用户管理",
+    "subtitle": "管理系统用户和权限",
+    "searchPlaceholder": "搜索用户...",
+    "noUsers": "暂无用户"
+  },
+  "user": {
+    "email": "邮箱",
+    "role": "角色",
+    "admin": "管理员",
+    "agencyAdmin": "机构管理员",
+    "status": "状态",
+    "active": "活跃",
+    "inactive": "未激活",
+    "quota": "配额",
+    "articlesUsed": "已使用 {{used}}/{{total}} 篇文章",
+    "createdAt": "注册时间",
+    "lastLogin": "最后登录",
+    "edit": "编辑",
+    "delete": "删除"
+  },
+  "editUser": {
+    "title": "编辑用户",
+    "role": "角色",
+    "quota": "文章配额",
+    "save": "保存",
+    "saving": "保存中..."
+  },
+  "deleteUserConfirm": {
+    "title": "删除用户",
+    "message": "确定要删除此用户吗？此操作无法撤销。"
+  },
+  "alerts": {
+    "codeGenerated": "邀请码生成成功",
+    "codeCopied": "邀请码已复制",
+    "codeDeleted": "邀请码已删除",
+    "userUpdated": "用户更新成功",
+    "userDeleted": "用户删除成功",
+    "generateFailed": "生成失败",
+    "deleteFailed": "删除失败",
+    "updateFailed": "更新失败"
+  }
+}

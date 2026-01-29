@@ -1,0 +1,53 @@
+{
+  "auth": {
+    "emailNotConfirmed": "Email not verified. Please check your email and click the verification link.",
+    "invalidCredentials": "Invalid email or password",
+    "userNotFound": "User not found",
+    "emailInUse": "Email already registered",
+    "weakPassword": "Password is too weak. Please use a stronger password.",
+    "invalidToken": "Invalid or expired link",
+    "sessionExpired": "Session expired. Please log in again."
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Please enter a valid email address",
+    "minLength": "Minimum {{min}} characters required",
+    "maxLength": "Maximum {{max}} characters allowed",
+    "passwordMismatch": "Passwords do not match",
+    "invalidFormat": "Invalid format",
+    "invalidUrl": "Please enter a valid URL"
+  },
+  "network": {
+    "connectionFailed": "Network connection failed",
+    "timeout": "Request timed out. Please try again later.",
+    "serverError": "Server error. Please try again later.",
+    "notFound": "Resource not found",
+    "unauthorized": "Unauthorized access",
+    "forbidden": "You don't have permission to perform this action"
+  },
+  "database": {
+    "saveFailed": "Failed to save",
+    "loadFailed": "Failed to load",
+    "deleteFailed": "Failed to delete",
+    "updateFailed": "Failed to update",
+    "duplicateEntry": "Record already exists"
+  },
+  "ai": {
+    "generationFailed": "AI generation failed. Please try again.",
+    "quotaExceeded": "AI quota exceeded",
+    "serviceUnavailable": "AI service is temporarily unavailable",
+    "invalidResponse": "AI returned an invalid response"
+  },
+  "file": {
+    "uploadFailed": "File upload failed",
+    "tooLarge": "File is too large. Maximum size is {{max}}.",
+    "invalidType": "File type not supported",
+    "downloadFailed": "File download failed"
+  },
+  "general": {
+    "unknownError": "An unknown error occurred",
+    "operationFailed": "Operation failed",
+    "tryAgain": "Please try again later",
+    "contactSupport": "If the problem persists, please contact support"
+  }
+}

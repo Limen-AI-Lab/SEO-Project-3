@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Article, Campaign, ARTICLE_STATUS } from '../types';
 import { generateKeywordDrivenTitles, BlogTopicIdea } from '../services/geminiService';
 import { Sparkles, Send, Trash2, Plus, ChevronDown, ChevronUp, Settings, Check } from 'lucide-react';
@@ -24,6 +25,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
   onBack
 }) => {
   const { showToast } = useToast();
+  const { t } = useTranslation(['article', 'common']);
   
   // Selected topic idea (one of the 10)
   const [selectedTopicIndex, setSelectedTopicIndex] = useState<number | null>(null);
@@ -37,7 +39,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
   // Configuration panel
   const [showConfig, setShowConfig] = useState(true);
   const [audience, setAudience] = useState('');
-  const [tone, setTone] = useState('Professional & Authoritative');
+  const [tone, setTone] = useState('');
   const [rules, setRules] = useState('');
 
   // Pre-fill from Campaign Context
@@ -47,7 +49,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
         setAudience(campaign.targetAudience);
       }
       if (!rules && campaign.strategyGoals) {
-        setRules(`Align with this strategy: ${campaign.strategyGoals}`);
+        setRules(`${t('titles.alignWithStrategy')}${campaign.strategyGoals}`);
       }
     }
   }, [campaign]);
@@ -63,7 +65,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
 
   const handleGenerateAI = async () => {
     if (selectedTopicIndex === null) {
-      showToast("Please select a topic idea first", 'warning');
+      showToast(t('toasts.selectTopicFirst'), 'warning');
       return;
     }
 
@@ -83,24 +85,24 @@ const StageTitlesKeyword: React.FC<Props> = ({
     if (generated.length > 0) {
       setTitles(generated);
     } else {
-      showToast("Failed to generate titles. Please try again.", 'error');
+      showToast(t('toasts.generateFailed'), 'error');
     }
     setIsGenerating(false);
   };
 
   const handleSaveDraft = () => {
     onUpdate({ 
-      proposedTitles: titles.filter(t => t.trim() !== ''),
+      proposedTitles: titles.filter(title => title.trim() !== ''),
       language: language,
       tone: tone
     });
-    showToast("Draft saved successfully", 'success');
+    showToast(t('toasts.draftSaved'), 'success');
   };
 
   const handleSubmit = async () => {
-    const validTitles = titles.filter(t => t.trim() !== '');
+    const validTitles = titles.filter(title => title.trim() !== '');
     if (validTitles.length === 0) {
-      showToast("Please add at least one title.", 'warning');
+      showToast(t('toasts.addAtLeastOneTitle'), 'warning');
       return;
     }
     
@@ -117,16 +119,16 @@ const StageTitlesKeyword: React.FC<Props> = ({
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Keyword-Driven Title Generation</h2>
+          <h2 className="text-2xl font-bold text-slate-900">{t('keywordDriven.pageTitle')}</h2>
           <p className="text-slate-500 mt-1">
-            Select a topic direction, then generate SEO-optimized titles for "{keyword}"
+            {t('keywordDriven.pageSubtitle', { keyword })}
           </p>
         </div>
         <button 
           onClick={onBack}
           className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition"
         >
-          ← Back to Keyword
+          {t('keywordDriven.backToKeyword')}
         </button>
       </div>
 
@@ -135,10 +137,10 @@ const StageTitlesKeyword: React.FC<Props> = ({
         <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-slate-100">
           <h3 className="font-semibold text-slate-800 flex items-center gap-2">
             <Sparkles size={18} className="text-indigo-600" />
-            Recommended Topic Ideas
+            {t('keywordDriven.recommendedTopics')}
           </h3>
           <p className="text-sm text-slate-500 mt-1">
-            Select one topic direction to generate specific titles
+            {t('keywordDriven.selectTopicHint')}
           </p>
         </div>
         
@@ -157,11 +159,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <span className="text-slate-600">Write a '</span>
-                  <span className="font-semibold text-indigo-600">{idea.type}</span>
-                  <span className="text-slate-600">' blog post on '</span>
-                  <span className="font-medium text-slate-800">{idea.topic}</span>
-                  <span className="text-slate-600">'.</span>
+                  {t('keywordDriven.writeABlogPost', { type: idea.type, topic: idea.topic })}
                 </div>
                 {selectedTopicIndex === index && (
                   <div className="ml-3 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -182,7 +180,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
         >
           <div className="flex items-center gap-2 font-semibold text-slate-700">
             <Settings size={18} className="text-indigo-600" />
-            Title Generation Settings
+            {t('keywordDriven.titleGenSettings')}
           </div>
           {showConfig ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
         </button>
@@ -191,7 +189,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
             {/* Keyword Display (Read-only) */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Primary Keyword</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('keywordDriven.primaryKeyword')}</label>
               <div className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-700">
                 {keyword}
               </div>
@@ -199,7 +197,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
 
             {/* Language Display (Read-only) */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Target Language</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('titles.targetLanguage')}</label>
               <div className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-700">
                 {language}
               </div>
@@ -207,38 +205,38 @@ const StageTitlesKeyword: React.FC<Props> = ({
 
             {/* Target Audience */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Target Audience</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('titles.targetAudience')}</label>
               <input 
                 type="text" 
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Small Business Owners, CFOs"
+                placeholder={t('titles.audiencePlaceholder')}
               />
             </div>
 
             {/* Tone of Voice */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tone of Voice</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('titles.tone')}</label>
               <input 
                 type="text" 
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Professional, Witty, Urgent"
+                placeholder={t('titles.tonePlaceholder')}
               />
             </div>
 
             {/* Strict Content Rules */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Strict Content Rules <span className="text-xs text-slate-400 font-normal">(Optional)</span>
+                {t('titles.strictRules')} <span className="text-xs text-slate-400 font-normal">{t('titles.optional')}</span>
               </label>
               <textarea 
                 value={rules}
                 onChange={(e) => setRules(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-20 resize-none"
-                placeholder="e.g. Do not mention specific competitors. Must use South African terminology."
+                placeholder={t('titles.rulesPlaceholder')}
               />
             </div>
 
@@ -256,7 +254,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
                 `}
               >
                 <Sparkles size={18} />
-                {isGenerating ? 'Generating Titles...' : 'Generate with Gemini'}
+                {isGenerating ? t('titles.generatingWithGemini') : t('titles.generateWithGemini')}
               </button>
             </div>
           </div>
@@ -265,12 +263,12 @@ const StageTitlesKeyword: React.FC<Props> = ({
 
       {/* Generated Titles List */}
       <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Proposed Titles</h3>
+        <h3 className="text-lg font-bold text-slate-900 mb-4">{t('titles.proposedTitles')}</h3>
         
         {titles.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
             <Sparkles size={48} className="mx-auto mb-4 opacity-50" />
-            <p>Select a topic idea and click "Generate with Gemini" to create titles</p>
+            <p>{t('keywordDriven.selectTopicPrompt')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -281,7 +279,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
                   type="text" 
                   value={title}
                   onChange={(e) => handleTitleChange(index, e.target.value)}
-                  placeholder="Enter a compelling blog title..."
+                  placeholder={t('titles.titleInputPlaceholder')}
                   className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
                 />
                 <button onClick={() => removeField(index)} className="text-slate-400 hover:text-red-500 p-2">
@@ -292,7 +290,7 @@ const StageTitlesKeyword: React.FC<Props> = ({
             
             <button onClick={addField} className="flex items-center gap-2 text-indigo-600 font-medium px-4 py-2 hover:bg-indigo-50 rounded-lg transition ml-9">
               <Plus size={18} />
-              Add Another Title
+              {t('titles.addAnotherTitle')}
             </button>
           </div>
         )}
@@ -301,11 +299,11 @@ const StageTitlesKeyword: React.FC<Props> = ({
           <div className="mt-8 pt-6 border-t border-slate-100">
             <div className="flex justify-end gap-4">
               <button onClick={handleSaveDraft} className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition">
-                Save Draft
+                {t('titles.saveDraft')}
               </button>
               <button onClick={handleSubmit} className="px-6 py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition flex items-center gap-2 shadow-lg shadow-slate-900/20">
                 <Send size={18} />
-                Submit to Client
+                {t('titles.submitToClient')}
               </button>
             </div>
           </div>

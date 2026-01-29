@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Article, ProjectStatus, Campaign, ARTICLE_STATUS, Comment, ContentBlock, ClientEdit, RevisionHistoryEntry } from '../types';
 import supabase from '../services/supabaseClient.js';
-import { ArrowLeft, Check, Lock, PlayCircle, ChevronRight, Home, CheckCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Lock, ChevronRight, Home, CheckCircle, Trash2 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import StageTitles from './StageTitles';
 import StageOutline from './StageOutline';
@@ -224,6 +225,7 @@ interface Props {
 const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useTranslation(['article', 'common']);
   const [article, setArticle] = useState<Article | undefined>(undefined);
   const [campaign, setCampaign] = useState<Campaign | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -567,15 +569,15 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
     setModalConfig({
       isOpen: true,
       type: 'warning',
-      title: 'Confirm Approval',
+      title: t('workspace.confirmApprovalTitle'),
       message: (
         <div className="space-y-2">
-          <p>Are you sure you want to approve all <span className="font-bold text-slate-900">{titlesToApprove.length}</span> titles?</p>
-          <p className="text-sm text-slate-500">This will create {titlesToApprove.length} independent articles, each entering "Needs Outline" status.</p>
+          <p>{t('workspace.confirmApprovalMessage', { count: titlesToApprove.length })}</p>
+          <p className="text-sm text-slate-500">{t('workspace.confirmApprovalSubMessage', { count: titlesToApprove.length })}</p>
         </div>
       ),
       showCancel: true,
-      confirmText: 'Confirm Approval',
+      confirmText: t('workspace.confirmApprovalButton'),
       onConfirm: async () => {
         try {
           console.log('📝 Client Approved Titles - Starting forking process...');
@@ -630,17 +632,17 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
           setModalConfig({
             isOpen: true,
             type: 'success',
-            title: 'Approval Successful',
+            title: t('workspace.approvalSuccessTitle'),
             message: (
               <div className="space-y-3">
                  <div className="flex items-center gap-2 text-green-700 font-medium">
-                   <p>✅ Successfully approved {titlesToApprove.length} titles!</p>
+                   <p>✅ {t('workspace.approvalSuccessMessage', { count: titlesToApprove.length })}</p>
                  </div>
-                 <p className="text-slate-600">Created <span className="font-bold">{titlesToApprove.length}</span> new articles. Please return to Campaign to view them.</p>
+                 <p className="text-slate-600">{t('workspace.approvalSuccessSubMessage', { count: titlesToApprove.length })}</p>
               </div>
             ),
             showCancel: false,
-            confirmText: 'Back to Campaign',
+            confirmText: t('workspace.backToCampaignButton'),
             onConfirm: () => {
                closeModal();
                onBack();
@@ -798,13 +800,13 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col gap-2 flex-shrink-0 z-10">
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-           <span className="hover:text-indigo-600 cursor-pointer flex items-center gap-1"><Home size={10} /> Home</span>
+           <span className="hover:text-indigo-600 cursor-pointer flex items-center gap-1"><Home size={10} /> {t('workspace.home')}</span>
            <ChevronRight size={10} />
-           <span className="hover:text-indigo-600 cursor-pointer" onClick={onBack}>Campaigns</span>
+           <span className="hover:text-indigo-600 cursor-pointer" onClick={onBack}>{t('workspace.campaigns')}</span>
            <ChevronRight size={10} />
            <span className="hover:text-indigo-600 cursor-pointer font-medium text-slate-700" onClick={onBack}>{campaign.name}</span>
            <ChevronRight size={10} />
-           <span className="text-slate-400">Article Workspace</span>
+           <span className="text-slate-400">{t('workspace.articleWorkspace')}</span>
         </div>
 
         <div className="flex items-center justify-between">
@@ -815,7 +817,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
             <div>
               <h1 className="text-lg font-bold text-slate-900 leading-tight">{article.selectedTitle || article.title}</h1>
               <div className="flex items-center gap-2 text-sm text-slate-500">
-                <span>{campaign.clientName}</span>
+                <span>{campaign.clientName === 'Unknown Client' ? t('workspace.unknownClient') : campaign.clientName}</span>
                 <span>•</span>
                 <StatusBadge status={article.status} />
               </div>
@@ -831,15 +833,7 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition shadow-sm"
                  >
                    <CheckCircle size={16} />
-                   Client Approved
-                 </button>
-                 {/* DEV button for quick simulation */}
-                 <button 
-                   onClick={handleForceApprove}
-                   className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 text-xs font-bold rounded border border-purple-200 hover:bg-purple-200 transition"
-                 >
-                   <PlayCircle size={14} />
-                   DEV: Simulate
+                   {t('workspace.clientApproved')}
                  </button>
                </>
             )}
@@ -862,25 +856,25 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
                  <Lock size={32} />
                </div>
-               <h2 className="text-xl font-bold text-slate-900 mb-2">Awaiting Client Review</h2>
+               <h2 className="text-xl font-bold text-slate-900 mb-2">{t('workspace.awaitingClientReview')}</h2>
                <p className="text-slate-500 mb-4">
-                 This article is currently locked while {campaign.clientName} reviews your submission.
+                 {t('workspace.articleLockedMessage', { clientName: campaign.clientName === 'Unknown Client' ? t('workspace.unknownClient') : campaign.clientName })}
                </p>
                
                {/* Client Approved Button - Skip client review */}
                <div className="mt-6 pt-6 border-t border-slate-100">
-                 <p className="text-xs text-slate-400 mb-3">Or skip client review:</p>
+                 <p className="text-xs text-slate-400 mb-3">{t('workspace.orSkipReview')}</p>
                  <button 
                    onClick={isTitleReviewStage() ? handleClientApprovedTitles : handleForceApprove}
                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-600/20"
                  >
                    <CheckCircle size={20} />
-                   {isTitleReviewStage() ? 'Client Approved (Approve All Titles)' : 'Client Approved'}
+                   {isTitleReviewStage() ? t('workspace.clientApprovedAllTitles') : t('workspace.clientApproved')}
                  </button>
                  <p className="text-[10px] text-slate-400 mt-2">
                    {isTitleReviewStage() 
-                     ? `Will approve ${article.proposedTitles?.length || 0} titles and create corresponding articles` 
-                     : 'Simulate client approval, proceed directly to next stage'}
+                     ? t('workspace.approveAllTitlesHint', { count: article.proposedTitles?.length || 0 })
+                     : t('workspace.skipReviewHint')}
                  </p>
                </div>
              </div>

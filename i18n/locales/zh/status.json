@@ -1,0 +1,34 @@
+{
+  "article": {
+    "NEEDS_TITLES": "待生成标题",
+    "AWAITING_REVIEW_TITLES": "标题待审核",
+    "TITLES_APPROVED": "标题已通过",
+    "NEEDS_TITLES_REVISION": "标题需修改",
+    "NEEDS_OUTLINE": "待生成大纲",
+    "AWAITING_REVIEW_OUTLINE": "大纲待审核",
+    "OUTLINE_APPROVED": "大纲已通过",
+    "NEEDS_OUTLINE_REVISION": "大纲需修改",
+    "NEEDS_DRAFT": "待生成草稿",
+    "AWAITING_REVIEW_DRAFT": "草稿待审核",
+    "DRAFT_APPROVED": "草稿已通过",
+    "NEEDS_DRAFT_REVISION": "草稿需修改",
+    "PUBLISHED": "已发布",
+    "NEEDS_REVISION": "需要修改"
+  },
+  "campaign": {
+    "ACTIVE": "进行中",
+    "ARCHIVED": "已归档"
+  },
+  "inviteCode": {
+    "active": "可用",
+    "used": "已使用",
+    "expired": "已过期"
+  },
+  "phase": {
+    "titles": "标题阶段",
+    "outline": "大纲阶段",
+    "draft": "草稿阶段",
+    "review": "审核阶段",
+    "published": "已发布"
+  }
+}

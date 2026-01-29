@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Dashboard from './Dashboard';
 import CampaignDetail from './CampaignDetail';
 import ProjectWorkspace from './ProjectWorkspace';
@@ -7,6 +8,7 @@ import KeywordDiscovery from './KeywordDiscovery';
 import ClientManagement from './ClientManagement';
 import InviteCodeManagement from './InviteCodeManagement';
 import UserManagement from './UserManagement';
+import LanguageSwitcher from './LanguageSwitcher';
 import { Layout, User, LogOut, Ticket, Users, Menu, X as CloseIcon } from 'lucide-react';
 import { ViewState, ARTICLE_STATUS } from '../types';
 import { ToastProvider } from './Toast';
@@ -17,6 +19,7 @@ import supabase from '../services/supabaseClient.js';
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const { user, signOut, isAdminUser } = useAuth();
+  const { t } = useTranslation(['common', 'admin']);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
@@ -113,13 +116,13 @@ const MainLayout: React.FC = () => {
           <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between z-30">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">I</div>
-              <span className="font-bold text-lg tracking-tight">Imprintly</span>
+              <span className="font-bold text-lg tracking-tight">{t('common:app.name')}</span>
             </div>
             <div className="flex items-center gap-2">
               <button 
                 onClick={handleSignOut}
                 className="p-2 text-slate-400 hover:text-slate-600"
-                title="Sign Out"
+                title={t('common:buttons.signOut')}
               >
                 <LogOut size={20} />
               </button>
@@ -140,7 +143,7 @@ const MainLayout: React.FC = () => {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between mb-8">
-                  <span className="font-bold text-xl">Menu</span>
+                  <span className="font-bold text-xl">{t('common:labels.settings')}</span>
                   <button onClick={() => setIsMobileMenuOpen(false)}>
                     <CloseIcon size={24} className="text-slate-400" />
                   </button>
@@ -151,14 +154,14 @@ const MainLayout: React.FC = () => {
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.DASHBOARD || currentView === ViewState.CAMPAIGN_DETAIL || currentView === ViewState.ARTICLE_WORKSPACE ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
                     <Layout size={18} />
-                    Dashboard
+                    {t('dashboard:nav', { defaultValue: 'Dashboard' })}
                   </button>
                   <button 
                     onClick={() => handleNavClick(ViewState.CLIENTS)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.CLIENTS ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
                     <User size={18} />
-                    Clients
+                    {t('client:nav', { defaultValue: 'Clients' })}
                   </button>
                   {isAdminUser && (
                     <button 
@@ -166,7 +169,7 @@ const MainLayout: React.FC = () => {
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.INVITE_CODES ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                       <Ticket size={18} />
-                      Invite Codes
+                      {t('admin:nav.inviteCodes', { defaultValue: 'Invite Codes' })}
                     </button>
                   )}
                   {isAdminUser && (
@@ -175,10 +178,14 @@ const MainLayout: React.FC = () => {
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.USERS ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                       <Users size={18} />
-                      Users
+                      {t('admin:nav.users', { defaultValue: 'Users' })}
                     </button>
                   )}
                 </nav>
+                {/* 语言切换 - 位于账户信息上方 */}
+                <div className="pb-4">
+                  <LanguageSwitcher variant="sidebar" />
+                </div>
                 <div className="pt-6 border-t border-slate-100">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
@@ -186,7 +193,7 @@ const MainLayout: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">{user?.email}</p>
-                      <p className="text-xs text-slate-400">{isAdminUser ? 'Admin' : 'Agency Admin'}</p>
+                      <p className="text-xs text-slate-400">{isAdminUser ? t('admin:user.admin') : t('admin:user.agencyAdmin')}</p>
                     </div>
                   </div>
                   <button 
@@ -194,7 +201,7 @@ const MainLayout: React.FC = () => {
                     className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-all"
                   >
                     <LogOut size={18} />
-                    Sign Out
+                    {t('common:buttons.signOut')}
                   </button>
                 </div>
               </div>
@@ -205,7 +212,7 @@ const MainLayout: React.FC = () => {
           <aside className="w-64 bg-white border-r border-slate-200 flex-col hidden md:flex z-20 flex-shrink-0">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">I</div>
-          <span className="font-bold text-xl tracking-tight">Imprintly</span>
+          <span className="font-bold text-xl tracking-tight">{t('common:app.name')}</span>
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-4">
@@ -214,14 +221,14 @@ const MainLayout: React.FC = () => {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.DASHBOARD || currentView === ViewState.CAMPAIGN_DETAIL || currentView === ViewState.ARTICLE_WORKSPACE ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
           >
             <Layout size={18} />
-            Dashboard
+            {t('dashboard:nav', { defaultValue: 'Dashboard' })}
           </button>
           <button 
             onClick={() => setCurrentView(ViewState.CLIENTS)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.CLIENTS ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
           >
             <User size={18} />
-            Clients
+            {t('client:nav', { defaultValue: 'Clients' })}
           </button>
           
           {/* 邀请码管理 - 仅管理员可见 */}
@@ -231,7 +238,7 @@ const MainLayout: React.FC = () => {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.INVITE_CODES ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
             >
               <Ticket size={18} />
-              Invite Codes
+              {t('admin:nav.inviteCodes', { defaultValue: 'Invite Codes' })}
             </button>
           )}
           
@@ -242,10 +249,15 @@ const MainLayout: React.FC = () => {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${currentView === ViewState.USERS ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
             >
               <Users size={18} />
-              Users
+              {t('admin:nav.users', { defaultValue: 'Users' })}
             </button>
           )}
         </nav>
+
+        {/* 语言切换 - 位于账户信息上方 */}
+        <div className="px-4 pb-2">
+          <LanguageSwitcher variant="sidebar" />
+        </div>
 
         <div className="p-4 border-t border-slate-100">
           <div className="flex items-center justify-between px-4 py-2">
@@ -257,13 +269,13 @@ const MainLayout: React.FC = () => {
                 <p className="text-sm font-medium text-slate-900 truncate" title={user?.email || ''}>
                   {user?.email || 'User'}
                 </p>
-                <p className="text-xs text-slate-400">{isAdminUser ? 'Admin' : 'Agency Admin'}</p>
+                <p className="text-xs text-slate-400">{isAdminUser ? t('admin:user.admin') : t('admin:user.agencyAdmin')}</p>
               </div>
             </div>
             <button
               onClick={handleSignOut}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0"
-              title="Sign Out"
+              title={t('common:buttons.signOut')}
             >
               <LogOut size={18} />
             </button>

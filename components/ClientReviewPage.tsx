@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import supabase from '../services/supabaseClient.js';
 import { ARTICLE_STATUS } from '../constants/status';
 import { Check, X, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface Article {
   id: string;
@@ -15,6 +17,7 @@ interface Article {
 }
 
 const ClientReviewPage: React.FC = () => {
+  const { t } = useTranslation(['client', 'common']);
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +32,7 @@ const ClientReviewPage: React.FC = () => {
     const articleId = urlParams.get('articleId');
     
     if (!articleId) {
-      setError('Missing article ID parameter. Please use ?articleId=xxx to access this page.');
+      setError(t('client:review.missingArticleId'));
       setIsLoading(false);
       return;
     }
@@ -56,7 +59,7 @@ const ClientReviewPage: React.FC = () => {
       }
 
       if (!data) {
-        setError('Article does not exist');
+        setError(t('client:review.articleNotFound'));
         setIsLoading(false);
         return;
       }
@@ -276,9 +279,10 @@ const ClientReviewPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <LanguageSwitcher variant="standalone" />
         <div className="text-center">
           <Loader2 className="animate-spin h-12 w-12 text-indigo-600 mx-auto mb-4" />
-          <p className="text-slate-500">Loading...</p>
+          <p className="text-slate-500">{t('client:review.loading')}</p>
         </div>
       </div>
     );
@@ -288,15 +292,16 @@ const ClientReviewPage: React.FC = () => {
   if (error || !article) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <LanguageSwitcher variant="standalone" />
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-md">
           <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-          <p className="text-red-600 font-medium mb-2">Failed to Load</p>
-          <p className="text-red-500 text-sm mb-4">{error || 'Article does not exist'}</p>
+          <p className="text-red-600 font-medium mb-2">{t('client:review.error')}</p>
+          <p className="text-red-500 text-sm mb-4">{error || t('client:review.articleNotFound')}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
           >
-            Retry
+            {t('common:buttons.retry')}
           </button>
         </div>
       </div>
@@ -565,13 +570,16 @@ const ClientReviewPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* 语言切换按钮 */}
+      <LanguageSwitcher variant="standalone" />
+      
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">{article.title}</h1>
           <div className="flex items-center gap-2 text-slate-500">
             <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
-              {article.status}
+              {t(`status:article.${article.status}`, { defaultValue: article.status })}
             </span>
           </div>
         </div>

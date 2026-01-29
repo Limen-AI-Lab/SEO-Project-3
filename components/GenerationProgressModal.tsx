@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, Circle, Loader2 } from 'lucide-react';
 
 export type StepStatus = 'pending' | 'loading' | 'completed';
@@ -18,6 +19,8 @@ const GenerationProgressModal: React.FC<GenerationProgressModalProps> = ({
   isOpen,
   steps,
 }) => {
+  const { t } = useTranslation(['article', 'common']);
+  
   if (!isOpen) return null;
 
   const getStepIcon = (status: StepStatus) => {
@@ -69,10 +72,10 @@ const GenerationProgressModal: React.FC<GenerationProgressModalProps> = ({
         {/* Header */}
         <div className="px-8 pt-8 pb-4">
           <h3 className="text-xl font-bold text-slate-900 text-center">
-            Generating Your Article
+            {t('generationModal.title')}
           </h3>
           <p className="text-sm text-slate-500 text-center mt-2">
-            Please wait while AI crafts your content...
+            {t('generationModal.subtitle')}
           </p>
         </div>
 
@@ -109,7 +112,7 @@ const GenerationProgressModal: React.FC<GenerationProgressModalProps> = ({
         <div className="px-8 pb-8">
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
             <p className="text-xs text-slate-500 text-center">
-              This process typically takes 2-3 minutes. Please do not close.
+              {t('generationModal.footerNote')}
             </p>
           </div>
         </div>

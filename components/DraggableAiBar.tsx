@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sparkles, Image as ImageIcon, X, Paperclip, ChevronDown } from 'lucide-react';
 
 interface DraggableAiBarProps {
@@ -34,6 +35,7 @@ const DraggableAiBar: React.FC<DraggableAiBarProps> = ({
   handleAiAttachment,
   boundaryRef
 }) => {
+  const { t } = useTranslation(['article', 'common']);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const startPos = React.useRef({ x: 0, y: 0 });
@@ -117,7 +119,7 @@ const DraggableAiBar: React.FC<DraggableAiBarProps> = ({
           </div>
           <div className="flex justify-end gap-2 mt-3">
              <button onClick={() => setAiSuggestion(null)} className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1">Cancel</button>
-             <button onClick={confirmImage} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 shadow-sm font-medium">Yes, Insert Image</button>
+             <button onClick={confirmImage} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 shadow-sm font-medium">{t('editor.yesInsertImage')}</button>
           </div>
         </div>
       )}
@@ -126,11 +128,11 @@ const DraggableAiBar: React.FC<DraggableAiBarProps> = ({
         <button 
           onClick={onClick}
           className="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-indigo-600 hover:scale-110 transition-all group relative pointer-events-auto"
-          title="Ask AI to refine (Drag to move)"
+          title={t('editor.askAiDragToMove')}
         >
           <Sparkles size={20} className="group-hover:animate-pulse" />
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-            Ask AI
+            {t('editor.askAi')}
           </div>
         </button>
       ) : (
@@ -155,7 +157,7 @@ const DraggableAiBar: React.FC<DraggableAiBarProps> = ({
                  <button 
                     onClick={() => fileInputRef.current?.click()}
                     className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${attachedFile ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200'}`}
-                    title="Attach File"
+                    title={t('editor.attachFile')}
                  >
                     <Paperclip size={16} />
                  </button>
@@ -166,7 +168,7 @@ const DraggableAiBar: React.FC<DraggableAiBarProps> = ({
                  autoFocus
                  value={instruction}
                  onChange={(e) => setInstruction(e.target.value)}
-                 placeholder={attachedFile ? "Ask AI what to do with this file..." : "Ask AI to refine text..."}
+                 placeholder={attachedFile ? t('editor.askAiWithFile') : t('editor.askAiRefineText')}
                  className="flex-1 text-sm bg-transparent border-none focus:ring-0 outline-none placeholder:text-slate-400 px-1"
                  onKeyDown={(e) => {
                    if (e.key === 'Enter') onRefine();
@@ -180,12 +182,12 @@ const DraggableAiBar: React.FC<DraggableAiBarProps> = ({
                   disabled={isRefining || (!instruction && !attachedFile)}
                   className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
                 >
-                  {isRefining ? 'Refining...' : 'Refine'}
+                  {isRefining ? t('editor.refining') : t('editor.refine')}
                 </button>
                 <button 
                   onClick={() => setExpanded(false)}
                   className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
-                  title="Collapse"
+                  title={t('editor.collapse')}
                 >
                   <ChevronDown size={18} />
                 </button>

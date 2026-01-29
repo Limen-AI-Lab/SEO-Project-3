@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 
 interface ConfirmOptions {
@@ -28,6 +29,7 @@ interface ConfirmProviderProps {
 }
 
 export const ConfirmProvider: React.FC<ConfirmProviderProps> = ({ children }) => {
+  const { t } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState<ConfirmOptions>({ title: '', message: '' });
   const [resolveRef, setResolveRef] = useState<((value: boolean) => void) | null>(null);
@@ -77,7 +79,7 @@ export const ConfirmProvider: React.FC<ConfirmProviderProps> = ({ children }) =>
               onClick={handleCancel}
               className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
             >
-              {options.cancelText || 'Cancel'}
+              {options.cancelText || t('buttons.cancel')}
             </button>
             <button
               onClick={handleConfirm}
@@ -89,7 +91,7 @@ export const ConfirmProvider: React.FC<ConfirmProviderProps> = ({ children }) =>
                     : 'bg-indigo-600 hover:bg-indigo-700'
               }`}
             >
-              {options.confirmText || 'Confirm'}
+              {options.confirmText || t('buttons.confirm')}
             </button>
           </>
         }
@@ -99,4 +101,3 @@ export const ConfirmProvider: React.FC<ConfirmProviderProps> = ({ children }) =>
     </ConfirmContext.Provider>
   );
 };
-

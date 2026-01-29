@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Article, ProjectStatus, ARTICLE_STATUS, RevisionHistoryEntry, Comment, ClientEdit } from '../types';
 import { generateBlogDraft, generateCompleteArticle, refineBlogContent, generatePostMetadata, refineSection, suggestImagePlacement, GenerationResult } from '../services/geminiService';
 import { 
@@ -100,6 +101,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const { user, isAdminUser } = useAuth();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useTranslation(['article', 'common']);
   // We maintain 'blocks' as internal state, sync to 'content' (markdown) on save
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -117,12 +119,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const [isRefining, setIsRefining] = useState(false);
   const [isMetaGenerating, setIsMetaGenerating] = useState(false);
   
-  // Generation Progress Modal State
+  // Generation Progress Modal State - Initialize with keys, will be translated dynamically
   const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([
-    { id: 1, text: 'Analyzing geo data and cross-referencing literature...', status: 'pending' },
-    { id: 2, text: 'Synthesizing blog outline and SEO keyword structure...', status: 'pending' },
-    { id: 3, text: 'Generating deep-dive content with AI engine (this may take 1-2 mins)...', status: 'pending' },
-    { id: 4, text: 'Finalizing tone adjustment and formatting for publication...', status: 'pending' },
+    { id: 1, text: t('generationSteps.step1'), status: 'pending' },
+    { id: 2, text: t('generationSteps.step2'), status: 'pending' },
+    { id: 3, text: t('generationSteps.step3'), status: 'pending' },
+    { id: 4, text: t('generationSteps.step4'), status: 'pending' },
   ]);
   const generationTimersRef = useRef<NodeJS.Timeout[]>([]);
   const apiCompletedRef = useRef(false);
@@ -214,10 +216,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const handleResetOutline = async () => {
     const isConfirmed = await confirm({
-      title: 'Reset Outline',
-      message: 'Are you sure you want to restore the original outline? All edits will be lost.',
+      title: t('draftConfirm.resetOutlineTitle'),
+      message: t('draftConfirm.resetOutlineMessage'),
       type: 'warning',
-      confirmText: 'Reset',
+      confirmText: t('draftConfirm.resetOutlineConfirm'),
     });
 
     if (isConfirmed) {
@@ -371,10 +373,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   // --- Helper: Reset all steps to pending ---
   const resetGenerationSteps = () => {
     setGenerationSteps([
-      { id: 1, text: 'Analyzing geo data and cross-referencing literature...', status: 'pending' },
-      { id: 2, text: 'Synthesizing blog outline and SEO keyword structure...', status: 'pending' },
-      { id: 3, text: 'Generating deep-dive content with AI engine (this may take 1-2 mins)...', status: 'pending' },
-      { id: 4, text: 'Finalizing tone adjustment and formatting for publication...', status: 'pending' },
+      { id: 1, text: t('generationSteps.step1'), status: 'pending' },
+      { id: 2, text: t('generationSteps.step2'), status: 'pending' },
+      { id: 3, text: t('generationSteps.step3'), status: 'pending' },
+      { id: 4, text: t('generationSteps.step4'), status: 'pending' },
     ]);
   };
 
@@ -442,14 +444,14 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   // --- AI Actions ---
   const handleGenerateDraft = async () => {
     if (!editableOutline.trim()) {
-      showToast("No outline found. Please add an outline first.", 'error');
+      showToast(t('draftToasts.noOutlineFound'), 'error');
       return;
     }
     
     // Check generation limit (max 3)
     const currentCount = project.generationCount || 0;
     if (currentCount >= 3) {
-      showToast("Maximum draft generations (3) reached for this article.", 'error');
+      showToast(t('draftToasts.maxGenerationsReached'), 'error');
       return;
     }
     
@@ -600,7 +602,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       const newMd = currentMd.replace(aiSuggestion.anchor, `${aiSuggestion.anchor}${imageMarkdown}`);
       onUpdate({ draftContent: newMd });
     } else {
-      showToast("Could not locate the anchor text to insert image. Inserting at the end.", 'warning');
+      showToast(t('draftToasts.anchorNotFound'), 'warning');
       onUpdate({ draftContent: currentMd + imageMarkdown });
     }
     
@@ -611,7 +613,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const handleGenerateMetadata = async () => {
     const md = project.draftContent || '';
     if (md.length < 100) {
-      showToast("Write some content first.", 'warning');
+      showToast(t('draftToasts.writeContentFirst'), 'warning');
       return;
     }
     setIsMetaGenerating(true);
@@ -628,13 +630,13 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     const file = e.target.files[0];
     // Basic validation
     if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
-      showToast("Only JPG, PNG, GIF, and WebP formats are supported.", 'error');
+      showToast(t('draftToasts.onlyImageFormats'), 'error');
       return;
     }
     
     // File size validation (e.g., 5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      showToast("File size must be less than 5MB.", 'error');
+      showToast(t('draftToasts.fileSizeLimit'), 'error');
       return;
     }
 
@@ -659,7 +661,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       setCoverImage(data.publicUrl);
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      showToast(`Upload failed: ${error.message || 'Unknown error'}`, 'error');
+      showToast(t('draftToasts.uploadFailed', { error: error.message || 'Unknown error' }), 'error');
     } finally {
       setIsUploading(false);
       // Reset input
@@ -669,10 +671,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
   const removeCoverImage = async () => {
     const isConfirmed = await confirm({
-      title: 'Remove Cover Image',
-      message: 'Remove cover image?',
+      title: t('draftConfirm.removeCoverTitle'),
+      message: t('draftConfirm.removeCoverMessage'),
       type: 'warning',
-      confirmText: 'Remove'
+      confirmText: t('draftConfirm.removeCoverConfirm')
     });
     
     if(isConfirmed) {
@@ -693,11 +695,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       await navigator.clipboard.writeText(textToCopy);
       setCopyStatus('success');
       setCopyMenuOpen(false);
-      showToast(`Content copied as ${type === 'md' ? 'Markdown' : 'Plain Text'}`, 'success');
+      showToast(t('draftToasts.contentCopiedAs', { type: type === 'md' ? t('draft.markdown') : t('draft.plainText') }), 'success');
       setTimeout(() => setCopyStatus('idle'), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
-      showToast("Copy failed", 'error');
+      showToast(t('draftToasts.copyFailed'), 'error');
     }
   };
 
@@ -726,16 +728,16 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       seoSummary: summary,
       coverImage
     });
-      showToast("Progress saved successfully!", 'success');
+      showToast(t('draftToasts.progressSaved'), 'success');
     } catch (error) {
       console.error('Failed to save draft:', error);
-      showToast("Failed to save progress.", 'error');
+      showToast(t('draftToasts.saveFailed'), 'error');
     }
   };
 
   const handleSubmitToClient = async () => {
     if (localDraftContent.trim().length < 100) {
-      showToast("Draft is too short.", 'warning');
+      showToast(t('draftToasts.draftTooShort'), 'warning');
       return;
     }
 
@@ -749,7 +751,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       coverImage,
       status: ARTICLE_STATUS.AWAITING_REVIEW_DRAFT 
     });
-    showToast("Submitted for review successfully!", 'success');
+    showToast(t('draftToasts.submittedForReview'), 'success');
   };
 
   const [isPublishing, setIsPublishing] = useState(false);
@@ -757,28 +759,28 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const handlePublishToCMS = async () => {
     // Validate required fields
     if (!summary) {
-      showToast("Please fill in the Short Text summary before publishing.", 'warning');
+      showToast(t('draftToasts.fillShortTextFirst'), 'warning');
       return;
     }
 
     // Get the markdown content
     const markdownContent = project.draftContent || '';
     if (!markdownContent || markdownContent.trim().length < 50) {
-      showToast("Content is too short. Please complete the article content before publishing.", 'warning');
+      showToast(t('draftToasts.contentTooShort'), 'warning');
       return;
     }
 
     // Get the article title
     const articleTitle = project.selectedTitle || project.title;
     if (!articleTitle) {
-      showToast("Article title cannot be empty.", 'error');
+      showToast(t('draftToasts.titleCannotBeEmpty'), 'error');
       return;
     }
 
     const isConfirmed = await confirm({
-      title: 'Publish to CMS',
-      message: 'Are you sure you want to publish this content to CMS?',
-      confirmText: 'Publish',
+      title: t('draftConfirm.publishTitle'),
+      message: t('draftConfirm.publishMessage'),
+      confirmText: t('draftConfirm.publishConfirm'),
       type: 'default'
     });
 
@@ -810,11 +812,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
         handleSaveDraft();
         onUpdate({ status: ProjectStatus.PUBLISHED });
         
-        showToast(`✅ Article successfully published to CMS!`, 'success');
+        showToast(t('draftToasts.publishedSuccess'), 'success');
       }
     } catch (error: any) {
       console.error('❌ Publish to CMS failed:', error);
-      showToast(`Publish failed: ${error.message || 'Unknown error'}`, 'error');
+      showToast(t('draftToasts.publishFailed', { error: error.message || 'Unknown error' }), 'error');
     } finally {
       setIsPublishing(false);
     }
@@ -831,9 +833,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
     return (
       <div className="flex flex-col gap-3 max-w-2xl mx-auto pb-6">
         <div className="text-center mb-8">
-          <h3 className="text-slate-400 uppercase tracking-widest text-xs font-bold">Article Flow</h3>
+          <h3 className="text-slate-400 uppercase tracking-widest text-xs font-bold">{t('draft.articleFlow')}</h3>
         </div>
-        {headers.length === 0 && <p className="text-slate-400 text-center italic">No headers found.</p>}
+        {headers.length === 0 && <p className="text-slate-400 text-center italic">{t('draft.noHeadersFound')}</p>}
         {headers.map((h, i) => (
           <div key={i} className="flex items-center gap-4 group">
              <div className="flex flex-col items-center gap-1 w-12 flex-shrink-0">
@@ -865,9 +867,9 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
             <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
                 <Globe size={48} />
             </div>
-            <h2 className="text-3xl font-bold text-slate-900">Successfully Published</h2>
+            <h2 className="text-3xl font-bold text-slate-900">{t('draft.successfullyPublished')}</h2>
             <p className="text-slate-500 mt-2 max-w-md">
-                The article is now live on the Agency CMS. The client can now import it to their website.
+                {t('draft.articleNowLive')}
             </p>
         </div>
     );
@@ -902,21 +904,21 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                       className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition border-b-2 ${activeTab === 'configuration' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/30' : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50'}`}
                     >
                       <Settings size={16} /> 
-                      <span className="hidden sm:inline">Config</span>
+                      <span className="hidden sm:inline">{t('draft.config')}</span>
                     </button>
                     <button 
                       onClick={() => setActiveTab('outline')}
                       className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition border-b-2 ${activeTab === 'outline' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/30' : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50'}`}
                     >
                       <FileText size={16} /> 
-                      <span className="hidden sm:inline">Outline</span>
+                      <span className="hidden sm:inline">{t('draft.outline')}</span>
                     </button>
                     <button 
                       onClick={() => setActiveTab('feedback')}
                       className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition border-b-2 ${activeTab === 'feedback' ? 'text-amber-600 border-amber-600 bg-amber-50/30' : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50'}`}
                     >
                       <MessageSquare size={16} /> 
-                      <span className="hidden sm:inline">Feedback</span>
+                      <span className="hidden sm:inline">{t('draft.feedback')}</span>
                       {project.clientComments.length > 0 && (
                         <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded-full">{project.clientComments.length}</span>
                       )}
@@ -939,20 +941,20 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                   {activeTab === 'configuration' && (
                     <div className="p-4 space-y-6">
                       <div className="space-y-2">
-                        <h3 className="text-sm font-bold text-slate-700">Requirements for article</h3>
+                        <h3 className="text-sm font-bold text-slate-700">{t('draft.requirementsForArticle')}</h3>
                         <textarea
                           value={articleRequirements}
                           onChange={(e) => setArticleRequirements(e.target.value)}
                           className="w-full h-32 p-4 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 focus:outline-none resize-none transition shadow-sm hover:border-slate-300 bg-white"
-                          placeholder="My Brand Name is..."
+                          placeholder={t('draft.requirementsPlaceholderShort')}
                         />
                       </div>
 
                       <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-slate-700">Article structure</h3>
+                        <h3 className="text-sm font-bold text-slate-700">{t('draft.articleStructure')}</h3>
                         
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">Add key points</span>
+                          <span className="text-sm text-slate-600">{t('draft.addKeyPoints')}</span>
                           <button 
                             onClick={() => setStructureConfig(prev => ({...prev, keyPoints: !prev.keyPoints}))}
                             className={`w-11 h-6 rounded-full transition-colors relative ${structureConfig.keyPoints ? 'bg-indigo-600' : 'bg-slate-200'}`}
@@ -962,7 +964,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">FAQ</span>
+                          <span className="text-sm text-slate-600">{t('draft.faq')}</span>
                           <button 
                             onClick={() => setStructureConfig(prev => ({...prev, faq: !prev.faq}))}
                             className={`w-11 h-6 rounded-full transition-colors relative ${structureConfig.faq ? 'bg-indigo-600' : 'bg-slate-200'}`}
@@ -983,7 +985,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             onClick={handleUndoOutline}
                             disabled={outlineHistory.length === 0}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Undo last step"
+                            title={t('draft.undoLastStep')}
                           >
                             <Undo2 size={14} />
                           </button>
@@ -991,7 +993,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             onClick={handleResetOutline}
                             disabled={editableOutline === originalOutline}
                             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Reset to original outline"
+                            title={t('draft.resetToOriginal')}
                           >
                             <RotateCcw size={14} />
                           </button>
@@ -999,17 +1001,17 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         <div className="flex items-center gap-2">
                           {hasOutlineChanges && (
                             <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                              Unsaved
+                              {t('draft.unsaved')}
                             </span>
                           )}
                           <button
                             onClick={handleSaveOutline}
                             disabled={!hasOutlineChanges}
                             className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Save outline"
+                            title={t('draft.saveOutline')}
                           >
                             <Save size={12} />
-                            Save
+                            {t('draft.save')}
                           </button>
                         </div>
                       </div>
@@ -1024,13 +1026,13 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             ? 'bg-slate-50 border-slate-100 cursor-not-allowed text-slate-400' 
                             : 'bg-white border-slate-200 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 hover:border-slate-300'
                         }`}
-                        placeholder="Edit outline content here...&#10;&#10;# Heading&#10;## Subheading&#10;### Sub-subheading"
+                        placeholder={t('draft.outlinePlaceholder')}
                         style={{ minHeight: '300px' }}
                       />
                       
                       {/* Edit Hint */}
                       <p className="text-[10px] text-slate-400 mt-2 text-center">
-                        Edit the outline directly, AI will generate content based on the modified outline
+                        {t('draft.outlineEditHint')}
                       </p>
                     </div>
                   )}
@@ -1042,7 +1044,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
                           <History size={14} className="text-indigo-600" />
                           <span className="text-xs font-bold text-indigo-700">
-                            Round {project.revisionRound} Review
+                            {t('draft.roundReview', { round: project.revisionRound })}
                           </span>
                         </div>
                       )}
@@ -1051,7 +1053,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                       {project.clientComments.length === 0 ? (
                           <div className="text-center py-8 text-slate-400">
                             <MessageSquare className="mx-auto mb-2 opacity-50" size={24} />
-                            <p className="text-xs italic">No feedback provided yet.</p>
+                            <p className="text-xs italic">{t('draft.noFeedbackYet')}</p>
                           </div>
                         ) : (
                           project.clientComments.map((c: Comment) => {
@@ -1099,7 +1101,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                           c.editType === 'delete' ? 'bg-red-100 text-red-700' :
                                           c.editType === 'add' ? 'bg-green-100 text-green-700' : ''
                                         }`}>
-                                          {c.editType === 'modify' ? 'Modify' : c.editType === 'delete' ? 'Delete' : 'Add'}
+                                          {c.editType === 'modify' ? t('draft.modify') : c.editType === 'delete' ? t('draft.delete') : t('draft.add')}
                                         </span>
                                       )}
                                       {c.targetBlockId && (
@@ -1124,7 +1126,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                             <div className="flex items-center gap-2">
                               <History size={14} className="text-slate-500" />
                               <span className="text-xs font-medium text-slate-600">
-                                Revision History ({project.revisionHistory.length} rounds)
+                                {t('draft.revisionHistory', { count: project.revisionHistory.length })}
                               </span>
                             </div>
                             {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -1137,7 +1139,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                   <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
                                     <div className="flex items-center justify-between">
                                       <span className="text-xs font-bold text-slate-600">
-                                        Round {historyEntry.round}
+                                        {t('draft.round', { round: historyEntry.round })}
                                       </span>
                                       <span className="text-[10px] text-slate-400">
                                         {historyEntry.timestamp ? new Date(historyEntry.timestamp).toLocaleDateString() : ''}
@@ -1148,7 +1150,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     {/* General Comments from history */}
                                     {historyEntry.generalComments && (
                                       <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
-                                        <div className="font-semibold text-slate-700 mb-1">General Feedback:</div>
+                                        <div className="font-semibold text-slate-700 mb-1">{t('draft.generalFeedback')}</div>
                                         {historyEntry.generalComments}
                                       </div>
                                     )}
@@ -1156,7 +1158,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     {(historyEntry.sectionComments || historyEntry.contentComments || []).length > 0 && (
                                       <div className="space-y-2">
                                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                                          Comments ({((historyEntry.sectionComments || []).length + (historyEntry.contentComments || []).length)})
+                                          {t('draft.comments', { count: ((historyEntry.sectionComments || []).length + (historyEntry.contentComments || []).length) })}
                                         </div>
                                         {(historyEntry.sectionComments || historyEntry.contentComments || []).map((hc: any, hcIndex: number) => (
                                           <div key={hcIndex} className="text-xs text-slate-600 bg-amber-50/30 p-2 rounded border border-amber-100/50">
@@ -1170,7 +1172,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     {historyEntry.edits && historyEntry.edits.length > 0 && (
                                       <div className="space-y-2 mt-3 pt-3 border-t border-slate-200">
                                         <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                                          Edit Suggestions ({historyEntry.edits.length})
+                                          {t('draft.editSuggestions', { count: historyEntry.edits.length })}
                                         </div>
                                         {parseHistoryEdits(historyEntry).map((editComment: Comment) => {
                                           // Determine style based on editType
@@ -1214,7 +1216,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                                       editComment.editType === 'delete' ? 'bg-red-100 text-red-700' :
                                                       editComment.editType === 'add' ? 'bg-green-100 text-green-700' : ''
                                                     }`}>
-                                                      {editComment.editType === 'modify' ? 'Modify' : editComment.editType === 'delete' ? 'Delete' : 'Add'}
+                                                      {editComment.editType === 'modify' ? t('draft.modify') : editComment.editType === 'delete' ? t('draft.delete') : t('draft.add')}
                                                     </span>
                                                   )}
                                                 </div>
@@ -1255,16 +1257,16 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                 {isGenerating ? (
                   <>
                     <RefreshCw size={16} className="animate-spin" />
-                    Generating...
+                    {t('draft.generating')}
                   </>
                 ) : (
                   <>
                     <Sparkles size={16} /> 
                     {(project.generationCount || 0) >= 3 
-                      ? 'Limit Reached' 
+                      ? t('draft.limitReached') 
                       : (project.generationCount || 0) === 0 
-                        ? 'Generate Draft' 
-                        : `Regenerate (${3 - (project.generationCount || 0)} left)`}
+                        ? t('draft.generateDraft') 
+                        : t('draft.regenerateLeft', { count: 3 - (project.generationCount || 0) })}
                   </>
                 )}
               </button>
@@ -1290,11 +1292,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-slate-500">
                    <PenTool size={16} />
-                   <span className="text-sm font-medium text-slate-900 hidden sm:inline">Drafting Canvas</span>
+                   <span className="text-sm font-medium text-slate-900 hidden sm:inline">{t('draft.draftingCanvas')}</span>
                 </div>
                 <div className="h-4 w-px bg-slate-200"></div>
                 <span className="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                  {countWords(localDraftContent)} words
+                  {t('draft.words', { count: countWords(localDraftContent) })}
                 </span>
                 <div className="h-4 w-px bg-slate-200 ml-1"></div>
                 
@@ -1310,7 +1312,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                      }`}
                   >
                      <BookOpen size={14} />
-                     Reference
+                     {t('draft.reference')}
                   </button>
                   
                   {/* Reference Popup */}
@@ -1319,19 +1321,19 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                        <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <img src="https://www.google.com/favicon.ico" alt="G" className="w-4 h-4" />
-                            <span className="text-xs font-bold text-slate-700">References ({MOCK_REFERENCES.length})</span>
+                            <span className="text-xs font-bold text-slate-700">{t('draft.references', { count: MOCK_REFERENCES.length })}</span>
                           </div>
                           <button onClick={() => setShowReferencePopup(false)} className="text-slate-400 hover:text-slate-600">
                             <X size={14} />
                           </button>
                        </div>
                        <div className="p-2 bg-slate-50/30">
-                          <p className="text-[10px] text-slate-500 px-2 py-1">Select articles from search results that match your chosen idea type.</p>
+                          <p className="text-[10px] text-slate-500 px-2 py-1">{t('draft.selectArticlesFromSearch')}</p>
                           <div className="space-y-2 mt-1 max-h-80 overflow-y-auto">
                              {MOCK_REFERENCES.length === 0 ? (
                                <div className="p-6 text-center">
-                                  <p className="text-sm text-slate-500">No data available</p>
-                                  <p className="text-xs text-slate-400 mt-1">Coming soon</p>
+                                  <p className="text-sm text-slate-500">{t('draft.noDataAvailable')}</p>
+                                  <p className="text-xs text-slate-400 mt-1">{t('draft.comingSoon')}</p>
                                </div>
                              ) : (
                                MOCK_REFERENCES.map(ref => (
@@ -1341,7 +1343,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                     </a>
                                     <p className="text-xs text-slate-600 line-clamp-3 mb-2 leading-relaxed">{ref.snippet}</p>
                                     <div className="flex items-center gap-2">
-                                       <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Recommended</span>
+                                       <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{t('draft.recommended')}</span>
                                        <span className="text-[10px] text-slate-400">| {ref.date}</span>
                                     </div>
                                  </div>
@@ -1357,8 +1359,8 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
              {isFocusMode && (
                 <div className="flex bg-slate-100 p-1 rounded-lg">
                    {/* <button onClick={() => setViewMode('markdown')} className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition ${viewMode === 'markdown' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Code size={12} /> Markdown</button> */}
-                   <button onClick={() => setViewMode('preview')} className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition ${viewMode === 'preview' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Edit size={12} /> Editor</button>
-                   <button onClick={() => setViewMode('visual')} className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition ${viewMode === 'visual' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><GitGraph size={12} /> Structure</button>
+                   <button onClick={() => setViewMode('preview')} className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition ${viewMode === 'preview' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Edit size={12} /> {t('draft.editor')}</button>
+                   <button onClick={() => setViewMode('visual')} className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition ${viewMode === 'visual' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><GitGraph size={12} /> {t('draft.structure')}</button>
                 </div>
              )}
              
@@ -1371,7 +1373,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-indigo-600 transition"
                >
                     {copyStatus === 'success' ? <CheckCircle size={14} className="text-green-500" /> : <Copy size={14} />}
-                    {copyStatus === 'success' ? 'Copied!' : 'Copy'}
+                    {copyStatus === 'success' ? t('draft.copied') : t('draft.copy')}
                     <ChevronDown size={12} className={`transition-transform duration-200 ${copyMenuOpen ? 'rotate-180' : ''}`} />
                </button>
                  
@@ -1387,8 +1389,8 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                            <FileText size={14} />
                          </div>
                          <div className="flex flex-col items-start">
-                           <span className="font-medium">Markdown</span>
-                           <span className="text-[10px] text-slate-400 text-left">Preserve formatting</span>
+                           <span className="font-medium">{t('draft.markdown')}</span>
+                           <span className="text-[10px] text-slate-400 text-left">{t('draft.preserveFormatting')}</span>
                          </div>
                        </button>
                        <button 
@@ -1399,8 +1401,8 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                            <Type size={14} />
                          </div>
                          <div className="flex flex-col items-start">
-                           <span className="font-medium">Plain Text</span>
-                           <span className="text-[10px] text-slate-400 text-left">Text only</span>
+                           <span className="font-medium">{t('draft.plainText')}</span>
+                           <span className="text-[10px] text-slate-400 text-left">{t('draft.textOnly')}</span>
                          </div>
                        </button>
                      </div>
@@ -1413,11 +1415,11 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-indigo-600 transition"
                  title="Download TXT"
                >
-                  <Download size={14} /> Download
+                  <Download size={14} /> {t('draft.download')}
                </button>
 
                <button onClick={() => setIsFocusMode(!isFocusMode)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${isFocusMode ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
-                  {isFocusMode ? <><Minimize2 size={14} /> Exit Focus</> : <><Maximize2 size={14} /> Focus</>}
+                  {isFocusMode ? <><Minimize2 size={14} /> {t('draft.exitFocus')}</> : <><Maximize2 size={14} /> {t('draft.focus')}</>}
                </button>
              </div>
           </div>
@@ -1449,7 +1451,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                     }, 1000); // 1 second debounce
                   }}
                   className="flex-1"
-                  placeholder="Start writing your masterpiece..."
+                  placeholder={t('draft.startWritingMasterpiece')}
                 />
               </div>
             ) : viewMode === 'preview' ? (
@@ -1471,7 +1473,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                     }, 1000);
                   }}
                   className="mx-auto max-w-6xl shadow-lg border-slate-100 min-h-[800px]"
-                  placeholder="Start writing..."
+                  placeholder={t('draft.startWriting')}
                 />
               </div>
             ) : (
@@ -1504,7 +1506,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                   <>
                     <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wide">
                       <LayoutTemplate size={16} className="text-indigo-600" />
-                      Metadata
+                      {t('draft.metadata')}
                     </h3>
                      <div className="flex items-center gap-2">
                         <button 
@@ -1533,10 +1535,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                    <div className="space-y-5 flex-1">
                      {isAdminUser && (
                        <div className="group">
-                         <label className="block text-xs font-bold text-slate-500 mb-1.5 transition">Category</label>
+                         <label className="block text-xs font-bold text-slate-500 mb-1.5 transition">{t('draft.category')}</label>
                          <input 
                            type="text" 
-                           value={cmsId || 'No CMS ID Linked'}
+                           value={cmsId || t('draft.noCmsIdLinked')}
                            readOnly
                            disabled
                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 cursor-not-allowed transition shadow-sm font-medium"
@@ -1545,12 +1547,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                      )}
 
                     <div className="group">
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Short Text</label>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">{t('draft.shortText')}</label>
                       <textarea 
                         rows={5}
                         value={summary}
                         onChange={(e) => setSummary(e.target.value)}
-                        placeholder="Brief description..."
+                        placeholder={t('draft.briefDescription')}
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 outline-none resize-none transition shadow-sm hover:border-slate-300"
                       />
                       {(() => {
@@ -1572,14 +1574,14 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                         
                         return wordCount > 300 ? (
                           <p className="text-[10px] text-right mt-1 text-amber-500 font-medium">
-                            The word count might be too high.
+                            {t('draft.wordCountTooHigh')}
                           </p>
                         ) : null;
                       })()}
                     </div>
 
                      <div className="group">
-                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">Photo</label>
+                       <label className="block text-xs font-bold text-slate-500 mb-1.5 group-focus-within:text-indigo-600 transition">{t('draft.photo')}</label>
                        
                        <div className="border-2 border-dashed border-slate-200 rounded-lg p-1 transition hover:border-indigo-300 hover:bg-slate-50">
                          {coverImage ? (
@@ -1589,14 +1591,14 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                <button 
                                  onClick={() => coverInputRef.current?.click()} 
                                  className="p-1.5 bg-white rounded-full text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 transition shadow-sm"
-                                 title="Replace Image"
+                                 title={t('draft.replaceImage')}
                                >
                                  <Edit3 size={14} />
                                </button>
                                <button 
                                  onClick={removeCoverImage}
                                  className="p-1.5 bg-white rounded-full text-slate-700 hover:text-red-600 hover:bg-red-50 transition shadow-sm"
-                                 title="Remove Image"
+                                 title={t('draft.removeImage')}
                                >
                                  <Trash2 size={14} />
                                </button>
@@ -1610,14 +1612,14 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                              {isUploading ? (
                                <div className="flex flex-col items-center gap-2">
                                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-500 border-t-transparent"></div>
-                                 <span className="text-xs">Uploading...</span>
+                                 <span className="text-xs">{t('draft.uploading')}</span>
                                </div>
                              ) : (
                                <>
                                  <ImageIcon size={24} strokeWidth={1.5} />
                                  <div className="text-center">
-                                   <p className="text-xs font-medium">Upload Cover Image</p>
-                                   <p className="text-[10px] opacity-70 mt-0.5">JPG, PNG, WebP</p>
+                                   <p className="text-xs font-medium">{t('draft.uploadCoverImage')}</p>
+                                   <p className="text-[10px] opacity-70 mt-0.5">{t('draft.jpgPngWebp')}</p>
                                  </div>
                                </>
                              )}
@@ -1636,7 +1638,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
 
                    <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
                       {/* Update Metadata / Save Progress Button */}
-                      <div title={isApproved && isCMSPublishLocked ? 'Coming soon' : undefined}>
+                      <div title={isApproved && isCMSPublishLocked ? t('draft.comingSoon') : undefined}>
                         <button 
                           onClick={handleSaveDraft}
                           disabled={isApproved && isCMSPublishLocked}
@@ -1646,7 +1648,7 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                               : 'text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
                           }`}
                         >
-                          {isApproved ? 'Update Metadata' : 'Save Progress'}
+                          {isApproved ? t('draft.updateMetadata') : t('draft.saveProgress')}
                         </button>
                       </div>
 
@@ -1656,20 +1658,20 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                           className="w-full py-2.5 bg-slate-900 text-white font-medium hover:bg-slate-800 rounded-lg shadow-lg shadow-slate-900/20 transition flex items-center justify-center gap-2 text-sm"
                         >
                           <Send size={16} />
-                          Submit for Review
+                          {t('draft.submitForReview')}
                         </button>
                       ) : (
                         <div className="space-y-3">
                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
                               <div className="flex items-center justify-center gap-2 text-green-700 font-bold text-sm mb-1">
                                 <CheckCircle size={16} />
-                                Approved & Ready
+                                {t('draft.approvedAndReady')}
                               </div>
-                              <p className="text-xs text-green-600">Client has approved this content.</p>
+                              <p className="text-xs text-green-600">{t('draft.clientApprovedContent')}</p>
                            </div>
                            
                            {/* Publish to CMS Button */}
-                           <div title={isCMSPublishLocked ? 'Coming soon' : undefined}>
+                           <div title={isCMSPublishLocked ? t('draft.comingSoon') : undefined}>
                              <button 
                                onClick={handlePublishToCMS}
                                disabled={isPublishing || isCMSPublishLocked}
@@ -1682,12 +1684,12 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
                                {isPublishing ? (
                                  <>
                                    <RefreshCw size={16} className="animate-spin" />
-                                   Publishing...
+                                   {t('draft.publishing')}
                                  </>
                                ) : (
                                  <>
                                    <Globe size={16} />
-                                   Publish to CMS
+                                   {t('draft.publishToCms')}
                                  </>
                                )}
                              </button>

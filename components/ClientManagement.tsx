@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Client, Contact } from '../types';
 import { getAllClientsWithContacts, createContact, deleteContact as deleteContactService, updateContact } from '../services/clientService';
 import supabase from '../services/supabaseClient.js';
 import { Search, Plus, Trash2, Edit2, User, Building, Mail, Phone, Globe, Mic, AlertCircle, X, Save, Sparkles, ChevronDown, ChevronUp, Users } from 'lucide-react';
 
 const ClientManagement: React.FC = () => {
+  const { t } = useTranslation(['client', 'common']);
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -227,28 +229,28 @@ const ClientManagement: React.FC = () => {
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Client Management</h1>
-          <p className="text-slate-500 mt-2">Manage customer profiles and content preferences.</p>
+          <h1 className="text-3xl font-bold text-slate-900">{t('management.title')}</h1>
+          <p className="text-slate-500 mt-2">{t('management.subtitle')}</p>
         </div>
         <button 
           onClick={() => openModal()}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-md"
         >
           <Plus size={18} />
-          Add Client
+          {t('management.addClient')}
         </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-slate-900">All Clients</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t('management.allClients')}</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search clients..." 
+              placeholder={t('management.searchPlaceholder')} 
               className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
             />
           </div>
@@ -258,11 +260,11 @@ const ClientManagement: React.FC = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase font-semibold text-slate-500">
               <tr>
-                <th className="px-6 py-4">Client Name</th>
-                <th className="px-6 py-4">Industry / Business</th>
-                <th className="px-6 py-4">Contact Info</th>
-                <th className="px-6 py-4">AI Preferences</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4">{t('table.clientName')}</th>
+                <th className="px-6 py-4">{t('table.industryBusiness')}</th>
+                <th className="px-6 py-4">{t('table.contactInfo')}</th>
+                <th className="px-6 py-4">{t('table.aiPreferences')}</th>
+                <th className="px-6 py-4 text-right">{t('table.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -287,10 +289,10 @@ const ClientManagement: React.FC = () => {
                       {(client.contacts?.length ?? 0) > 0 ? (
                         <div className="flex items-center gap-1.5">
                           <Users size={12} className="text-indigo-500"/>
-                          <span className="text-sm font-medium text-indigo-600">{client.contacts?.length} Contact{(client.contacts?.length ?? 0) > 1 ? 's' : ''}</span>
+                          <span className="text-sm font-medium text-indigo-600">{(client.contacts?.length ?? 0) > 1 ? t('table.contacts', { count: client.contacts?.length }) : t('table.contact', { count: client.contacts?.length })}</span>
                         </div>
                       ) : (
-                        <span className="text-slate-400 text-sm italic">No contacts</span>
+                        <span className="text-slate-400 text-sm italic">{t('table.noContacts')}</span>
                       )}
                       {(client.contacts?.length ?? 0) > 0 && (
                         <div className="text-xs text-slate-500">
@@ -303,10 +305,10 @@ const ClientManagement: React.FC = () => {
                   <td className="px-6 py-4">
                      {client.defaultTone || client.defaultRules ? (
                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100">
-                           <Sparkles size={10} /> Configured
+                           <Sparkles size={10} /> {t('table.configured')}
                         </span>
                      ) : (
-                        <span className="text-slate-400 text-xs">Default</span>
+                        <span className="text-slate-400 text-xs">{t('table.default')}</span>
                      )}
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -320,7 +322,7 @@ const ClientManagement: React.FC = () => {
               {filteredClients.length === 0 && (
                  <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
-                       No clients found matching "{searchTerm}".
+                       {t('management.noClientsFound', { searchTerm })}
                     </td>
                  </tr>
               )}
@@ -335,8 +337,8 @@ const ClientManagement: React.FC = () => {
            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
               <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                  <div>
-                    <h3 className="text-xl font-bold text-slate-900">{editingClient ? 'Edit Client Profile' : 'Add New Client'}</h3>
-                    <p className="text-sm text-slate-500 mt-0.5">Configure company details and AI content memory.</p>
+                    <h3 className="text-xl font-bold text-slate-900">{editingClient ? t('modal.editTitle') : t('modal.createTitle')}</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">{t('modal.subtitle')}</p>
                  </div>
                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-full transition"><X size={24} /></button>
               </div>
@@ -345,31 +347,31 @@ const ClientManagement: React.FC = () => {
                  {/* Section 1: Company Info */}
                  <section>
                     <h4 className="flex items-center gap-2 font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">
-                       <Building size={18} className="text-indigo-600"/> Company Details
+                       <Building size={18} className="text-indigo-600"/> {t('modal.companyDetails')}
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Client Name *</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('modal.clientNameRequired')}</label>
                           <input 
                             type="text" 
                             value={formData.name || ''}
                             onChange={e => setFormData({...formData, name: e.target.value})}
                             className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="e.g. Acme Corp"
+                            placeholder={t('modal.clientNamePlaceholder')}
                           />
                        </div>
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Industry / Sector</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('modal.industry')}</label>
                           <input 
                             type="text" 
                             value={formData.industry || ''}
                             onChange={e => setFormData({...formData, industry: e.target.value})}
                             className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="e.g. FinTech"
+                            placeholder={t('modal.industryPlaceholder')}
                           />
                        </div>
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Website URL</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('modal.website')}</label>
                           <div className="relative">
                              <Globe size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                              <input 
@@ -377,7 +379,7 @@ const ClientManagement: React.FC = () => {
                                value={formData.website || ''}
                                onChange={e => setFormData({...formData, website: e.target.value})}
                                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                               placeholder="https://..."
+                               placeholder={t('modal.websitePlaceholder')}
                              />
                           </div>
                        </div>
@@ -392,10 +394,10 @@ const ClientManagement: React.FC = () => {
                     >
                        <div className="flex items-center gap-2 font-bold text-slate-700">
                           <Users size={18} className="text-indigo-600" />
-                          Contact Persons (Portal Access)
+                          {t('modal.contactPersons')}
                           {editingClient?.contacts && editingClient.contacts.length > 0 && (
                             <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full ml-2">
-                               {editingClient.contacts.length} Contact{editingClient.contacts.length > 1 ? 's' : ''}
+                               {editingClient.contacts.length > 1 ? t('table.contacts', { count: editingClient.contacts.length }) : t('table.contact', { count: editingClient.contacts.length })}
                             </span>
                           )}
                        </div>
@@ -405,7 +407,7 @@ const ClientManagement: React.FC = () => {
                     {contactsExpanded && (
                        <div className="p-4 bg-slate-50/50 border-t border-slate-200 space-y-4">
                           <p className="text-xs text-slate-500 mb-3">
-                             Add contact persons who will have access to the Client Portal. Each contact can log in using their email address to review and approve content.
+                             {t('modal.contactPersonsDesc')}
                           </p>
                           
                           {/* Existing Contacts List */}
@@ -428,7 +430,7 @@ const ClientManagement: React.FC = () => {
                                      <button 
                                         onClick={() => handleDeleteContact(contact.id)}
                                         className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition opacity-0 group-hover:opacity-100"
-                                        title="Remove contact"
+                                        title={t('modal.removeContact')}
                                      >
                                         <Trash2 size={14} />
                                      </button>
@@ -437,7 +439,7 @@ const ClientManagement: React.FC = () => {
                             </div>
                           ) : (
                             <div className="text-center py-4 text-slate-400 text-sm italic border border-dashed border-slate-200 rounded-lg mb-4">
-                               No contacts added yet. Add a contact below.
+                               {t('modal.noContactsYet')}
                             </div>
                           )}
                           
@@ -445,21 +447,21 @@ const ClientManagement: React.FC = () => {
                           {editingClient && (
                             <div className="bg-white p-4 rounded-lg border border-slate-200">
                                <h5 className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-                                  <Plus size={14} /> Add New Contact
+                                  <Plus size={14} /> {t('modal.addNewContact')}
                                </h5>
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                        <div>
-                                     <label className="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
+                                     <label className="block text-xs font-medium text-slate-600 mb-1">{t('modal.fullName')}</label>
                           <input 
                             type="text" 
                                        value={newContactName}
                                        onChange={e => setNewContactName(e.target.value)}
                                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                            placeholder="Jane Doe"
+                            placeholder={t('modal.fullNamePlaceholder')}
                           />
                        </div>
                        <div>
-                                     <label className="block text-xs font-medium text-slate-600 mb-1">Email Address</label>
+                                     <label className="block text-xs font-medium text-slate-600 mb-1">{t('modal.emailAddress')}</label>
                           <div className="relative">
                                         <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                              <input 
@@ -467,7 +469,7 @@ const ClientManagement: React.FC = () => {
                                           value={newContactEmail}
                                           onChange={e => { setNewContactEmail(e.target.value); setContactError(null); }}
                                           className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                               placeholder="jane@company.com"
+                               placeholder={t('modal.emailPlaceholder')}
                              />
                           </div>
                        </div>
@@ -488,12 +490,12 @@ const ClientManagement: React.FC = () => {
                                   {isAddingContact ? (
                                      <>
                                         <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-                                        Adding...
+                                        {t('modal.adding')}
                                      </>
                                   ) : (
                                      <>
                                         <Plus size={16} />
-                                        Add Contact Person
+                                        {t('modal.addContactPerson')}
                                      </>
                                   )}
                                </button>
@@ -503,7 +505,7 @@ const ClientManagement: React.FC = () => {
                           {!editingClient && (
                             <div className="text-center py-4 text-amber-600 text-sm bg-amber-50 rounded-lg border border-amber-200">
                                <AlertCircle size={16} className="inline mr-2" />
-                               Save the client first, then you can add contact persons.
+                               {t('modal.saveFirstHint')}
                           </div>
                           )}
                        </div>
@@ -513,29 +515,29 @@ const ClientManagement: React.FC = () => {
                  {/* Section 3: AI Preferences */}
                  <section className="bg-indigo-50/50 p-6 rounded-xl border border-indigo-100">
                     <h4 className="flex items-center gap-2 font-bold text-indigo-900 mb-4">
-                       <Mic size={18} className="text-indigo-600"/> AI Content Memory (Inheritance)
+                       <Mic size={18} className="text-indigo-600"/> {t('modal.aiMemory')}
                     </h4>
                     <div className="space-y-4">
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Default Tone of Voice</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('modal.defaultTone')}</label>
                           <input 
                             type="text" 
                             value={formData.defaultTone || ''}
                             onChange={e => setFormData({...formData, defaultTone: e.target.value})}
                             className="w-full px-4 py-2 bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="e.g. Professional, Authoritative, yet Accessible"
+                            placeholder={t('modal.defaultTonePlaceholder')}
                           />
-                          <p className="text-xs text-slate-500 mt-1">This will automatically pre-fill the Tone field when generating content for this client.</p>
+                          <p className="text-xs text-slate-500 mt-1">{t('modal.defaultToneHint')}</p>
                        </div>
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Saved Strict Content Rules</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('modal.defaultRules')}</label>
                           <textarea 
                             value={formData.defaultRules || ''}
                             onChange={e => setFormData({...formData, defaultRules: e.target.value})}
                             className="w-full px-4 py-2 bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-24 resize-none"
-                            placeholder="e.g. Always use British English. Never mention competitors."
+                            placeholder={t('modal.defaultRulesPlaceholder')}
                           />
-                          <p className="text-xs text-slate-500 mt-1">These rules will persist across all campaigns for this client.</p>
+                          <p className="text-xs text-slate-500 mt-1">{t('modal.defaultRulesHint')}</p>
                        </div>
                     </div>
                  </section>
@@ -543,9 +545,9 @@ const ClientManagement: React.FC = () => {
               </div>
 
               <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                 <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-slate-600 font-medium hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition">Cancel</button>
+                 <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-slate-600 font-medium hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition">{t('modal.cancel')}</button>
                  <button onClick={handleSave} className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition">
-                    <Save size={18} /> Save Client Profile
+                    <Save size={18} /> {t('modal.saveClientProfile')}
                  </button>
               </div>
            </div>

@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "inviteCodes": "Invite Codes",
+    "users": "Users"
+  },
+  "inviteCodes": {
+    "title": "Invite Code Management",
+    "subtitle": "Create and manage user registration invite codes",
+    "newCode": "Generate New Code",
+    "searchPlaceholder": "Search invite codes...",
+    "noCodes": "No invite codes yet",
+    "createFirst": "Generate your first invite code to get started"
+  },
+  "inviteCode": {
+    "code": "Invite Code",
+    "status": "Status",
+    "quota": "Quota",
+    "used": "Used",
+    "available": "Available",
+    "expired": "Expired",
+    "createdAt": "Created At",
+    "expiresAt": "Expires At",
+    "usedBy": "Used By",
+    "usedAt": "Used At",
+    "copy": "Copy",
+    "delete": "Delete",
+    "noExpiry": "No expiry"
+  },
+  "generateCode": {
+    "title": "Generate Invite Code",
+    "quota": "Article Quota",
+    "quotaPlaceholder": "e.g. 10",
+    "quotaHelp": "Maximum number of articles the user can create with this invite code",
+    "expiryDays": "Valid Days",
+    "expiryPlaceholder": "e.g. 30",
+    "expiryHelp": "Leave empty for no expiry",
+    "generate": "Generate",
+    "generating": "Generating..."
+  },
+  "deleteConfirm": {
+    "title": "Delete Invite Code",
+    "message": "Are you sure you want to delete this invite code? This action cannot be undone."
+  },
+  "users": {
+    "title": "User Management",
+    "subtitle": "Manage system users and permissions",
+    "searchPlaceholder": "Search users...",
+    "noUsers": "No users yet"
+  },
+  "user": {
+    "email": "Email",
+    "role": "Role",
+    "admin": "Admin",
+    "agencyAdmin": "Agency Admin",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "quota": "Quota",
+    "articlesUsed": "{{used}}/{{total}} articles used",
+    "createdAt": "Registered At",
+    "lastLogin": "Last Login",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "editUser": {
+    "title": "Edit User",
+    "role": "Role",
+    "quota": "Article Quota",
+    "save": "Save",
+    "saving": "Saving..."
+  },
+  "deleteUserConfirm": {
+    "title": "Delete User",
+    "message": "Are you sure you want to delete this user? This action cannot be undone."
+  },
+  "alerts": {
+    "codeGenerated": "Invite code generated successfully",
+    "codeCopied": "Invite code copied",
+    "codeDeleted": "Invite code deleted",
+    "userUpdated": "User updated successfully",
+    "userDeleted": "User deleted successfully",
+    "generateFailed": "Generation failed",
+    "deleteFailed": "Delete failed",
+    "updateFailed": "Update failed"
+  }
+}

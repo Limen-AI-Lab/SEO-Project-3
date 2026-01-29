@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Lock, Loader2, CheckCircle, Ticket } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { validateInviteCode } from '../services/inviteService';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const SignUp: React.FC = () => {
   const { signUp } = useAuth();
+  const { t } = useTranslation(['auth', 'common']);
   const [email, setEmail] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +32,7 @@ const SignUp: React.FC = () => {
   // 验证邀请码
   const handleValidateCode = async () => {
     if (!inviteCode.trim()) {
-      setCodeError('Please enter an invite code');
+      setCodeError(t('auth:errors.invalidInviteCode'));
       return;
     }
 
@@ -58,7 +61,7 @@ const SignUp: React.FC = () => {
 
     // Validation
     if (!email || !inviteCode || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+      setError(t('auth:errors.fillAllFields'));
       return;
     }
 
@@ -69,19 +72,19 @@ const SignUp: React.FC = () => {
       setIsValidatingCode(false);
       
       if (!result.is_valid) {
-        setCodeError(result.error_message || 'Invalid invite code');
+        setCodeError(result.error_message || t('auth:errors.invalidInviteCode'));
         return;
       }
       setCodeValidated(true);
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth:signup.passwordMismatch'));
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('auth:signup.passwordRequirements'));
       return;
     }
 
@@ -107,6 +110,7 @@ const SignUp: React.FC = () => {
   if (registrationSuccess) {
     return (
       <div className="bg-background-light dark:bg-background-dark font-sans flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+        <LanguageSwitcher variant="standalone" />
         <div className="w-full max-w-[420px] bg-card-light dark:bg-card-dark rounded-3xl shadow-soft dark:shadow-none dark:border dark:border-border-dark overflow-hidden relative">
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#E8F5E9] to-transparent dark:from-[#4CAF50]/20 dark:to-transparent pointer-events-none"></div>
           <div className="relative px-8 pt-10 pb-8">
@@ -114,31 +118,28 @@ const SignUp: React.FC = () => {
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">Check Your Email</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">{t('auth:emailVerification.title')}</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
-                We've sent a verification link to<br />
+                {t('auth:signup.success').split(email)[0]}<br />
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{email}</span>
               </p>
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
               <p className="text-sm text-blue-700 dark:text-blue-300 text-center">
-                Please click the link in your email to verify your account and start using Imprintly.
+                {t('auth:emailVerification.message')}
               </p>
             </div>
 
             <div className="text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Didn't receive the email? Check your spam folder.
-              </p>
               <Link 
                 to="/" 
                 className="inline-flex items-center justify-center py-3 px-6 border border-primary rounded-xl text-sm font-semibold text-primary hover:bg-primary hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all"
               >
-                Back to Sign In
+                {t('auth:forgotPassword.backToLogin')}
               </Link>
               <p className="mt-6 text-xs text-gray-400 dark:text-gray-500">
-                © 2024 Imprintly Inc. All rights reserved.
+                {t('auth:copyright')}
               </p>
             </div>
           </div>
@@ -149,6 +150,7 @@ const SignUp: React.FC = () => {
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-sans flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+      <LanguageSwitcher variant="standalone" />
       <div className="w-full max-w-[420px] bg-card-light dark:bg-card-dark rounded-3xl shadow-soft dark:shadow-none dark:border dark:border-border-dark overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#F0F0FE] to-transparent dark:from-[#544AED]/20 dark:to-transparent pointer-events-none"></div>
         <div className="relative px-8 pt-10 pb-8">
@@ -157,9 +159,9 @@ const SignUp: React.FC = () => {
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md mr-3">
                 <span className="text-white text-xl font-bold font-display">I</span>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Imprintly</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">{t('common:app.name')}</h1>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Create your account to get started.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">{t('auth:signup.subtitle')}</p>
           </div>
 
           {error && (
@@ -170,7 +172,7 @@ const SignUp: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="email">Email Address</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="email">{t('common:labels.email')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <Mail size={20} />
@@ -179,7 +181,7 @@ const SignUp: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2.5 border border-border-light dark:border-border-dark rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-shadow"
                   id="email"
                   name="email"
-                  placeholder="name@company.com"
+                  placeholder={t('auth:signup.emailPlaceholder')}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -191,7 +193,7 @@ const SignUp: React.FC = () => {
             {/* 邀请码输入框 */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="inviteCode">
-                Invite Code <span className="text-red-500">*</span>
+                {t('auth:signup.inviteCodeLabel')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -207,7 +209,7 @@ const SignUp: React.FC = () => {
                   }`}
                   id="inviteCode"
                   name="inviteCode"
-                  placeholder="ABC123"
+                  placeholder={t('auth:signup.inviteCodePlaceholder')}
                   type="text"
                   maxLength={10}
                   value={inviteCode}
@@ -230,7 +232,7 @@ const SignUp: React.FC = () => {
                   ) : codeValidated ? (
                     <CheckCircle size={14} />
                   ) : (
-                    'Verify'
+                    t('common:buttons.confirm')
                   )}
                 </button>
               </div>
@@ -238,13 +240,12 @@ const SignUp: React.FC = () => {
                 <p className="mt-1 text-xs text-red-500">{codeError}</p>
               )}
               {codeValidated && (
-                <p className="mt-1 text-xs text-green-600 dark:text-green-400">✓ Invite code verified</p>
+                <p className="mt-1 text-xs text-green-600 dark:text-green-400">✓ {t('auth:signup.inviteCodeLabel')}</p>
               )}
-              <p className="mt-1 text-xs text-gray-400">Required to create an account</p>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="password">Password</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="password">{t('common:labels.password')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <Lock size={20} />
@@ -253,18 +254,18 @@ const SignUp: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2.5 border border-border-light dark:border-border-dark rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-shadow tracking-widest"
                   id="password"
                   name="password"
-                  placeholder="••••••••"
+                  placeholder={t('auth:signup.passwordPlaceholder')}
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-400">Must be at least 6 characters</p>
+              <p className="mt-1 text-xs text-gray-400">{t('auth:signup.passwordRequirements')}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="confirmPassword">Confirm Password</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="confirmPassword">{t('common:labels.confirmPassword')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <Lock size={20} />
@@ -273,7 +274,7 @@ const SignUp: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2.5 border border-border-light dark:border-border-dark rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-shadow tracking-widest"
                   id="confirmPassword"
                   name="confirmPassword"
-                  placeholder="••••••••"
+                  placeholder={t('auth:signup.confirmPasswordPlaceholder')}
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -291,27 +292,22 @@ const SignUp: React.FC = () => {
                 {loading ? (
                   <>
                     <Loader2 size={18} className="animate-spin mr-2" />
-                    Creating Account...
+                    {t('auth:signup.signingUp')}
                   </>
                 ) : (
-                  'Create Account'
+                  t('common:buttons.signUp')
                 )}
               </button>
-              {!codeValidated && inviteCode && !codeError && (
-                <p className="mt-2 text-xs text-center text-amber-600 dark:text-amber-400">
-                  Please verify your invite code first
-                </p>
-              )}
             </div>
           </form>
 
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{' '}
-              <Link to="/" className="font-medium text-primary hover:text-primary-hover">Sign In</Link>
+              {t('auth:signup.hasAccount')}{' '}
+              <Link to="/" className="font-medium text-primary hover:text-primary-hover">{t('common:buttons.signIn')}</Link>
             </p>
             <p className="mt-6 text-xs text-gray-400 dark:text-gray-500">
-              © 2024 Imprintly Inc. All rights reserved.
+              {t('auth:copyright')}
             </p>
           </div>
         </div>

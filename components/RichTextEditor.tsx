@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEditor, EditorContent } from '@tiptap/react';
 // @ts-ignore
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -37,6 +38,7 @@ export interface RichTextEditorRef {
 
 const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
   ({ content, onChange, onAiRefine, placeholder, className, hideCopy = false, fullWidth = false, editable = true }, ref) => {
+  const { t } = useTranslation(['article', 'common']);
   const BubbleMenuAny = BubbleMenu as any;
   const editorScrollRef = React.useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success'>('idle');
@@ -251,42 +253,42 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Heading1 size={14} /></div>
-              <span className="font-medium">Heading 1</span>
+              <span className="font-medium">{t('editor.heading1')}</span>
             </button>
             <button 
               onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); setIsMenuExpanded(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Heading2 size={14} /></div>
-              <span className="font-medium">Heading 2</span>
+              <span className="font-medium">{t('editor.heading2')}</span>
             </button>
             <button 
               onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); setIsMenuExpanded(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Heading3 size={14} /></div>
-              <span className="font-medium">Heading 3</span>
+              <span className="font-medium">{t('editor.heading3')}</span>
             </button>
             <button 
               onClick={() => { editor.chain().focus().setParagraph().run(); setIsMenuExpanded(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><Type size={14} /></div>
-              <span className="font-medium">Text</span>
+              <span className="font-medium">{t('editor.text')}</span>
             </button>
             <button 
               onClick={() => { editor.chain().focus().toggleBulletList().run(); setIsMenuExpanded(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><List size={14} /></div>
-              <span className="font-medium">Bullet List</span>
+              <span className="font-medium">{t('editor.bulletList')}</span>
             </button>
             <button 
               onClick={() => { editor.chain().focus().toggleOrderedList().run(); setIsMenuExpanded(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><ListOrdered size={14} /></div>
-              <span className="font-medium">Numbered List</span>
+              <span className="font-medium">{t('editor.numberedList')}</span>
             </button>
             <div className="my-1 border-t border-slate-100" />
             <button 
@@ -294,14 +296,14 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><TableIcon size={14} /></div>
-              <span className="font-medium">Table</span>
+              <span className="font-medium">{t('editor.table')}</span>
             </button>
             <button 
               onClick={() => { addImage(); setIsMenuExpanded(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <div className="w-7 h-7 flex items-center justify-center bg-slate-100 rounded text-slate-500"><ImageIcon size={14} /></div>
-              <span className="font-medium">Image</span>
+              <span className="font-medium">{t('editor.image')}</span>
             </button>
           </div>
         </div>
@@ -342,7 +344,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
                 }
               }}
               className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white hover:shadow-sm transition-all text-slate-600"
-              title="Toggle Text Type (H1 -> H2 -> H3 -> P)"
+              title={t('editor.toggleTextType')}
             >
               <Type size={14} />
               <span className="text-[10px] font-bold bg-slate-200 text-slate-500 w-5 h-4 px-1 rounded-full flex-shrink-0 flex items-center justify-center transition-all">
@@ -424,7 +426,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
               </div>
               <input 
                 type="text"
-                placeholder="Ask AI to refine this selection..."
+                placeholder={t('editor.askAiToRefine')}
                 className="flex-1 bg-transparent border-none focus:ring-0 text-sm placeholder:text-slate-400 py-1"
                 value={aiInstruction}
                 onChange={(e) => setAiInstruction(e.target.value)}
@@ -462,7 +464,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorRef, RichTextEditorProps>(
                 disabled={isAiRefining || !aiInstruction.trim()}
                 className="px-4 py-1.5 bg-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:bg-slate-300 transition-all shadow-sm"
               >
-                {isAiRefining ? 'Refining...' : 'Refine'}
+                {isAiRefining ? t('editor.refining') : t('editor.refine')}
               </button>
             </div>
           </div>

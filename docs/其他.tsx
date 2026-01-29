@@ -593,6 +593,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                          <option value="bam">bam</option>
                          <option value="fbpsnews">fbpsnews</option>
                          <option value="solutions">solutions</option>
+                         <option value="imprintlies">imprintlies</option>
                        </select>
                     </div>
                   </div>
@@ -825,6 +826,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   <option value="bam">bam</option>
                   <option value="fbpsnews">fbpsnews</option>
                   <option value="solutions">solutions</option>
+                  <option value="imprintlies">imprintlies</option>
                 </select>
               </div>
 
@@ -1057,7 +1059,8 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                   <option value="advisories">advisories</option>
                   <option value="bam">bam</option>
                   <option value="fbpsnews">fbpsnews</option>
-                  <option value="solution">solution</option>
+                  <option value="solutions">solutions</option>
+                  <option value="imprintlies">imprintlies</option>
                 </select>
               </div>
 

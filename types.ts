@@ -125,7 +125,7 @@ export interface Campaign {
   keywords: string[];
   createdAt: Date;
   status: 'ACTIVE' | 'ARCHIVED';
-  cmsId?: 'advisories' | 'bam' | 'fbpsnews' | 'solutions' | null;
+  cmsId?: 'advisories' | 'bam' | 'fbpsnews' | 'solutions' | 'imprintlies' | null;
 }
 
 // OutlineSection interface for structured outline data

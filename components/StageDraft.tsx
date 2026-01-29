@@ -857,9 +857,8 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
   const isPublished = project.status === ProjectStatus.PUBLISHED;
   
   // 🔒 CMS 发布功能锁定控制
-  // 当前：全局锁定，防止测试用户误触
-  // 未来：可改为基于用户角色判断，如 !user?.isAdmin 或 !hasPermission('cms_publish')
-  const isCMSPublishLocked = true;
+  // 管理员可以使用"更新元数据"和"发布到CMS"功能，非管理员锁定
+  const isCMSPublishLocked = !isAdminUser;
 
   if (isPublished) {
     return (

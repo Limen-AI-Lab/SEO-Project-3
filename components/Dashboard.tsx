@@ -632,12 +632,13 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                            }}
                            className="absolute inset-0 w-full h-full px-2 pr-8 py-1 rounded border border-slate-300 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50 bg-white shadow-sm transition-all"
                          >
-                           <option value="">No CMS ID</option>
-                           <option value="advisories">advisories</option>
-                           <option value="bam">bam</option>
-                           <option value="fbpsnews">fbpsnews</option>
-                           <option value="solutions">solutions</option>
-                         </select>
+                          <option value="">No CMS ID</option>
+                          <option value="advisories">advisories</option>
+                          <option value="bam">bam</option>
+                          <option value="fbpsnews">fbpsnews</option>
+                          <option value="solutions">solutions</option>
+                          <option value="imprintlies">imprintlies</option>
+                        </select>
                       </div>
                     )}
                   </div>
@@ -879,6 +880,7 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     <option value="bam">bam</option>
                     <option value="fbpsnews">fbpsnews</option>
                     <option value="solutions">solutions</option>
+                    <option value="imprintlies">imprintlies</option>
                   </select>
                 </div>
               )}
@@ -1065,7 +1067,8 @@ const Dashboard: React.FC<Props> = ({ onSelectCampaign }) => {
                     <option value="advisories">advisories</option>
                     <option value="bam">bam</option>
                     <option value="fbpsnews">fbpsnews</option>
-                    <option value="solution">solution</option>
+                    <option value="solutions">solutions</option>
+                    <option value="imprintlies">imprintlies</option>
                   </select>
                 </div>
               )}

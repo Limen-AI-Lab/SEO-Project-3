@@ -182,9 +182,20 @@ const SimpleDropdown: React.FC<{
   );
 };
 
+// UI language to default target market/language mapping
+// This allows future extension for more languages
+const UI_LANGUAGE_DEFAULTS: Record<string, { market: string; language: string }> = {
+  zh: { market: 'CN', language: 'zh' },
+  en: { market: 'US', language: 'en' },
+};
+
 const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) => {
   const { showToast } = useToast();
-  const { t } = useTranslation(['campaign', 'common']);
+  const { t, i18n } = useTranslation(['campaign', 'common']);
+  
+  // Get default target market/language based on UI language
+  const uiDefaults = UI_LANGUAGE_DEFAULTS[i18n.language] || UI_LANGUAGE_DEFAULTS['en'];
+  
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [clientName, setClientName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -219,8 +230,8 @@ const KeywordDiscovery: React.FC<Props> = ({ campaignId, articleId, onBack }) =>
   
   // Form state (Step 1)
   const [keyword, setKeyword] = useState('');
-  const [targetMarket, setTargetMarket] = useState('US');
-  const [targetLanguage, setTargetLanguage] = useState('en');
+  const [targetMarket, setTargetMarket] = useState(uiDefaults.market);
+  const [targetLanguage, setTargetLanguage] = useState(uiDefaults.language);
   const [searchPages, setSearchPages] = useState('2');
   const [timeRange, setTimeRange] = useState('any');
 

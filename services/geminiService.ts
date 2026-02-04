@@ -5,6 +5,8 @@ import {
   ArticlePerspective,
   WORD_COUNT_CONFIG,
   PERSPECTIVE_CONFIG,
+  WORD_COUNT_LIMITS,
+  HEADING_COUNT_LIMITS,
 } from "../types";
 import { 
   broadcastPromptRequest, 
@@ -463,6 +465,12 @@ interface OutlineGenerationParams {
   targetAudience?: string;
   clientComments?: Array<{ author: string; text: string; timestamp: Date }>;
   language?: string; // Target language for outline content (e.g., "English", "Chinese")
+  // New custom word count and heading counts
+  wordCountMin?: number;  // Minimum word count (300-6000)
+  wordCountMax?: number;  // Maximum word count (300-6000)
+  h2Count?: number;       // Number of H2 headings (0-25)
+  h3Count?: number;       // Number of H3 headings (0-30)
+  // DEPRECATED: Use wordCountMin/wordCountMax instead
   wordCountRange?: WordCountRange; // Target word count range (affects H2 count)
   perspective?: ArticlePerspective; // Writing perspective (first/second/third person)
   rules?: string; // Strict content rules (from Client + Article level)
@@ -474,22 +482,48 @@ interface OutlineGenerationParams {
 const buildOutlinePrompt = (
   params: OutlineGenerationParams,
   retryFeedback?: string
-): { prompt: string; wordCountConfig: typeof WORD_COUNT_CONFIG['1000-2000']; isEnglish: boolean } => {
+): { prompt: string; wordCountConfig: { min: number; max: number; h2Count: number; h3Count: number }; isEnglish: boolean } => {
   // Determine target language (default to English)
   const targetLanguage = params.language || "English";
   const isEnglish = targetLanguage.toLowerCase() === "english";
 
-  // Get word count and H2 count configuration
-  const wordCountConfig = params.wordCountRange
-    ? WORD_COUNT_CONFIG[params.wordCountRange]
-    : WORD_COUNT_CONFIG["1000-2000"];
+  // Get word count and heading configuration
+  // Priority: new params > old wordCountRange > defaults
+  let wordCountMin: number;
+  let wordCountMax: number;
+  let h2Count: number;
+  let h3Count: number;
+
+  if (params.wordCountMin !== undefined && params.wordCountMax !== undefined) {
+    // Use new custom word count params
+    wordCountMin = Math.max(WORD_COUNT_LIMITS.MIN, Math.min(WORD_COUNT_LIMITS.MAX, params.wordCountMin));
+    wordCountMax = Math.max(WORD_COUNT_LIMITS.MIN, Math.min(WORD_COUNT_LIMITS.MAX, params.wordCountMax));
+    h2Count = params.h2Count !== undefined 
+      ? Math.max(HEADING_COUNT_LIMITS.H2_MIN, Math.min(HEADING_COUNT_LIMITS.H2_MAX, params.h2Count))
+      : Math.round((wordCountMin + wordCountMax) / 2 / 300);
+    h3Count = params.h3Count !== undefined
+      ? Math.max(HEADING_COUNT_LIMITS.H3_MIN, Math.min(HEADING_COUNT_LIMITS.H3_MAX, params.h3Count))
+      : 0;
+  } else if (params.wordCountRange) {
+    // Fallback to old wordCountRange for backward compatibility
+    const oldConfig = WORD_COUNT_CONFIG[params.wordCountRange];
+    wordCountMin = oldConfig.min;
+    wordCountMax = oldConfig.max;
+    h2Count = Math.round((oldConfig.h2Min + oldConfig.h2Max) / 2);
+    h3Count = 0;
+  } else {
+    // Default values
+    wordCountMin = 1000;
+    wordCountMax = 2000;
+    h2Count = 5;
+    h3Count = 0;
+  }
+
+  const wordCountConfig = { min: wordCountMin, max: wordCountMax, h2Count, h3Count };
+
   const perspectiveConfig = params.perspective
     ? PERSPECTIVE_CONFIG[params.perspective]
     : PERSPECTIVE_CONFIG["third"];
-
-  // Calculate H3 count based on H2 count (1-2 H3 per H2, total around 7-8)
-  const h3Min = wordCountConfig.h2Min;
-  const h3Max = wordCountConfig.h2Max * 2;
 
   // Build comprehensive context from all available information
   let contextParts: string[] = [];
@@ -506,18 +540,26 @@ const buildOutlinePrompt = (
   }
 
   // 2. Word count and structure requirements (CRITICAL - emphasized)
+  // Build H3 instruction based on h3Count
+  const h3InstructionEn = wordCountConfig.h3Count === 0 
+    ? '- H3 subsections: DO NOT include any H3 subsections'
+    : `- Number of H3 subsections: EXACTLY ${wordCountConfig.h3Count} total (distributed across H2 sections)`;
+  const h3InstructionZh = wordCountConfig.h3Count === 0
+    ? '- H3子章节：不要包含任何H3子章节'
+    : `- H3子章节数量：总共正好 ${wordCountConfig.h3Count} 个（分布在各H2章节下）`;
+
   if (isEnglish) {
     contextParts.push(`
 ⚠️ CRITICAL STRUCTURE REQUIREMENTS (MUST FOLLOW EXACTLY):
-- Number of H2 sections: EXACTLY ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} sections (THIS IS MANDATORY)
-- Number of H3 subsections: ${h3Min}-${h3Max} total (1-2 per H2 section)
+- Number of H2 sections: EXACTLY ${wordCountConfig.h2Count} sections (THIS IS MANDATORY)
+${h3InstructionEn}
 - Target article word count: ${wordCountConfig.min}-${wordCountConfig.max} words
 - Writing perspective: ${perspectiveConfig.label} (${perspectiveConfig.description})`);
   } else {
     contextParts.push(`
 ⚠️ 关键结构要求（必须严格遵守）：
-- H2章节数量：必须正好 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个（这是强制要求）
-- H3子章节数量：总共 ${h3Min}-${h3Max} 个（每个H2下1-2个H3）
+- H2章节数量：必须正好 ${wordCountConfig.h2Count} 个（这是强制要求）
+${h3InstructionZh}
 - 目标文章字数：${wordCountConfig.min}-${wordCountConfig.max} 字
 - 写作视角：${perspectiveConfig.label}（${perspectiveConfig.description}）`);
   }
@@ -600,34 +642,40 @@ const buildOutlinePrompt = (
   // Generate prompt based on target language
   let prompt: string;
 
+  // Determine language label for H2/H3 (H1 uses approved title as-is)
+  const h2h3LanguageLabel = targetLanguage.toLowerCase() === "chinese" ? "Chinese" : "English";
+
+  // Build H3 rule for prompt
+  const h3RuleEn = wordCountConfig.h3Count === 0
+    ? '6. DO NOT include any H3 subsections (### headings)'
+    : `6. EXACTLY ${wordCountConfig.h3Count} H3 subsections total (distributed across H2 sections)`;
+  const h3RuleZh = wordCountConfig.h3Count === 0
+    ? '6. 不要包含任何 H3 子章节（### 标题）'
+    : `6. 总共正好 ${wordCountConfig.h3Count} 个 H3 子章节（分布在各H2章节下）`;
+
   if (isEnglish) {
     prompt = `${context}
 
-Create a CONCISE blog post outline with ONLY headings (H1, H2, H3). NO descriptions or explanations under headings.
+Create a CONCISE blog post outline with ONLY headings (H1, H2${wordCountConfig.h3Count > 0 ? ', H3' : ''}). NO descriptions or explanations under headings.
 
 **CRITICAL RULES - MUST FOLLOW**:
-1. Output ONLY heading lines starting with #, ##, or ###
+1. Output ONLY heading lines starting with #${wordCountConfig.h3Count > 0 ? ', ##, or ###' : ' or ##'}
 2. DO NOT add any text below headings - just headings only
 3. DO NOT add bullet points, descriptions, or explanations
-4. Exactly 1 H1 (main title)
-5. ⚠️ EXACTLY ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} H2 sections - COUNT CAREFULLY BEFORE SUBMITTING
-6. Only ${h3Min}-${h3Max} H3 subsections total (1-2 per H2, some H2s may have no H3)
+4. ⚠️ H1 MUST be EXACTLY the approved title: "${params.selectedTitle}" - DO NOT modify, translate, or rephrase it in any way
+5. ⚠️ EXACTLY ${wordCountConfig.h2Count} H2 sections - COUNT CAREFULLY BEFORE SUBMITTING
+${h3RuleEn}
 7. Keep outline compact to fit ${wordCountConfig.min}-${wordCountConfig.max} word article
-8. Use ${perspectiveConfig.label} perspective
+8. Use ${perspectiveConfig.label} perspective for H2${wordCountConfig.h3Count > 0 ? ' and H3' : ''} headings only
+9. ⚠️ All H2${wordCountConfig.h3Count > 0 ? ' and H3' : ''} headings MUST be written in ${h2h3LanguageLabel}
 
 **CORRECT FORMAT EXAMPLE**:
 # Main Title
 
 ## Section One
-
-### Subtopic 1.1
-
+${wordCountConfig.h3Count > 0 ? '\n### Subtopic 1.1\n' : ''}
 ## Section Two
-
-### Subtopic 2.1
-
-### Subtopic 2.2
-
+${wordCountConfig.h3Count > 0 ? '\n### Subtopic 2.1\n\n### Subtopic 2.2\n' : ''}
 ## Section Three
 
 ## Conclusion
@@ -639,37 +687,39 @@ This is a description - DO NOT ADD THIS
 ## Section One
 Explaining what this section covers - DO NOT ADD THIS
 
-⚠️ FINAL CHECK: Before returning, COUNT your H2 sections. You MUST have exactly ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} H2 sections.
+⚠️ FINAL CHECK: 
+- H1 must be exactly: "${params.selectedTitle}"
+- COUNT your H2 sections. You MUST have exactly ${wordCountConfig.h2Count} H2 sections.
+${wordCountConfig.h3Count === 0 ? '- DO NOT include any H3 (###) headings.' : `- COUNT your H3 sections. You MUST have exactly ${wordCountConfig.h3Count} H3 sections.`}
+- All H2${wordCountConfig.h3Count > 0 ? '/H3' : ''} must be in ${h2h3LanguageLabel}.
 
 Return ONLY the Markdown headings, nothing else.`;
   } else {
+    // Determine language label for H2/H3 in Chinese prompt
+    const h2h3LanguageLabelCn = targetLanguage.toLowerCase() === "chinese" ? "中文" : "英文";
+
     prompt = `${context}
 
-创建一个简洁的博客文章大纲，只包含标题（H1、H2、H3）。标题下不要有任何描述或说明文字。
+创建一个简洁的博客文章大纲，只包含标题（H1、H2${wordCountConfig.h3Count > 0 ? '、H3' : ''}）。标题下不要有任何描述或说明文字。
 
 **必须严格遵守的规则**：
-1. 只输出以 #、## 或 ### 开头的标题行
+1. 只输出以 #${wordCountConfig.h3Count > 0 ? '、## 或 ###' : ' 或 ##'} 开头的标题行
 2. 标题下方不要添加任何文字 - 只有标题
 3. 不要添加列表项、描述或解释
-4. 只有 1 个 H1（主标题）
-5. ⚠️ 必须正好 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个 H2 章节 - 提交前请仔细数一数
-6. 总共只有 ${h3Min}-${h3Max} 个 H3 子章节（每个H2下1-2个，有些H2可以没有H3）
+4. ⚠️ H1 必须完全使用已批准的标题原文："${params.selectedTitle}" - 禁止任何修改、翻译或改写
+5. ⚠️ 必须正好 ${wordCountConfig.h2Count} 个 H2 章节 - 提交前请仔细数一数
+${h3RuleZh}
 7. 保持大纲紧凑，以适应 ${wordCountConfig.min}-${wordCountConfig.max} 字的文章
-8. 使用${perspectiveConfig.label}视角
+8. H2${wordCountConfig.h3Count > 0 ? ' 和 H3' : ''} 标题使用${perspectiveConfig.label}视角
+9. ⚠️ 所有 H2${wordCountConfig.h3Count > 0 ? ' 和 H3' : ''} 标题必须使用${h2h3LanguageLabelCn}书写
 
 **正确格式示例**：
 # 主标题
 
 ## 第一章节
-
-### 子主题 1.1
-
+${wordCountConfig.h3Count > 0 ? '\n### 子主题 1.1\n' : ''}
 ## 第二章节
-
-### 子主题 2.1
-
-### 子主题 2.2
-
+${wordCountConfig.h3Count > 0 ? '\n### 子主题 2.1\n\n### 子主题 2.2\n' : ''}
 ## 第三章节
 
 ## 总结
@@ -681,7 +731,11 @@ Return ONLY the Markdown headings, nothing else.`;
 ## 第一章节
 说明本章节内容 - 不要添加这个
 
-⚠️ 最终检查：返回前请数一数你的 H2 章节数量，必须正好是 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个。
+⚠️ 最终检查：
+- H1 必须完全是："${params.selectedTitle}"
+- 数一数 H2 章节数量，必须正好是 ${wordCountConfig.h2Count} 个
+${wordCountConfig.h3Count === 0 ? '- 不要包含任何 H3（###）标题' : `- 数一数 H3 章节数量，必须正好是 ${wordCountConfig.h3Count} 个`}
+- 所有 H2${wordCountConfig.h3Count > 0 ? '/H3' : ''} 必须使用${h2h3LanguageLabelCn}
 
 只返回 Markdown 标题，不要有其他内容。`;
   }
@@ -719,9 +773,9 @@ export const generateBlogOutline = async (
       if (attempt > 0 && bestResult) {
         const currentH2Count = countH2Sections(bestResult);
         if (isEnglish) {
-          retryFeedback = `Your previous outline had ${currentH2Count} H2 sections, but the requirement is ${wordCountConfig.h2Min}-${wordCountConfig.h2Max}. Please regenerate with the correct number of H2 sections.`;
+          retryFeedback = `Your previous outline had ${currentH2Count} H2 sections, but the requirement is exactly ${wordCountConfig.h2Count}. Please regenerate with the correct number of H2 sections.`;
         } else {
-          retryFeedback = `你上次生成的大纲有 ${currentH2Count} 个 H2 章节，但要求是 ${wordCountConfig.h2Min}-${wordCountConfig.h2Max} 个。请重新生成正确数量的 H2 章节。`;
+          retryFeedback = `你上次生成的大纲有 ${currentH2Count} 个 H2 章节，但要求是正好 ${wordCountConfig.h2Count} 个。请重新生成正确数量的 H2 章节。`;
         }
       }
       
@@ -735,13 +789,9 @@ export const generateBlogOutline = async (
       const content = response.text || "";
       if (!content) continue;
       
-      // Validate H2 count
+      // Validate H2 count (now exact match required)
       const h2Count = countH2Sections(content);
-      const h2Diff = h2Count < wordCountConfig.h2Min 
-        ? wordCountConfig.h2Min - h2Count 
-        : h2Count > wordCountConfig.h2Max 
-          ? h2Count - wordCountConfig.h2Max 
-          : 0;
+      const h2Diff = Math.abs(h2Count - wordCountConfig.h2Count);
       
       // Track best result (closest to target)
       if (h2Diff < bestH2Diff) {
@@ -749,8 +799,8 @@ export const generateBlogOutline = async (
         bestResult = content;
       }
       
-      // If valid, return immediately
-      if (h2Count >= wordCountConfig.h2Min && h2Count <= wordCountConfig.h2Max) {
+      // If exact match, return immediately
+      if (h2Count === wordCountConfig.h2Count) {
         // 监控：请求完成
         monitorRequestComplete(recordId, startTime, content);
         return { content, warnings: [] };
@@ -762,10 +812,12 @@ export const generateBlogOutline = async (
     
     // If we get here, validation failed after all retries
     const finalH2Count = countH2Sections(bestResult);
-    if (isEnglish) {
-      warnings.push(`H2 section count (${finalH2Count}) is outside the target range (${wordCountConfig.h2Min}-${wordCountConfig.h2Max}). Please adjust manually if needed.`);
-    } else {
-      warnings.push(`H2 章节数量（${finalH2Count}）不在目标范围（${wordCountConfig.h2Min}-${wordCountConfig.h2Max}）内，请根据需要手动调整。`);
+    if (finalH2Count !== wordCountConfig.h2Count) {
+      if (isEnglish) {
+        warnings.push(`H2 section count (${finalH2Count}) does not match the target (${wordCountConfig.h2Count}). Please adjust manually if needed.`);
+      } else {
+        warnings.push(`H2 章节数量（${finalH2Count}）与目标（${wordCountConfig.h2Count}）不匹配，请根据需要手动调整。`);
+      }
     }
     
     // 监控：请求完成（带警告）
@@ -810,6 +862,10 @@ interface DraftGenerationParams {
   outline: string;
   comments: Comment[];
   clientName: string;
+  // New custom word count params
+  wordCountMin?: number;           // Minimum word count (300-6000)
+  wordCountMax?: number;           // Maximum word count (300-6000)
+  // DEPRECATED: Use wordCountMin/wordCountMax instead
   wordCountRange?: WordCountRange;
   perspective?: ArticlePerspective;
   language?: string;
@@ -828,11 +884,29 @@ interface DraftGenerationParams {
 const buildDraftPrompt = (
   params: DraftGenerationParams,
   retryFeedback?: { wordCount?: string; perspective?: string }
-): { prompt: string; wordCountConfig: typeof WORD_COUNT_CONFIG['1000-2000']; perspectiveConfig: typeof PERSPECTIVE_CONFIG['third']; isEnglish: boolean } => {
-  // Get word count and perspective configuration
-  const wordCountConfig = params.wordCountRange
-    ? WORD_COUNT_CONFIG[params.wordCountRange]
-    : WORD_COUNT_CONFIG["1000-2000"];
+): { prompt: string; wordCountConfig: { min: number; max: number }; perspectiveConfig: typeof PERSPECTIVE_CONFIG['third']; isEnglish: boolean } => {
+  // Get word count configuration
+  // Priority: new params > old wordCountRange > defaults
+  let wordCountMin: number;
+  let wordCountMax: number;
+
+  if (params.wordCountMin !== undefined && params.wordCountMax !== undefined) {
+    // Use new custom word count params
+    wordCountMin = Math.max(WORD_COUNT_LIMITS.MIN, Math.min(WORD_COUNT_LIMITS.MAX, params.wordCountMin));
+    wordCountMax = Math.max(WORD_COUNT_LIMITS.MIN, Math.min(WORD_COUNT_LIMITS.MAX, params.wordCountMax));
+  } else if (params.wordCountRange) {
+    // Fallback to old wordCountRange for backward compatibility
+    const oldConfig = WORD_COUNT_CONFIG[params.wordCountRange];
+    wordCountMin = oldConfig.min;
+    wordCountMax = oldConfig.max;
+  } else {
+    // Default values
+    wordCountMin = 1000;
+    wordCountMax = 2000;
+  }
+
+  const wordCountConfig = { min: wordCountMin, max: wordCountMax };
+
   const perspectiveConfig = params.perspective
     ? PERSPECTIVE_CONFIG[params.perspective]
     : PERSPECTIVE_CONFIG["third"];

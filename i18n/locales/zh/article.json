@@ -165,7 +165,9 @@
     "section": "## 章节",
     "subsection": "### 子章节",
     "addDescriptionBelowHeaders": "在标题下方添加描述",
-    "outlinePlaceholder": "使用 Markdown 格式输入大纲：\n\n# 主标题\n描述内容方向\n\n## 章节 1：核心概念\n- 要点一\n- 要点二\n\n### 子主题 1.1\n具体细节\n\n## 章节 2：深入探讨\n..."
+    "outlinePlaceholder": "使用 Markdown 格式输入大纲：\n\n# 主标题\n描述内容方向\n\n## 章节 1：核心概念\n- 要点一\n- 要点二\n\n### 子主题 1.1\n具体细节\n\n## 章节 2：深入探讨\n...",
+    "quickPreset": "快捷选项",
+    "words": "字数"
   },
   "outlineConfirm": {
     "overwriteTitle": "覆盖大纲",
@@ -353,7 +355,10 @@
   "wordCount": {
     "800-1000": "800-1000 字（2-3 个 H2）",
     "1000-2000": "1000-2000 字（3-5 个 H2）",
-    "2000-3000": "2000-3000 字（5-7 个 H2）"
+    "2000-3000": "2000-3000 字（5-7 个 H2）",
+    "preset800": "800-1000 字（3 H2）",
+    "preset1000": "1000-2000 字（5 H2）",
+    "preset2000": "2000-3000 字（8 H2）"
   },
   "editor": {
     "toggleTextType": "切换文本类型（H1 → H2 → H3 → 正文）",
@@ -380,5 +385,46 @@
     "title": "正在生成文章",
     "subtitle": "请稍候，AI 正在为您创作内容...",
     "footerNote": "此过程通常需要 2-3 分钟，请勿关闭。"
+  },
+  "directGenerate": {
+    "title": "直接生成文章",
+    "backToWorkspace": "返回",
+    "inheritedSettings": "继承设置",
+    "language": "语言",
+    "tone": "语气",
+    "keywords": "关键词",
+    "titlesToGenerate": "待生成标题",
+    "addTitle": "添加标题",
+    "editTitle": "编辑",
+    "deleteTitle": "删除",
+    "wordCount": "字数范围",
+    "wordCountMin": "最少",
+    "wordCountMax": "最多",
+    "h2Count": "H2 章节数",
+    "h3Count": "H3 章节数",
+    "perspective": "人称",
+    "perspectiveFirst": "第一人称",
+    "perspectiveSecond": "第二人称",
+    "perspectiveThird": "第三人称",
+    "generateButton": "生成 {{count}} 篇文章",
+    "generating": "生成中...",
+    "progress": "进度: {{current}}/{{total}}",
+    "completed": "已完成",
+    "failed": "失败",
+    "retry": "重试",
+    "waiting": "等待中",
+    "noTitleSelected": "请至少选择一个标题",
+    "generationComplete": "所有文章生成成功",
+    "partialSuccess": "{{success}} 篇成功，{{failed}} 篇失败",
+    "titlePlaceholder": "输入文章标题...",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "generatingArticle": "正在生成：{{title}}",
+    "step1": "生成文章结构...",
+    "step2": "撰写正文内容...",
+    "allCompleted": "全部完成！",
+    "returnToCampaign": "返回活动",
+    "continueGenerating": "继续生成",
+    "words": "字"
   }
 }

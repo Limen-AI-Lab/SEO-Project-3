@@ -9,6 +9,7 @@ interface Props {
   project: Article;
   campaign?: Campaign; 
   onUpdate: (updates: Partial<Article>) => Promise<void> | void;
+  onDirectGenerate?: () => void; // Navigate to Direct Generate page
 }
 
 interface KeywordTag {
@@ -16,7 +17,7 @@ interface KeywordTag {
   volume: 'High' | 'Medium' | 'Low' | 'Unknown';
 }
 
-const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
+const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate, onDirectGenerate }) => {
   const { showToast } = useToast();
   const { t } = useTranslation(['article', 'common']);
   const [titles, setTitles] = useState<string[]>(project.proposedTitles.length > 0 ? project.proposedTitles : ['', '', '']);
@@ -186,18 +187,29 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate }) => {
            <h2 className="text-2xl font-bold text-slate-900">{t('titles.stageTitle')}</h2>
            <p className="text-slate-500 mt-1">{t('titles.pageSubtitle')}</p>
         </div>
-        <div className="relative group">
+        {onDirectGenerate && (
           <button 
-            disabled
-            className="px-4 py-2 bg-slate-100 text-slate-400 font-medium rounded-lg cursor-not-allowed border border-slate-200"
+            onClick={async () => {
+              // Save current titles before navigating
+              const validTitles = titles.filter(title => title.trim() !== '');
+              if (validTitles.length === 0) {
+                showToast(t('toasts.addAtLeastOneTitle'), 'warning');
+                return;
+              }
+              // Save titles and settings, then navigate
+              await onUpdate({ 
+                proposedTitles: validTitles,
+                language: language,
+                tone: tone,
+                targetKeywords: selectedKeywords.map(k => k.text)
+              });
+              onDirectGenerate();
+            }}
+            className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-lg hover:bg-indigo-100 transition border border-indigo-200"
           >
             {t('titles.directGenerate')}
           </button>
-          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-800 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
-            {t('titles.comingSoon')}
-            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></span>
-          </span>
-        </div>
+        )}
       </div>
 
       {/* Configuration Panel */}

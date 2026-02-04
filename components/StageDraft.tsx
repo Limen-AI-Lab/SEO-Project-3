@@ -526,7 +526,10 @@ const StageDraft: React.FC<Props> = ({ project, onUpdate, cmsId }) => {
       outline: editableOutline, // Use the edited outline
       comments: project.clientComments, 
       clientName: "Client",
-      wordCountRange: project.wordCountRange,
+      // New custom word count params (fallback to wordCountRange for backward compatibility)
+      wordCountMin: project.wordCountMin,
+      wordCountMax: project.wordCountMax,
+      wordCountRange: project.wordCountRange, // DEPRECATED: kept for backward compatibility
       perspective: project.perspective,
       language: project.language,
       tone: project.tone,  // Tone of voice from title generation stage

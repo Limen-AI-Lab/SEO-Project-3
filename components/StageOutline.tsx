@@ -1,7 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Article, ProjectStatus, ARTICLE_STATUS, Campaign, WordCountRange, ArticlePerspective, WORD_COUNT_CONFIG } from '../types';
+import { 
+  Article, 
+  ProjectStatus, 
+  ARTICLE_STATUS, 
+  Campaign, 
+  ArticlePerspective, 
+  WORD_COUNT_PRESETS,
+  WORD_COUNT_LIMITS,
+  HEADING_COUNT_LIMITS,
+  calculateAutoH2Count
+} from '../types';
 import { Send, AlignLeft, Sparkles, MessageSquare, Wand2, Eye, Edit3, AlertTriangle, Download, Pencil, EyeOff, X, Save, Check, ChevronUp, ChevronDown } from 'lucide-react';
 import { generateBlogOutline, refineBlogOutline, GenerationResult } from '../services/geminiService';
 import { getCampaignWithClients } from '../services/campaignService';
@@ -28,8 +38,11 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
   const [aiInstruction, setAiInstruction] = useState('');
   const [isRefining, setIsRefining] = useState(false);
   
-  // Generation settings states
-  const [wordCountRange, setWordCountRange] = useState<WordCountRange>(project.wordCountRange || '1000-2000');
+  // Generation settings states - New custom word count and heading counts
+  const [wordCountMin, setWordCountMin] = useState<number>(project.wordCountMin || 1000);
+  const [wordCountMax, setWordCountMax] = useState<number>(project.wordCountMax || 2000);
+  const [h2Count, setH2Count] = useState<number>(project.h2Count ?? calculateAutoH2Count(project.wordCountMin || 1000, project.wordCountMax || 2000));
+  const [h3Count, setH3Count] = useState<number>(project.h3Count ?? 0);
   const [perspective, setPerspective] = useState<ArticlePerspective>(project.perspective || 'third');
   
   // New states for preview and validation
@@ -187,7 +200,11 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         targetAudience: campaign?.targetAudience,
         clientComments: activeComments,
         language: project.language,  // Pass target language for outline generation
-        wordCountRange: wordCountRange,  // Pass word count range for H2 count
+        // New custom word count and heading counts
+        wordCountMin: wordCountMin,
+        wordCountMax: wordCountMax,
+        h2Count: h2Count,
+        h3Count: h3Count,
         perspective: perspective,  // Pass perspective for writing style
         rules: clientRules  // Pass Client strict_rules
       };
@@ -302,26 +319,126 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
         {/* Main Editor Column */}
         <div className="flex-1 space-y-4">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[700px]">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">{t('outline.outlineBuilder')}</h2>
-                <p className="text-slate-500 text-sm mt-1">{t('outline.defineHeadersAndPoints')}</p>
+            <div className="flex justify-between items-center mb-4 gap-4">
+              <div className="flex items-center gap-2 shrink-0">
+                <h2 className="text-xl font-bold text-slate-900 whitespace-nowrap">{t('outline.outlineBuilder')}</h2>
+                <span className="text-slate-400">·</span>
+                <p className="text-slate-500 text-sm whitespace-nowrap">{t('outline.defineHeadersAndPoints')}</p>
               </div>
-              <div className="flex items-center gap-3">
-                {/* Word Count Range Selector */}
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {/* Quick Preset Selector */}
                 <select
-                  value={wordCountRange}
+                  value=""
                   onChange={(e) => {
-                    const newValue = e.target.value as WordCountRange;
-                    setWordCountRange(newValue);
-                    onUpdate({ wordCountRange: newValue });
+                    const preset = WORD_COUNT_PRESETS.find(p => p.id === e.target.value);
+                    if (preset) {
+                      setWordCountMin(preset.minWords);
+                      setWordCountMax(preset.maxWords);
+                      setH2Count(preset.h2Count);
+                      setH3Count(preset.h3Count);
+                      onUpdate({ 
+                        wordCountMin: preset.minWords, 
+                        wordCountMax: preset.maxWords,
+                        h2Count: preset.h2Count,
+                        h3Count: preset.h3Count
+                      });
+                    }
                   }}
-                  className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="px-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                  {Object.entries(WORD_COUNT_CONFIG).map(([key, config]) => (
-                    <option key={key} value={key}>{config.label}</option>
+                  <option value="">{t('outline.quickPreset')}</option>
+                  {WORD_COUNT_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {t(preset.labelKey)}
+                    </option>
                   ))}
                 </select>
+
+                {/* Word Count Range Inputs */}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-slate-500">{t('outline.words')}:</span>
+                  <input
+                    type="number"
+                    value={wordCountMin}
+                    onChange={(e) => setWordCountMin(parseInt(e.target.value) || 0)}
+                    onBlur={(e) => {
+                      let value = parseInt(e.target.value) || WORD_COUNT_LIMITS.MIN;
+                      value = Math.max(WORD_COUNT_LIMITS.MIN, Math.min(WORD_COUNT_LIMITS.MAX, value));
+                      // Auto-swap if min > max
+                      if (value > wordCountMax) {
+                        setWordCountMin(wordCountMax);
+                        setWordCountMax(value);
+                        const newH2 = calculateAutoH2Count(wordCountMax, value);
+                        setH2Count(newH2);
+                        onUpdate({ wordCountMin: wordCountMax, wordCountMax: value, h2Count: newH2 });
+                      } else {
+                        setWordCountMin(value);
+                        const newH2 = calculateAutoH2Count(value, wordCountMax);
+                        setH2Count(newH2);
+                        onUpdate({ wordCountMin: value, h2Count: newH2 });
+                      }
+                    }}
+                    className="w-16 px-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center"
+                  />
+                  <span className="text-slate-400">-</span>
+                  <input
+                    type="number"
+                    value={wordCountMax}
+                    onChange={(e) => setWordCountMax(parseInt(e.target.value) || 0)}
+                    onBlur={(e) => {
+                      let value = parseInt(e.target.value) || WORD_COUNT_LIMITS.MIN;
+                      value = Math.max(WORD_COUNT_LIMITS.MIN, Math.min(WORD_COUNT_LIMITS.MAX, value));
+                      // Auto-swap if max < min
+                      if (value < wordCountMin) {
+                        setWordCountMax(wordCountMin);
+                        setWordCountMin(value);
+                        const newH2 = calculateAutoH2Count(value, wordCountMin);
+                        setH2Count(newH2);
+                        onUpdate({ wordCountMin: value, wordCountMax: wordCountMin, h2Count: newH2 });
+                      } else {
+                        setWordCountMax(value);
+                        const newH2 = calculateAutoH2Count(wordCountMin, value);
+                        setH2Count(newH2);
+                        onUpdate({ wordCountMax: value, h2Count: newH2 });
+                      }
+                    }}
+                    className="w-16 px-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center"
+                  />
+                </div>
+
+                {/* H2 Count Input */}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-slate-500">H2:</span>
+                  <input
+                    type="number"
+                    value={h2Count}
+                    onChange={(e) => setH2Count(parseInt(e.target.value) || 0)}
+                    onBlur={(e) => {
+                      let value = parseInt(e.target.value) || 0;
+                      value = Math.max(HEADING_COUNT_LIMITS.H2_MIN, Math.min(HEADING_COUNT_LIMITS.H2_MAX, value));
+                      setH2Count(value);
+                      onUpdate({ h2Count: value });
+                    }}
+                    className="w-12 px-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center"
+                  />
+                </div>
+
+                {/* H3 Count Input */}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-slate-500">H3:</span>
+                  <input
+                    type="number"
+                    value={h3Count}
+                    onChange={(e) => setH3Count(parseInt(e.target.value) || 0)}
+                    onBlur={(e) => {
+                      let value = parseInt(e.target.value) || 0;
+                      value = Math.max(HEADING_COUNT_LIMITS.H3_MIN, Math.min(HEADING_COUNT_LIMITS.H3_MAX, value));
+                      setH3Count(value);
+                      onUpdate({ h3Count: value });
+                    }}
+                    className="w-12 px-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center"
+                  />
+                </div>
                 
                 {/* Perspective Selector */}
                 <select
@@ -331,7 +448,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                     setPerspective(newValue);
                     onUpdate({ perspective: newValue });
                   }}
-                  className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="px-2 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
                   <option value="first">{t('outline.firstPersonLabel')}</option>
                   <option value="second">{t('outline.secondPersonLabel')}</option>
@@ -341,7 +458,7 @@ const StageOutline: React.FC<Props> = ({ project, onUpdate }) => {
                 <button 
                   onClick={handleAiGenerate}
                   disabled={isGenerating}
-                  className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg shadow hover:shadow-md transition disabled:opacity-70 text-sm font-medium"
+                  className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg shadow hover:shadow-md transition disabled:opacity-70 text-sm font-medium whitespace-nowrap"
                 >
                   {isGenerating ? (
                     <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>

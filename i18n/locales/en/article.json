@@ -165,7 +165,9 @@
     "section": "## Section",
     "subsection": "### Subsection",
     "addDescriptionBelowHeaders": "Add description below headers",
-    "outlinePlaceholder": "Enter outline in Markdown format:\n\n# Main Title\nDescribe the content direction\n\n## Section 1: Core Concepts\n- Key point one\n- Key point two\n\n### Subtopic 1.1\nSpecific details\n\n## Section 2: Deep Dive\n..."
+    "outlinePlaceholder": "Enter outline in Markdown format:\n\n# Main Title\nDescribe the content direction\n\n## Section 1: Core Concepts\n- Key point one\n- Key point two\n\n### Subtopic 1.1\nSpecific details\n\n## Section 2: Deep Dive\n...",
+    "quickPreset": "Quick Preset",
+    "words": "Words"
   },
   "outlineConfirm": {
     "overwriteTitle": "Overwrite Outline",
@@ -353,7 +355,10 @@
   "wordCount": {
     "800-1000": "800-1000 words (2-3 H2s)",
     "1000-2000": "1000-2000 words (3-5 H2s)",
-    "2000-3000": "2000-3000 words (5-7 H2s)"
+    "2000-3000": "2000-3000 words (5-7 H2s)",
+    "preset800": "800-1000 (3 H2)",
+    "preset1000": "1000-2000 (5 H2)",
+    "preset2000": "2000-3000 (8 H2)"
   },
   "editor": {
     "toggleTextType": "Toggle Text Type (H1 -> H2 -> H3 -> P)",
@@ -380,5 +385,46 @@
     "title": "Generating Your Article",
     "subtitle": "Please wait while AI crafts your content...",
     "footerNote": "This process typically takes 2-3 minutes. Please do not close."
+  },
+  "directGenerate": {
+    "title": "Direct Article Generation",
+    "backToWorkspace": "Back",
+    "inheritedSettings": "Inherited Settings",
+    "language": "Language",
+    "tone": "Tone",
+    "keywords": "Keywords",
+    "titlesToGenerate": "Titles to Generate",
+    "addTitle": "Add Title",
+    "editTitle": "Edit",
+    "deleteTitle": "Delete",
+    "wordCount": "Word Count",
+    "wordCountMin": "Min",
+    "wordCountMax": "Max",
+    "h2Count": "H2 Sections",
+    "h3Count": "H3 Sections",
+    "perspective": "Perspective",
+    "perspectiveFirst": "First Person",
+    "perspectiveSecond": "Second Person",
+    "perspectiveThird": "Third Person",
+    "generateButton": "Generate {{count}} Article(s)",
+    "generating": "Generating...",
+    "progress": "Progress: {{current}}/{{total}}",
+    "completed": "Completed",
+    "failed": "Failed",
+    "retry": "Retry",
+    "waiting": "Waiting",
+    "noTitleSelected": "Please select at least one title",
+    "generationComplete": "All articles generated successfully",
+    "partialSuccess": "{{success}} succeeded, {{failed}} failed",
+    "titlePlaceholder": "Enter article title...",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "generatingArticle": "Generating: {{title}}",
+    "step1": "Generating article structure...",
+    "step2": "Writing content...",
+    "allCompleted": "All completed!",
+    "returnToCampaign": "Return to Campaign",
+    "continueGenerating": "Continue Generating",
+    "words": "words"
   }
 }

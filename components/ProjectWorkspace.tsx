@@ -220,9 +220,10 @@ function applyClientEdits(originalBlocks: ContentBlock[] | undefined, edits: Cli
 interface Props {
   articleId: string;
   onBack: () => void; // Navigates back to Campaign Detail
+  onDirectGenerate?: (articleId: string) => void; // Navigate to Direct Generate page
 }
 
-const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
+const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack, onDirectGenerate }) => {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { t } = useTranslation(['article', 'common']);
@@ -313,7 +314,12 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         language: articleData.language || undefined,
         tone: articleData.tone || undefined,
         targetKeywords: articleData.target_keywords || undefined,
-        // Outline & Draft Generation Settings
+        // Outline & Draft Generation Settings (NEW - custom word count and heading counts)
+        wordCountMin: articleData.word_count_min || undefined,
+        wordCountMax: articleData.word_count_max || undefined,
+        h2Count: articleData.h2_count || undefined,
+        h3Count: articleData.h3_count || undefined,
+        // DEPRECATED: Use wordCountMin/wordCountMax instead
         wordCountRange: articleData.word_count_range || undefined,
         perspective: articleData.perspective || undefined,
         articleRequirements: articleData.article_requirements || undefined,
@@ -481,6 +487,19 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
       }
       if (updates.generationCount !== undefined) {
         dbUpdates.generation_count = updates.generationCount;
+      }
+      // New custom word count and heading count fields
+      if (updates.wordCountMin !== undefined) {
+        dbUpdates.word_count_min = updates.wordCountMin;
+      }
+      if (updates.wordCountMax !== undefined) {
+        dbUpdates.word_count_max = updates.wordCountMax;
+      }
+      if (updates.h2Count !== undefined) {
+        dbUpdates.h2_count = updates.h2Count;
+      }
+      if (updates.h3Count !== undefined) {
+        dbUpdates.h3_count = updates.h3Count;
       }
       
       // last_updated will be automatically updated by trigger
@@ -734,7 +753,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
           <StageTitles 
             project={article} 
             campaign={campaign}
-            onUpdate={handleUpdate} 
+            onUpdate={handleUpdate}
+            onDirectGenerate={onDirectGenerate ? () => onDirectGenerate(articleId) : undefined}
           />
         </div>
       );
@@ -785,7 +805,8 @@ const ProjectWorkspace: React.FC<Props> = ({ articleId, onBack }) => {
         <StageTitles 
           project={article} 
           campaign={campaign}
-          onUpdate={handleUpdate} 
+          onUpdate={handleUpdate}
+          onDirectGenerate={onDirectGenerate ? () => onDirectGenerate(articleId) : undefined}
         />
       </div>
     );

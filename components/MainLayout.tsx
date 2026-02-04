@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 import CampaignDetail from './CampaignDetail';
 import ProjectWorkspace from './ProjectWorkspace';
 import KeywordDiscovery from './KeywordDiscovery';
+import DirectGeneratePage from './DirectGeneratePage';
 import ClientManagement from './ClientManagement';
 import InviteCodeManagement from './InviteCodeManagement';
 import UserManagement from './UserManagement';
@@ -106,6 +107,17 @@ const MainLayout: React.FC = () => {
 
   const handleKeywordDiscovery = () => {
     setCurrentView(ViewState.KEYWORD_DISCOVERY);
+  };
+
+  const handleDirectGenerate = (articleId: string) => {
+    setSelectedArticleId(articleId);
+    setCurrentView(ViewState.DIRECT_GENERATE);
+  };
+
+  const handleDirectGenerateComplete = () => {
+    // Go back to campaign detail after direct generation completes
+    setSelectedArticleId(null);
+    setCurrentView(ViewState.CAMPAIGN_DETAIL);
   };
 
   return (
@@ -313,7 +325,21 @@ const MainLayout: React.FC = () => {
         )}
 
         {currentView === ViewState.ARTICLE_WORKSPACE && selectedArticleId && (
-          <ProjectWorkspace articleId={selectedArticleId} onBack={handleBackToCampaign} />
+          <ProjectWorkspace 
+            articleId={selectedArticleId} 
+            onBack={handleBackToCampaign} 
+            onDirectGenerate={handleDirectGenerate}
+          />
+        )}
+
+        {currentView === ViewState.DIRECT_GENERATE && selectedArticleId && (
+          <DirectGeneratePage
+            articleId={selectedArticleId}
+            onBack={() => {
+              setCurrentView(ViewState.ARTICLE_WORKSPACE);
+            }}
+            onComplete={handleDirectGenerateComplete}
+          />
         )}
 
         {currentView === ViewState.CLIENTS && (

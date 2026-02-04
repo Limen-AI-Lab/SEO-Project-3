@@ -148,17 +148,55 @@ export interface ContentBlock {
   caption?: string;  // For images: caption text
 }
 
-// Word count range options for article generation
+// Word count range options for article generation (DEPRECATED - use wordCountMin/wordCountMax instead)
 export type WordCountRange = '800-1000' | '1000-2000' | '2000-3000';
 
 // Perspective/POV options for article writing
 export type ArticlePerspective = 'first' | 'second' | 'third';
 
-// Word count to H2 count mapping
+// Word count to H2 count mapping (DEPRECATED - kept for backward compatibility)
 export const WORD_COUNT_CONFIG: Record<WordCountRange, { min: number; max: number; h2Min: number; h2Max: number; label: string }> = {
   '800-1000': { min: 800, max: 1000, h2Min: 2, h2Max: 3, label: '800-1000 (2-3 H2s)' },
   '1000-2000': { min: 1000, max: 2000, h2Min: 3, h2Max: 5, label: '1000-2000 (3-5 H2s)' },
   '2000-3000': { min: 2000, max: 3000, h2Min: 5, h2Max: 7, label: '2000-3000 (5-7 H2s)' },
+};
+
+// Word count constraints
+export const WORD_COUNT_LIMITS = {
+  MIN: 300,
+  MAX: 6000,
+};
+
+// H2/H3 count constraints
+export const HEADING_COUNT_LIMITS = {
+  H2_MIN: 0,
+  H2_MAX: 25,
+  H3_MIN: 0,
+  H3_MAX: 30,
+};
+
+// Quick preset options for word count (dropdown)
+export interface WordCountPreset {
+  id: string;
+  minWords: number;
+  maxWords: number;
+  h2Count: number;
+  h3Count: number;
+  labelKey: string; // i18n key
+}
+
+export const WORD_COUNT_PRESETS: WordCountPreset[] = [
+  { id: '800-1000', minWords: 800, maxWords: 1000, h2Count: 3, h3Count: 0, labelKey: 'wordCount.preset800' },
+  { id: '1000-2000', minWords: 1000, maxWords: 2000, h2Count: 5, h3Count: 0, labelKey: 'wordCount.preset1000' },
+  { id: '2000-3000', minWords: 2000, maxWords: 3000, h2Count: 8, h3Count: 0, labelKey: 'wordCount.preset2000' },
+];
+
+// Calculate H2 count based on word count range (middle value / 300)
+export const calculateAutoH2Count = (minWords: number, maxWords: number): number => {
+  const middleValue = (minWords + maxWords) / 2;
+  const calculated = Math.round(middleValue / 300);
+  // Clamp to valid range
+  return Math.max(HEADING_COUNT_LIMITS.H2_MIN, Math.min(HEADING_COUNT_LIMITS.H2_MAX, calculated));
 };
 
 // Perspective labels
@@ -169,7 +207,7 @@ export const PERSPECTIVE_CONFIG: Record<ArticlePerspective, { label: string; des
 };
 
 // Writing path type for distinguishing article creation method
-export type WritingPath = 'keyword-driven' | 'topic-expansion';
+export type WritingPath = 'keyword-driven' | 'topic-expansion' | 'direct-generate';
 
 export interface Article {
   id: string;
@@ -187,7 +225,13 @@ export interface Article {
   tone?: string;      // Tone of voice for content
   targetKeywords?: string[];  // Target keywords for SEO (from Title Generation stage)
   
-  // Outline & Draft Generation Settings
+  // Outline & Draft Generation Settings (NEW - custom word count and heading counts)
+  wordCountMin?: number;                // Minimum word count (300-6000)
+  wordCountMax?: number;                // Maximum word count (300-6000)
+  h2Count?: number;                     // Number of H2 headings (0-25)
+  h3Count?: number;                     // Number of H3 headings (0-30, distributed across H2s)
+  
+  // DEPRECATED: Use wordCountMin/wordCountMax instead
   wordCountRange?: WordCountRange;      // Target word count range (affects H2 count)
   perspective?: ArticlePerspective;     // Writing perspective (first/second/third person)
   
@@ -227,6 +271,7 @@ export enum ViewState {
   CAMPAIGN_DETAIL = 'CAMPAIGN_DETAIL',
   ARTICLE_WORKSPACE = 'ARTICLE_WORKSPACE',
   KEYWORD_DISCOVERY = 'KEYWORD_DISCOVERY',
+  DIRECT_GENERATE = 'DIRECT_GENERATE',
   LIBRARY = 'LIBRARY',
   CLIENTS = 'CLIENTS',
   INVITE_CODES = 'INVITE_CODES',

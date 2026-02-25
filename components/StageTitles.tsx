@@ -182,34 +182,9 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate, onDirectGen
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-end">
-        <div>
-           <h2 className="text-2xl font-bold text-slate-900">{t('titles.stageTitle')}</h2>
-           <p className="text-slate-500 mt-1">{t('titles.pageSubtitle')}</p>
-        </div>
-        {onDirectGenerate && (
-          <button 
-            onClick={async () => {
-              // Save current titles before navigating
-              const validTitles = titles.filter(title => title.trim() !== '');
-              if (validTitles.length === 0) {
-                showToast(t('toasts.addAtLeastOneTitle'), 'warning');
-                return;
-              }
-              // Save titles and settings, then navigate
-              await onUpdate({ 
-                proposedTitles: validTitles,
-                language: language,
-                tone: tone,
-                targetKeywords: selectedKeywords.map(k => k.text)
-              });
-              onDirectGenerate();
-            }}
-            className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-lg hover:bg-indigo-100 transition border border-indigo-200"
-          >
-            {t('titles.directGenerate')}
-          </button>
-        )}
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">{t('titles.stageTitle')}</h2>
+        <p className="text-slate-500 mt-1">{t('titles.pageSubtitle')}</p>
       </div>
 
       {/* Configuration Panel */}
@@ -413,13 +388,37 @@ const StageTitles: React.FC<Props> = ({ project, campaign, onUpdate, onDirectGen
 
         <div className="mt-8 pt-6 border-t border-slate-100">
           <div className="flex justify-end gap-4">
-          <button onClick={handleSaveDraft} className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition">
-            {t('titles.saveDraft')}
-          </button>
-          <button onClick={handleSubmit} className="px-6 py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition flex items-center gap-2 shadow-lg shadow-slate-900/20">
-            <Send size={18} />
-            {t('titles.submitToClient')}
-          </button>
+            <button onClick={handleSaveDraft} className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition">
+              {t('titles.saveDraft')}
+            </button>
+            {onDirectGenerate && (
+              <button 
+                onClick={async () => {
+                  // Save current titles before navigating
+                  const validTitles = titles.filter(title => title.trim() !== '');
+                  if (validTitles.length === 0) {
+                    showToast(t('toasts.addAtLeastOneTitle'), 'warning');
+                    return;
+                  }
+                  // Save titles and settings, then navigate
+                  await onUpdate({ 
+                    proposedTitles: validTitles,
+                    language: language,
+                    tone: tone,
+                    targetKeywords: selectedKeywords.map(k => k.text)
+                  });
+                  onDirectGenerate();
+                }}
+                className="px-6 py-2.5 bg-gradient-to-r from-purple-700 to-violet-600 text-white font-medium rounded-lg hover:from-purple-800 hover:to-violet-700 transition flex items-center gap-2 shadow-lg shadow-purple-700/30"
+              >
+                <Sparkles size={18} />
+                {t('titles.directGenerate')}
+              </button>
+            )}
+            <button onClick={handleSubmit} className="px-6 py-2.5 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition flex items-center gap-2 shadow-lg shadow-slate-900/20">
+              <Send size={18} />
+              {t('titles.submitToClient')}
+            </button>
           </div>
         </div>
       </div>
